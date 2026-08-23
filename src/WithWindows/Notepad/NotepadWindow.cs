@@ -349,16 +349,19 @@ public sealed class NotepadWindow : Form
         UpdateScrollBar();
     }
 
-    /// <summary>内容未超出可视高度时不显示滚动条（用最后一个字符的位置精确判断，含自动换行）。</summary>
+    /// <summary>内容未超出可视高度时不显示滚动条（首行已滚出视口或尾行超出视口即显示）。</summary>
     private void UpdateScrollBar()
     {
-        if (_editor.IsDisposed)
+        if (_editor.IsDisposed || !_editor.IsHandleCreated)
             return;
         var sb = ScrollBars.None;
         if (_editor.TextLength > 0)
         {
-            Point p = _editor.GetPositionFromCharIndex(_editor.TextLength - 1);
-            if (p.Y + _editor.Font.Height > _editor.ClientSize.Height)
+            // 编辑控件会随光标自动滚动（无滚动条时也滚动），只看末尾字符会误判"未超出"；
+            // 须同时看首行是否已被滚出视口顶部：任一方向有内容在视口外就显示垂直滚动条
+            Point first = _editor.GetPositionFromCharIndex(0);
+            Point last = _editor.GetPositionFromCharIndex(_editor.TextLength - 1);
+            if (first.Y < 0 || last.Y + _editor.Font.Height > _editor.ClientSize.Height)
                 sb = ScrollBars.Vertical;
         }
         if (_editor.ScrollBars != sb)
