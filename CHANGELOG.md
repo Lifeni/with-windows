@@ -2,7 +2,7 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本遵循语义化版本（SemVer）。
 
-## [未发布]
+## [v0.3.0] - 2026-08-23
 
 ### 变更
 - 项目更名为 With Windows：程序集/命名空间（`WithWindows`）、解决方案/工程文件（`WithWindows.sln`）、数据目录（`%APPDATA%\WithWindows`）、注册表键（`HKCU\Software\WithWindows`）、单实例互斥体同步调整；GitHub 仓库同步改为 `Lifeni/with-windows`
