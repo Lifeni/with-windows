@@ -1,4 +1,4 @@
-# AGENTS.md — QuickActions 开发指南
+# AGENTS.md — With Windows 开发指南
 
 Windows 常驻托盘的一键动作平台：配置驱动的全局热键 → 动作框架。无主界面，单 exe 常驻后台。
 
@@ -6,7 +6,7 @@ Windows 常驻托盘的一键动作平台：配置驱动的全局热键 → 动�
 
 - **.NET Framework 4.8.1**（`net481`），Win11 免安装 runtime 直接跑——这是项目的核心卖点
 - **零外部依赖**：无 NuGet 运行时包、无 Windows App SDK/WinUI。JSON 用内置 MiniJson（仅对象/数组/字符串）
-- **单 exe 发布**：`dotnet publish -c Release -o dist`，产物约 76KB。exe 目录保持干净，运行时数据全在 `%APPDATA%\QuickActions\`
+- **单 exe 发布**：`dotnet publish -c Release -o dist`，产物约 76KB。exe 目录保持干净，运行时数据全在 `%APPDATA%\WithWindows\`
 - 语言 C# `latest` + nullable + implicit usings；测试用 xunit
 - 注释与用户可见文案使用中文
 
@@ -22,13 +22,13 @@ Windows 常驻托盘的一键动作平台：配置驱动的全局热键 → 动�
 ## 常用命令
 
 ```bash
-dotnet build src/QuickActions/QuickActions.csproj        # 主程序
-dotnet test tests/QuickActions.Tests/QuickActions.Tests.csproj   # 测试（必须全绿）
-dotnet run --project src/QuickActions -- --smoke          # 冒烟：注册检查，不常驻
-dotnet publish src/QuickActions/QuickActions.csproj -c Release -o dist
+dotnet build src/WithWindows/WithWindows.csproj        # 主程序
+dotnet test tests/WithWindows.Tests/WithWindows.Tests.csproj   # 测试（必须全绿）
+dotnet run --project src/WithWindows -- --smoke          # 冒烟：注册检查，不常驻
+dotnet publish src/WithWindows/WithWindows.csproj -c Release -o dist
 ```
 
-注意：常驻实例运行时会锁 exe，重新构建前先停掉它（任务管理器结束 QuickActions.exe）。
+注意：常驻实例运行时会锁 exe，重新构建前先停掉它（任务管理器结束 WithWindows.exe）。
 
 ## 架构
 
@@ -46,8 +46,8 @@ Interop/          P/Invoke 集中地（RegisterHotKey、SetDisplayConfig、DWM�
 ### 启动流程（Program.cs）
 
 1. `--smoke` 参数：注册检查后立即退出（不抢单实例互斥体）
-2. 单实例守卫：`Local\QuickActions.SingleInstance` 命名 Mutex，重复启动直接退出
-3. 加载 `%APPDATA%\QuickActions\config.json`（首次自举默认值；解析失败弹框并退出）
+2. 单实例守卫：`Local\WithWindows.SingleInstance` 命名 Mutex，重复启动直接退出
+3. 加载 `%APPDATA%\WithWindows\config.json`（首次自举默认值；解析失败弹框并退出）
 4. 注册动作到 `ActionRegistry`，构建 `App`（含托盘菜单），`RegisterAll` 注册热键
 5. 若自动亮暗启用标志为真，恢复 `AutoThemeScheduler`
 

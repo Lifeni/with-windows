@@ -1,7 +1,7 @@
-# <img src="docs/quick-actions.png" width="32" alt="QuickActions"> quick-actions
+# <img src="docs/with-windows.png" width="32" alt="With Windows"> With Windows
 
-![版本](https://img.shields.io/github/v/release/Lifeni/quick-actions?label=%E7%89%88%E6%9C%AC)
-![协议](https://img.shields.io/github/license/Lifeni/quick-actions?label=%E5%8D%8F%E8%AE%AE)
+![版本](https://img.shields.io/github/v/release/Lifeni/with-windows?label=%E7%89%88%E6%9C%AC)
+![协议](https://img.shields.io/github/license/Lifeni/with-windows?label=%E5%8D%8F%E8%AE%AE)
 
 > 本项目由 AI 协作完成：代码、文档与迭代均经 AI 生成和优化。
 
@@ -19,16 +19,16 @@ Windows 常驻后台的一键动作平台：配置驱动的全局热键 → 动�
 ## 快速开始
 
 ```bash
-dotnet build src/QuickActions/QuickActions.csproj
+dotnet build src/WithWindows/WithWindows.csproj
 
 # 运行(开发)
-dotnet run --project src/QuickActions
+dotnet run --project src/WithWindows
 
 # 发布 Release(输出到 dist/)
-dotnet publish src/QuickActions/QuickActions.csproj -c Release -o dist
+dotnet publish src/WithWindows/WithWindows.csproj -c Release -o dist
 
 # 冒烟检查(不常驻,验证配置加载与热键注册)
-dotnet run --project src/QuickActions -- --smoke
+dotnet run --project src/WithWindows -- --smoke
 ```
 
 ## 技术栈
@@ -42,7 +42,7 @@ dotnet run --project src/QuickActions -- --smoke
 
 ## 配置
 
-运行时数据位于 `%APPDATA%\QuickActions\`（exe 目录保持干净）：
+运行时数据位于 `%APPDATA%\WithWindows\`（exe 目录保持干净）：
 
 - `config.json`——热键配置，首次启动自举默认值
 - `log.txt`——运行日志
@@ -56,12 +56,12 @@ dotnet run --project src/QuickActions -- --smoke
 
 - **快捷记事**：原生多行文本框（Maple Mono 等宽字体、始终置顶、行/列/字符数显示在标题栏、Ctrl+S 另存为、撤回/恢复、Ctrl+加号/Ctrl+滚轮缩放、自动保存），快捷键 `F13`（显示时按 F13 复制内容并关闭）
 - **切换投影 / 切换亮暗**：与对应热键一致，右侧显示快捷键（`F15` / `F14`）
-- **打开配置**：用默认程序打开 `%APPDATA%\QuickActions\config.json`
+- **打开配置**：用默认程序打开 `%APPDATA%\WithWindows\config.json`
 - **自动亮暗**：勾选启用日出日落自动切换（重启后保持）
 - **开机自启**：写 `HKCU\...\Run`，无需管理员权限
 - **恢复配置**：删除运行时配置、注册表设置与记事本内容，恢复默认并重启（带确认对话框）
 - **重启应用**：配置只在启动时读取，修改后点此生效
-- **版本 v0.1.1**：点击跳转 GitHub 项目页
+- **版本 v0.2.0**：点击跳转 GitHub 项目页
 - **退出应用**
 
 
@@ -99,17 +99,17 @@ dotnet run --project src/QuickActions -- --smoke
 ## 目录结构
 
 ```
-quick-actions/
+with-windows/
 ├── AGENTS.md        # AI Agent 开发指南(架构/约定/测试规范)
 ├── CHANGELOG.md     # 更新日志(Release 正文来源)
 ├── LICENSE          # MIT 开源协议
-├── QuickActions.sln # 解决方案文件
+├── WithWindows.sln # 解决方案文件
 ├── .github/         # GitHub Actions 工作流(构建并发布 Release)
-├── config/          # 配置模板(运行时数据在 %APPDATA%\QuickActions)
+├── config/          # 配置模板(运行时数据在 %APPDATA%\WithWindows)
 ├── docs/            # 设计文档与素材
 ├── scripts/         # 开发/运维脚本
-├── src/QuickActions/    # 主程序
-└── tests/QuickActions.Tests/  # 单元测试
+├── src/WithWindows/    # 主程序
+└── tests/WithWindows.Tests/  # 单元测试
 ```
 
 ## 更新日志

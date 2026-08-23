@@ -3,12 +3,12 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
 // 生成应用图标:深色圆角方块背景 + 金色闪电(一键触发)。
-// 用法:dotnet run --project scripts/IconGen -- <输出.ico>  (默认 src/QuickActions/Assets/quick-actions.ico)
+// 用法:dotnet run --project scripts/IconGen -- <输出.ico>  (默认 src/WithWindows/Assets/with-windows.ico)
 
 int[] sizes = { 16, 24, 32, 48, 64, 128, 256 };
 string output = args.Length > 0
     ? args[0]
-    : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "QuickActions", "Assets", "quick-actions.ico");
+    : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "WithWindows", "Assets", "with-windows.ico");
 
 // 基准 256x256 绘制
 using var canvas = new Bitmap(256, 256, PixelFormat.Format32bppArgb);
