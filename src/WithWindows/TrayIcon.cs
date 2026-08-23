@@ -28,7 +28,6 @@ public sealed class TrayIcon : IDisposable
     private const int WM_NOTIFYICON = 0x0400 + 1;
     private const int WM_CONTEXTMENU = 0x007B;
     private const int WM_RBUTTONUP = 0x0205;
-    private const int WM_LBUTTONUP = 0x0202;
 
     private sealed class TrayWindow : NativeWindow
     {
@@ -98,8 +97,8 @@ public sealed class TrayIcon : IDisposable
     private void OnTrayMessage(Message m)
     {
         int msg = m.LParam.ToInt32();
-        // 左键/右键单击、右键菜单消息都弹出同一菜单(左键单击 = 快捷唤出)
-        if (msg == WM_CONTEXTMENU || msg == WM_RBUTTONUP || msg == WM_LBUTTONUP)
+        // 只有右键弹出菜单；左键不做任何操作（与 Win11 托盘惯例一致）
+        if (msg == WM_CONTEXTMENU || msg == WM_RBUTTONUP)
             ShowMenu();
     }
 
