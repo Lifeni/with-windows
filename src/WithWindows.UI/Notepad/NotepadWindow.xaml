@@ -8,10 +8,9 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 标题栏兼工具栏：左（图标 + 剪贴板 / 问 AI / 设置）右（进度 / 清除回复） -->
+        <!-- 标题栏兼工具栏：左（剪贴板 / 问 AI / AI 设置 / AI 回复）右（进度 / 清除回复，避让系统按钮） -->
         <Grid x:Name="TitleBarElement"
               Grid.Row="0"
               Height="44"
@@ -20,62 +19,81 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0,0,0">
-                <Image Source="Assets/with-windows.png" Width="14" Height="14" />
+            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="4,0,0,0">
                 <Button x:Name="ClipboardButton"
                         Click="OnClipboardPaste"
+                        Padding="10,6"
                         ToolTipService.ToolTip="粘贴剪贴板内容">
                     <FontIcon Glyph="&#xE16F;" FontSize="14" />
                 </Button>
                 <Button x:Name="AskAiButton"
                         Click="OnAskAi"
+                        Padding="10,6"
                         ToolTipService.ToolTip="问 AI">
                     <FontIcon Glyph="&#xE724;" FontSize="14" />
                 </Button>
                 <Button x:Name="AiConfigButton"
                         Click="OnOpenAiConfig"
+                        Padding="10,6"
                         ToolTipService.ToolTip="AI 设置">
                     <FontIcon Glyph="&#xE713;" FontSize="14" />
                 </Button>
+                <ToggleButton x:Name="AiPanelButton"
+                              Padding="10,6"
+                              ToolTipService.ToolTip="AI 回复"
+                              Checked="OnAiPanelToggle"
+                              Unchecked="OnAiPanelToggle">
+                    <FontIcon Glyph="&#xE8F2;" FontSize="14" />
+                </ToggleButton>
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,12,0">
+            <!-- 右侧避让系统标题栏按钮（最小化/最大化/关闭 约 138px） -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                        VerticalAlignment="Center" Margin="0,0,146,0">
                 <ProgressRing x:Name="AiProgress" IsActive="False" Width="20" Height="20" />
                 <Button x:Name="ClearAiButton" Content="清除回复" Click="OnClearAi" />
             </StackPanel>
         </Grid>
 
-        <!-- 编辑器 -->
-        <TextBox x:Name="Editor"
-                 Grid.Row="1"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 FontFamily="Consolas"
-                 FontSize="14"
-                 Padding="12"
-                 VerticalAlignment="Stretch"
-                 TextChanged="OnTextChanged"
-                 SelectionChanged="OnSelectionChanged" />
+        <!-- 内容区：编辑器 + AI 回复侧栏（两栏） -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="AiColumn" Width="0" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="Editor"
+                     Grid.Column="0"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     FontFamily="Consolas"
+                     FontSize="14"
+                     Padding="12"
+                     VerticalAlignment="Stretch"
+                     TextChanged="OnTextChanged"
+                     SelectionChanged="OnSelectionChanged" />
 
-        <!-- AI 回复区：常驻，不折叠 -->
-        <Grid Grid.Row="2">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="140" />
-            </Grid.RowDefinitions>
-            <TextBlock Text="AI 回复"
-                       FontSize="12"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Padding="12,6,12,2" />
-            <ScrollViewer Grid.Row="1" MaxHeight="140" VerticalScrollBarVisibility="Auto">
-                <TextBlock x:Name="AiReply"
-                           TextWrapping="Wrap"
-                           IsTextSelectionEnabled="True"
-                           Padding="12,0,12,8" />
-            </ScrollViewer>
+            <!-- AI 回复侧栏：默认隐藏 -->
+            <Grid x:Name="AiSidePanel" Grid.Column="1" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1,0,0,0"
+                        Padding="12,8">
+                    <TextBlock Text="AI 回复" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Border>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="AiReply"
+                               TextWrapping="Wrap"
+                               IsTextSelectionEnabled="True"
+                               Padding="12,8,12,8" />
+                </ScrollViewer>
+            </Grid>
         </Grid>
 
         <!-- 状态栏：行列与字符数 -->
-        <Border Grid.Row="3"
+        <Border Grid.Row="2"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                 Padding="12,5">
             <TextBlock x:Name="StatusText"

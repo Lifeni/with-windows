@@ -197,6 +197,7 @@ public sealed partial class NotepadWindow : Window
         }
 
         AiReply.Text = "";
+        AiPanelButton.IsChecked = true; // 展开侧栏（触发 OnAiPanelToggle）
         AskAiButton.IsEnabled = false;
         AiProgress.IsActive = true;
 
@@ -208,6 +209,27 @@ public sealed partial class NotepadWindow : Window
         AiProgress.IsActive = false;
         AskAiButton.IsEnabled = true;
         _log.Info($"[ai] 请求完成: 成功={ok}");
+
+        // 回复完成后自动收起侧栏（内容保留，可再展开查看）
+        var closeTimer = DispatcherQueue.CreateTimer();
+        closeTimer.Interval = TimeSpan.FromSeconds(1);
+        closeTimer.Tick += (_, _) =>
+        {
+            closeTimer.Stop();
+            AiPanelButton.IsChecked = false; // 收起侧栏（触发 OnAiPanelToggle）
+        };
+        closeTimer.Start();
+    }
+
+    /// <summary>侧栏按钮手动切换。</summary>
+    private void OnAiPanelToggle(object sender, RoutedEventArgs e)
+        => SetAiPanelVisible(AiPanelButton.IsChecked == true);
+
+    /// <summary>显示/隐藏 AI 回复侧栏（列宽随动）。IsChecked 由触发方维护，避免事件递归。</summary>
+    private void SetAiPanelVisible(bool visible)
+    {
+        AiColumn.Width = visible ? new GridLength(300) : new GridLength(0);
+        AiSidePanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnClearAi(object sender, RoutedEventArgs e)
