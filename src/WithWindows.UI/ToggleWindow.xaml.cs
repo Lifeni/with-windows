@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -7,15 +8,17 @@ using Windows.Graphics;
 using WithWindows.Actions;
 using WithWindows.Config;
 using WithWindows.Core;
-
+using WithWindows.Interop;
 namespace WithWindows;
 
 /// <summary>
-/// 一键切换配置窗口：亮暗（热键 + 立即切换 + 日出日落自动）与屏幕（热键 + 立即切换 + 勾选模式）。
+/// 一键切换配置窗口：大卡片点击即切换（亮暗 / 屏幕），快捷键弹窗录制，更多选项折叠。
 /// 修改即自动保存并热重载；"恢复默认"一键还原。内容随窗口宽度自适应。
 /// </summary>
 public sealed partial class ToggleWindow : Window
 {
+    private const string Unset = "未设置";
+
     private readonly ConfigStore _configStore;
     private readonly Action _onSaved;
     private readonly Logger _log;
@@ -44,11 +47,6 @@ public sealed partial class ToggleWindow : Window
 
         InitializeComponent();
         SetupTitleBar();
-
-        // 热键录制控件在代码中订阅（无 XAML 事件属性）
-        ThemeHotkey.HotkeyChanged += (_, _) => AutoSave(notify: true);
-        DisplayHotkey.HotkeyChanged += (_, _) => AutoSave(notify: true);
-
         LoadConfig();
     }
 
@@ -58,6 +56,11 @@ public sealed partial class ToggleWindow : Window
         SetTitleBar(TitleBarElement);
         AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+
+        string icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
+        IntPtr hIcon = NativeMethods.LoadImage(IntPtr.Zero, icoPath, 1 /* IMAGE_ICON */, 0, 0, 0x10 /* LR_LOADFROMFILE */);
+        if (hIcon != IntPtr.Zero)
+            AppWindow.SetIcon(new IconId((ulong)hIcon));
     }
 
     public void ShowAndFocus()
@@ -68,6 +71,7 @@ public sealed partial class ToggleWindow : Window
             AppWindow.Resize(new SizeInt32(560, 640));
             _sized = true;
         }
+        RefreshStatusTexts();
     }
 
     private void LoadConfig()
@@ -77,8 +81,8 @@ public sealed partial class ToggleWindow : Window
         {
             var config = _configStore.Load();
 
-            ThemeHotkey.HotkeyText = config.Bindings.GetValueOrDefault("theme") ?? "";
-            DisplayHotkey.HotkeyText = config.Bindings.GetValueOrDefault("display_mode") ?? "";
+            ThemeHotkeyText.Text = FormatHotkeyText(config.Bindings, "theme");
+            DisplayHotkeyText.Text = FormatHotkeyText(config.Bindings, "display_mode");
 
             AutoThemeToggle.IsOn = config.Theme.Enabled;
             ThemeLatitude.Text = config.Theme.Latitude?.ToString(CultureInfo.InvariantCulture) ?? "";
@@ -95,6 +99,99 @@ public sealed partial class ToggleWindow : Window
         finally
         {
             _loading = false;
+        }
+        RefreshStatusTexts();
+    }
+
+    private static string FormatHotkeyText(Dictionary<string, string> bindings, string action)
+        => string.IsNullOrWhiteSpace(bindings.GetValueOrDefault(action)) ? Unset : bindings[action];
+
+    /// <summary>刷新两张大卡片的当前状态文字。</summary>
+    private void RefreshStatusTexts()
+    {
+        ThemeStatusText.Text = ThemeAction.GetCurrentMode() switch
+        {
+            "light" => "当前：亮色",
+            "dark" => "当前：暗色",
+            _ => "当前：未知",
+        };
+        DisplayStatusText.Text = DisplayTopology.GetCurrentMode() switch
+        {
+            "internal" => "当前：仅当前屏幕",
+            "extend" => "当前：扩展模式",
+            "external" => "当前：仅外接屏幕",
+            "clone" => "当前：复制模式",
+            _ => "当前：未知",
+        };
+    }
+
+    // ---- 大卡片切换 ----
+
+    private void OnToggleTheme(object sender, RoutedEventArgs e)
+    {
+        RunAction(() => _theme.Execute("toggle"));
+        RefreshStatusTexts();
+    }
+
+    private void OnToggleDisplay(object sender, RoutedEventArgs e)
+    {
+        RunAction(() => _display.Execute("toggle"));
+        RefreshStatusTexts();
+    }
+
+    private void RunAction(Func<ActionResult> action)
+    {
+        try
+        {
+            var result = action();
+            ShowStatus(result.Message);
+            _log.Info($"[toggle] {result.Message}");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"切换失败：{ex.Message}");
+            _log.Error($"[toggle] 切换失败: {ex}");
+        }
+    }
+
+    // ---- 快捷键设置（弹窗录制） ----
+
+    private async void OnSetThemeHotkey(object sender, RoutedEventArgs e)
+        => await SetHotkey("theme", "设置亮暗快捷键", ThemeHotkeyText);
+
+    private async void OnSetDisplayHotkey(object sender, RoutedEventArgs e)
+        => await SetHotkey("display_mode", "设置屏幕快捷键", DisplayHotkeyText);
+
+    private async Task SetHotkey(string action, string title, TextBlock display)
+    {
+        var current = display.Text == Unset ? "" : display.Text;
+        var box = new Controls.HotkeyInputBox { HotkeyText = current, MinWidth = 240 };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = title,
+            Content = box,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        try
+        {
+            var config = _configStore.Load();
+            config.Bindings[action] = box.HotkeyText.Trim();
+            _configStore.Save(config);
+            _onSaved(); // 热重载
+            display.Text = FormatHotkeyText(config.Bindings, action);
+            ShowStatus("快捷键已更新");
+            _log.Info($"[toggle] {action} 快捷键已更新");
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"[toggle] 快捷键保存失败: {ex}");
+            ShowStatus($"保存失败：{ex.Message}");
         }
     }
 
@@ -127,9 +224,6 @@ public sealed partial class ToggleWindow : Window
         {
             var config = _configStore.Load();
 
-            config.Bindings["theme"] = ThemeHotkey.HotkeyText.Trim();
-            config.Bindings["display_mode"] = DisplayHotkey.HotkeyText.Trim();
-
             config.Theme.Enabled = AutoThemeToggle.IsOn;
             config.Theme.Latitude = ParseNullableDouble(ThemeLatitude.Text);
             config.Theme.Longitude = ParseNullableDouble(ThemeLongitude.Text);
@@ -154,27 +248,6 @@ public sealed partial class ToggleWindow : Window
         {
             _log.Error($"[toggle] 保存失败: {ex}");
             ShowStatus($"保存失败：{ex.Message}");
-        }
-    }
-
-    // ---- 立即切换 ----
-
-    private void OnToggleTheme(object sender, RoutedEventArgs e) => RunAction(() => _theme.Execute("toggle"));
-
-    private void OnToggleDisplay(object sender, RoutedEventArgs e) => RunAction(() => _display.Execute("toggle"));
-
-    private void RunAction(Func<ActionResult> action)
-    {
-        try
-        {
-            var result = action();
-            ShowStatus(result.Message);
-            _log.Info($"[toggle] {result.Message}");
-        }
-        catch (Exception ex)
-        {
-            ShowStatus($"切换失败：{ex.Message}");
-            _log.Error($"[toggle] 切换失败: {ex}");
         }
     }
 

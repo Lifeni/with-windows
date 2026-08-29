@@ -1,3 +1,4 @@
+using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -6,12 +7,13 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using WithWindows.Config;
 using WithWindows.Core;
+using WithWindows.Interop;
 
 namespace WithWindows.Notepad;
 
 /// <summary>
-/// 快捷记事本：独立置顶窗口，自绘标题栏跟随主题。隐藏/关闭时内容自动复制到剪贴板并保存到
-/// notepad.txt（下次打开恢复）。工具栏：粘贴剪贴板、问 AI、AI 设置（弹窗）、清除回复。
+/// 快捷记事本：独立置顶窗口，标题栏兼工具栏（粘贴剪贴板 / 问 AI / AI 设置）。
+/// 底部状态栏显示行列与字符数；AI 回复区常驻显示。隐藏/关闭时内容自动复制到剪贴板并保存。
 /// </summary>
 public sealed partial class NotepadWindow : Window
 {
@@ -21,7 +23,7 @@ public sealed partial class NotepadWindow : Window
     private readonly DispatcherQueueTimer _saveTimer;
     private readonly AiClient _ai = new();
     private readonly CancellationTokenSource _aiCts = new();
-    private bool _sized; // 首次显示时应用初始尺寸；之后保留用户调整
+    private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
     public bool Visible => AppWindow.IsVisible;
@@ -45,13 +47,18 @@ public sealed partial class NotepadWindow : Window
         Closed += OnClosed;
     }
 
-    /// <summary>重绘标题栏：内容延伸到标题栏，系统按钮透明，背景随主题。</summary>
+    /// <summary>重绘标题栏并设置窗口图标：内容延伸到标题栏，系统按钮透明，背景随主题。</summary>
     private void SetupTitleBar()
     {
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBarElement);
         AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+
+        string icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
+        IntPtr hIcon = NativeMethods.LoadImage(IntPtr.Zero, icoPath, 1 /* IMAGE_ICON */, 0, 0, 0x10 /* LR_LOADFROMFILE */);
+        if (hIcon != IntPtr.Zero)
+            AppWindow.SetIcon(new IconId((ulong)hIcon));
     }
 
     /// <summary>显示并聚焦。</summary>
@@ -83,20 +90,33 @@ public sealed partial class NotepadWindow : Window
         {
             _log.Error($"记事本读取失败: {ex}");
         }
-        UpdateTitle();
+        UpdateStatus();
     }
 
     private void OnTextChanged(object sender, TextChangedEventArgs e)
     {
-        UpdateTitle();
+        UpdateStatus();
         _saveTimer.Stop();
         _saveTimer.Start(); // 防抖保存
     }
 
-    private void UpdateTitle()
+    private void OnSelectionChanged(object sender, RoutedEventArgs e) => UpdateStatus();
+
+    /// <summary>状态栏：光标行列 + 总字符数。</summary>
+    private void UpdateStatus()
     {
-        Title = $"快捷记事（{Editor.Text.Length} 字符）";
-        TitleText.Text = Title;
+        string text = Editor.Text;
+        int start = Math.Clamp(Editor.SelectionStart, 0, text.Length);
+        int line = 1, column = 1;
+        for (int i = 0; i < start; i++)
+        {
+            if (text[i] == '\n') { line++; column = 1; }
+            else column++;
+        }
+        StatusText.Text = $"行 {line}，列 {column}　·　共 {text.Length} 字符";
+        string title = $"快捷记事（{text.Length} 字符）";
+        Title = title;
+        AppWindow.Title = title; // 自绘标题栏下 Window.Title 不同步 Win32 文本，需显式设置
     }
 
     // ---- 工具栏：粘贴剪贴板 ----
@@ -176,7 +196,6 @@ public sealed partial class NotepadWindow : Window
             return;
         }
 
-        AiPanel.IsExpanded = true;
         AiReply.Text = "";
         AskAiButton.IsEnabled = false;
         AiProgress.IsActive = true;

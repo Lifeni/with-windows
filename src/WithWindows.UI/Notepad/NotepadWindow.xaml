@@ -6,29 +6,22 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 自绘标题栏：随主题背景 + 系统按钮透明 -->
+        <!-- 标题栏兼工具栏：左（图标 + 剪贴板 / 问 AI / 设置）右（进度 / 清除回复） -->
         <Grid x:Name="TitleBarElement"
               Grid.Row="0"
               Height="44"
               Background="{ThemeResource LayerFillColorDefaultBrush}">
-            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">
-                <Image Source="Assets/with-windows.png" Width="14" Height="14" />
-                <TextBlock x:Name="TitleText" VerticalAlignment="Center" />
-            </StackPanel>
-        </Grid>
-
-        <!-- 工具栏：操作按钮左右分布（剪贴板 / 问 AI / 设置 | 进度 / 清除回复） -->
-        <Grid Grid.Row="1" Padding="12,8" ColumnSpacing="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0,0,0">
+                <Image Source="Assets/with-windows.png" Width="14" Height="14" />
                 <Button x:Name="ClipboardButton"
                         Click="OnClipboardPaste"
                         ToolTipService.ToolTip="粘贴剪贴板内容">
@@ -45,7 +38,7 @@
                     <FontIcon Glyph="&#xE713;" FontSize="14" />
                 </Button>
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,12,0">
                 <ProgressRing x:Name="AiProgress" IsActive="False" Width="20" Height="20" />
                 <Button x:Name="ClearAiButton" Content="清除回复" Click="OnClearAi" />
             </StackPanel>
@@ -53,26 +46,41 @@
 
         <!-- 编辑器 -->
         <TextBox x:Name="Editor"
-                 Grid.Row="2"
+                 Grid.Row="1"
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
                  FontFamily="Consolas"
                  FontSize="14"
                  Padding="12"
                  VerticalAlignment="Stretch"
-                 TextChanged="OnTextChanged" />
+                 TextChanged="OnTextChanged"
+                 SelectionChanged="OnSelectionChanged" />
 
-        <!-- AI 助手：可折叠回复区 -->
-        <Expander x:Name="AiPanel"
-                  Grid.Row="3"
-                  Header="AI 助手"
-                  IsExpanded="False">
-            <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto">
+        <!-- AI 回复区：常驻，不折叠 -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="140" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="AI 回复"
+                       FontSize="12"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Padding="12,6,12,2" />
+            <ScrollViewer Grid.Row="1" MaxHeight="140" VerticalScrollBarVisibility="Auto">
                 <TextBlock x:Name="AiReply"
                            TextWrapping="Wrap"
                            IsTextSelectionEnabled="True"
-                           Padding="8" />
+                           Padding="12,0,12,8" />
             </ScrollViewer>
-        </Expander>
+        </Grid>
+
+        <!-- 状态栏：行列与字符数 -->
+        <Border Grid.Row="3"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                Padding="12,5">
+            <TextBlock x:Name="StatusText"
+                       FontSize="12"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Border>
     </Grid>
 </Window>

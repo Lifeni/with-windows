@@ -72,6 +72,9 @@ internal static class NativeMethods
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
 
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern IntPtr LoadImage(IntPtr hinst, string lpszName, uint type, int cx, int cy, uint fuLoad);
+
     // ---- 隐藏消息窗口（热键接收；WinUI 3 无托管消息窗口，手写 CreateWindowEx） ----
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
