@@ -7,109 +7,89 @@
 
 ## 功能
 
-Windows 常驻后台的一键动作平台：配置驱动的全局热键 → 动作框架。无主界面，通过系统托盘管理。
+Windows 常驻托盘的一键动作平台：全局热键 → 动作执行。无主界面，通过系统托盘管理，两个独立功能窗口：
 
-把所有"一键操作"需求收敛到一个常驻程序：热键集中注册、动作按接口扩展。
+**快捷记事（带 AI）**：热键弹出置顶记事本，关闭时自动复制到剪贴板。
+- 剪贴板建议条：打开时若剪贴板有文本且与正文不同，底部显示可点击条目，点击即可追加
+- AI 助手：把记事本内容发给 AI（OpenAI 兼容端口），SSE 流式打字机回复
+- 自动保存（`notepad.txt`），下次打开恢复内容；始终置顶
 
-- 内置动作：快捷记事、投影切换、亮暗切换、日出日落自动亮暗
-- 托盘菜单：快捷记事、动作切换（带快捷键提示）、自动亮暗、开机自启、打开配置、恢复配置、重启应用、版本号
+**一键切换**：亮暗与屏幕切换的配置窗口。
+- 切换亮暗：录制式热键绑定 + 日出日落自动切换（NOAA 算法，坐标/固定时间/偏移可配）
+- 切换屏幕：录制式热键绑定 + 切换模式列表（internal/extend/external/clone）
+- 保存即生效（热重载，无需重启）
 
-<img src="docs/screenshot.png" alt="快捷记事" width="630">
+托盘菜单：快捷记事 / 一键切换 / 退出（双击托盘图标打开一键切换）。
 
 ## 快速开始
 
 ```bash
-dotnet build src/WithWindows/WithWindows.csproj
+# 构建（WinUI 3 需要 x64 平台）
+dotnet build src/WithWindows.UI/WithWindows.UI.csproj -p:Platform=x64
 
-# 运行(开发)
-dotnet run --project src/WithWindows
+# 测试（必须全绿）
+dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -p:Platform=x64
 
-# 发布 Release(输出到 dist/)
-dotnet publish src/WithWindows/WithWindows.csproj -c Release -o dist
+# 冒烟检查（不常驻，验证配置加载与热键注册）
+dotnet run --project src/WithWindows.UI -- --smoke
 
-# 冒烟检查(不常驻,验证配置加载与热键注册)
-dotnet run --project src/WithWindows -- --smoke
+# 发布 Release（自包含，输出到 dist/）
+dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true
 ```
+
+注意：常驻实例运行时会锁 exe，重新构建前先停掉它（托盘"退出"或任务管理器结束 WithWindows.exe）。
 
 ## 技术栈
 
-- .NET Framework 4.8.1：Win11 内置，免安装 runtime，直接运行
-- WinForms 无窗口宿主 + 自管系统托盘（自定义气泡图标）
-- 自绘 Win11 风格托盘菜单：圆角实色卡片（双缓冲防闪烁）、主题跟随、Segoe Fluent Icons 图标
+- .NET 8 + WinUI 3（Windows App SDK 2.4）：现代 Win11 原生 UI
+- WinUIEx：托盘图标（TrayIcon）、窗口管理
 - P/Invoke：`RegisterHotKey`、`SetDisplayConfig`、`QueryDisplayConfig`、`SendMessageTimeout`（WM_SETTINGCHANGE）；主题读写用 `Microsoft.Win32.Registry`
-- 内置 MiniJson，零外部依赖，单 exe 发布（约 100KB）
-- 高 DPI（PerMonitorV2）、单实例守卫（重复启动自动退出）
+- `System.Text.Json` 配置读写；AI 对话手写 SSE 流式解析（零第三方 SDK）
+- 发布为自包含目录（免装 .NET runtime），约 200 MB
 
 ## 配置
 
-运行时数据位于 `%APPDATA%\WithWindows\`（exe 目录保持干净）：
+运行时数据位于 `%APPDATA%\WithWindows\`：
 
-- `config.json`——热键配置，首次启动自举默认值
+- `config.json`——配置（首次启动自举默认值；旧 v2 数组格式自动迁移为 v3）
 - `log.txt`——运行日志
-
-启动后弹一次"已在后台运行"通知，列出生效热键。热键支持：
-
-- 单键：`F13`～`F24`、`F1`～`F12`、字母或数字键
-- 组合键：`Ctrl+Shift+F14`、`Alt+F13`（修饰键：`Ctrl`、`Alt`、`Shift`、`Win`）
-
-托盘右键菜单：
-
-- **快捷记事**：原生多行文本框（Maple Mono 等宽字体、始终置顶、行/列/字符数显示在标题栏、Ctrl+S 另存为、撤回/恢复、Ctrl+加号/Ctrl+滚轮缩放、自动保存），快捷键 `F13`（显示时按 F13 复制内容并关闭）
-- **切换投影 / 切换亮暗**：与对应热键一致，右侧显示快捷键（`F15` / `F14`）
-- **打开配置**：用默认程序打开 `%APPDATA%\WithWindows\config.json`
-- **自动亮暗**：勾选启用日出日落自动切换（重启后保持）
-- **开机自启**：写 `HKCU\...\Run`，无需管理员权限
-- **恢复配置**：删除运行时配置、注册表设置与记事本内容，恢复默认并重启（带确认对话框）
-- **重启应用**：配置只在启动时读取，修改后点此生效
-- **版本 v0.3.0**：点击跳转 GitHub 项目页
-- **退出应用**
-
-
-示例：
+- `notepad.txt`——记事本内容
 
 ```json
-[
-  { "hotkey": "F13", "action": "notepad" },
-  { "hotkey": "F14", "action": "theme", "args": { "mode": "toggle" } },
-  { "hotkey": "F15", "action": "display_mode", "args": { "mode": "toggle", "modes": ["internal", "extend"] } }
-]
+{
+  "bindings": { "notepad": "F13", "theme": "F14", "display_mode": "F15" },
+  "displayMode": { "modes": ["internal", "extend"] },
+  "theme": { "enabled": false, "latitude": 36.6512, "longitude": 117.1201, "offsetMinutes": 0 },
+  "ai": { "baseUrl": "", "apiKey": "", "model": "" }
+}
 ```
 
-`display_mode` 支持：
-
-- `internal` / `extend` / `external` / `clone`：直接切换指定模式；已是该模式则不执行
-- `toggle`：在 `modes`（默认 `["internal","extend"]`）中循环切换
-
-`theme` 支持：
-
-- `light` / `dark`：直接切换（广播 `WM_SETTINGCHANGE`，运行中的应用即时刷新）
-- `toggle`：切换相反值（亮 ↔ 暗）
-
-`auto_theme`（声明式条目，可选）：日出切亮色、日落切暗色，托盘菜单勾选启用。内置默认坐标，不配置也能用：
-
-```json
-{ "action": "auto_theme", "args": { "latitude": "纬度", "longitude": "经度", "offset_minutes": "0" } }
-```
-
-- `latitude` / `longitude`：按日期计算（NOAA 算法，中纬度误差约几分钟；时区固定北京时间 UTC+8）
-- `sunrise` / `sunset`（`"HH:mm"`）：固定时间
-- `offset_minutes`：切换点整体偏移，正数=延后
-- 极昼/极夜地区当天不切换；错过切换点会自动对账修正
+- `bindings`：动作 → 热键，可在"一键切换"窗口录制修改（保存即热重载）。热键留空 = 不绑定
+- `displayMode.modes`：屏幕 toggle 循环的候选模式
+- `theme`：日出日落自动切换开关与参数（坐标与固定时间二选一；`sunrise`/`sunset` 为 `"HH:mm"`；`offsetMinutes` 正数 = 延后）
+- `ai`：AI 助手配置（OpenAI 兼容端口，`baseUrl` 如 `http://127.0.0.1:11434/v1`）
 
 ## 目录结构
 
 ```
 with-windows/
-├── AGENTS.md        # AI Agent 开发指南(架构/约定/测试规范)
-├── CHANGELOG.md     # 更新日志(Release 正文来源)
-├── LICENSE          # MIT 开源协议
-├── WithWindows.sln # 解决方案文件
-├── .github/         # GitHub Actions 工作流(构建并发布 Release)
-├── config/          # 配置模板(运行时数据在 %APPDATA%\WithWindows)
-├── docs/            # 设计文档与素材
-├── scripts/         # 开发/运维脚本
-├── src/WithWindows/    # 主程序
-└── tests/WithWindows.Tests/  # 单元测试
+├── AGENTS.md               # AI Agent 开发指南（架构/约定/测试规范）
+├── CHANGELOG.md            # 更新日志（Release 正文来源）
+├── LICENSE                 # MIT 开源协议
+├── WithWindows.sln         # 解决方案文件
+├── .github/                # GitHub Actions 工作流（构建并发布 Release）
+├── docs/                   # 设计文档与素材
+├── src/WithWindows.UI/     # 主程序（WinUI 3）
+│   ├── App.xaml(.cs)       # 入口：单实例 → 配置 → 主窗口（托盘宿主）
+│   ├── MainWindow.xaml.cs  # 托盘、热键注册、动作分发、自动亮暗调度
+│   ├── ToggleWindow.xaml   # 一键切换配置窗口
+│   ├── Notepad/            # 记事本窗口（编辑器 + 剪贴板建议条 + AI 面板）
+│   ├── Controls/           # 热键录制控件（HotkeyInputBox）
+│   ├── Core/               # 热键解析/注册、单实例、AI 客户端、动作框架
+│   ├── Config/             # ConfigStore（v3 + 旧格式迁移）
+│   ├── Actions/            # 亮暗/屏幕动作、日出日落调度
+│   └── Interop/            # P/Invoke 集中地
+└── tests/WithWindows.UI.Tests/  # 单元测试
 ```
 
 ## 更新日志
