@@ -1,73 +1,77 @@
 <Window
     x:Class="WithWindows.Notepad.NotepadWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="快捷记事">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid Padding="8" RowSpacing="8">
+    <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 剪贴板建议条：打开时若剪贴板有文本且与正文不同，显示可点击条目 -->
-        <Border x:Name="ClipSuggestion"
-                Grid.Row="0"
-                Visibility="Collapsed"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Padding="4">
-            <Button x:Name="ClipSuggestionButton"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Padding="8,4"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Click="OnClipSuggestionClick">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE16F;" FontSize="14" />
-                    <TextBlock x:Name="ClipSuggestionText"
-                               TextTrimming="CharacterEllipsis"
-                               MaxWidth="420" />
-                </StackPanel>
-            </Button>
-        </Border>
+        <!-- 自绘标题栏：随主题背景 + 系统按钮透明 -->
+        <Grid x:Name="TitleBarElement"
+              Grid.Row="0"
+              Height="44"
+              Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">
+                <Image Source="Assets/with-windows.png" Width="14" Height="14" />
+                <TextBlock x:Name="TitleText" VerticalAlignment="Center" />
+            </StackPanel>
+        </Grid>
 
+        <!-- 工具栏：操作按钮左右分布（剪贴板 / 问 AI / 设置 | 进度 / 清除回复） -->
+        <Grid Grid.Row="1" Padding="12,8" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="ClipboardButton"
+                        Click="OnClipboardPaste"
+                        ToolTipService.ToolTip="粘贴剪贴板内容">
+                    <FontIcon Glyph="&#xE16F;" FontSize="14" />
+                </Button>
+                <Button x:Name="AskAiButton"
+                        Click="OnAskAi"
+                        ToolTipService.ToolTip="问 AI">
+                    <FontIcon Glyph="&#xE724;" FontSize="14" />
+                </Button>
+                <Button x:Name="AiConfigButton"
+                        Click="OnOpenAiConfig"
+                        ToolTipService.ToolTip="AI 设置">
+                    <FontIcon Glyph="&#xE713;" FontSize="14" />
+                </Button>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <ProgressRing x:Name="AiProgress" IsActive="False" Width="20" Height="20" />
+                <Button x:Name="ClearAiButton" Content="清除回复" Click="OnClearAi" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 编辑器 -->
         <TextBox x:Name="Editor"
-                 Grid.Row="1"
+                 Grid.Row="2"
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
                  FontFamily="Consolas"
                  FontSize="14"
+                 Padding="12"
                  VerticalAlignment="Stretch"
                  TextChanged="OnTextChanged" />
 
-        <!-- AI 助手：上下布局，回复面板可折叠 -->
+        <!-- AI 助手：可折叠回复区 -->
         <Expander x:Name="AiPanel"
-                  Grid.Row="2"
+                  Grid.Row="3"
                   Header="AI 助手"
                   IsExpanded="False">
-                        <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="8">
-                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
-                    <TextBlock x:Name="AiReply"
-                               TextWrapping="Wrap"
-                               IsTextSelectionEnabled="True" />
-                </ScrollViewer>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="AskAiButton" Click="OnAskAi" ToolTipService.ToolTip="问 AI">
-                        <FontIcon Glyph="&#xE724;" FontSize="14" />
-                    </Button>
-                    <Button x:Name="AiConfigButton" Click="OnOpenAiConfig" ToolTipService.ToolTip="AI 设置">
-                        <FontIcon Glyph="&#xE713;" FontSize="14" />
-                    </Button>
-                    <Button x:Name="ClearAiButton" Content="清除回复" Click="OnClearAi" />
-                    <ProgressRing x:Name="AiProgress" IsActive="False" Width="20" Height="20" />
-                </StackPanel>
-            </StackPanel>
+            <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="AiReply"
+                           TextWrapping="Wrap"
+                           IsTextSelectionEnabled="True"
+                           Padding="8" />
             </ScrollViewer>
         </Expander>
     </Grid>

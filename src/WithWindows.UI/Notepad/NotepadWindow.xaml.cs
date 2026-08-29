@@ -10,9 +10,8 @@ using WithWindows.Core;
 namespace WithWindows.Notepad;
 
 /// <summary>
-/// 快捷记事本：独立置顶窗口。打开时若剪贴板有文本且与正文不同，底部显示建议条，点击追加；
-/// 隐藏/关闭时内容自动复制到剪贴板并保存到 notepad.txt（下次打开恢复）。
-/// 内置 AI 助手：把编辑区内容发给 OpenAI 兼容端口，流式回复显示在可折叠面板。
+/// 快捷记事本：独立置顶窗口，自绘标题栏跟随主题。隐藏/关闭时内容自动复制到剪贴板并保存到
+/// notepad.txt（下次打开恢复）。工具栏：粘贴剪贴板、问 AI、AI 设置（弹窗）、清除回复。
 /// </summary>
 public sealed partial class NotepadWindow : Window
 {
@@ -22,7 +21,6 @@ public sealed partial class NotepadWindow : Window
     private readonly DispatcherQueueTimer _saveTimer;
     private readonly AiClient _ai = new();
     private readonly CancellationTokenSource _aiCts = new();
-    private string? _suggestionText;
     private bool _sized; // 首次显示时应用初始尺寸；之后保留用户调整
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
@@ -35,6 +33,7 @@ public sealed partial class NotepadWindow : Window
         _configStore = configStore;
         InitializeComponent();
 
+        SetupTitleBar();
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsAlwaysOnTop = true; // 始终置顶：随时弹出记录
 
@@ -46,8 +45,17 @@ public sealed partial class NotepadWindow : Window
         Closed += OnClosed;
     }
 
-    /// <summary>显示并聚焦；每次显示时刷新剪贴板建议条。</summary>
-    public async void ShowAndFocus()
+    /// <summary>重绘标题栏：内容延伸到标题栏，系统按钮透明，背景随主题。</summary>
+    private void SetupTitleBar()
+    {
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(TitleBarElement);
+        AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
+        AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+    }
+
+    /// <summary>显示并聚焦。</summary>
+    public void ShowAndFocus()
     {
         Activate();
         if (!_sized)
@@ -55,7 +63,6 @@ public sealed partial class NotepadWindow : Window
             AppWindow.Resize(new SizeInt32(820, 620));
             _sized = true;
         }
-        await ShowClipboardSuggestion();
     }
 
     /// <summary>复制内容到剪贴板并隐藏（热键再次按下）。</summary>
@@ -89,42 +96,28 @@ public sealed partial class NotepadWindow : Window
     private void UpdateTitle()
     {
         Title = $"快捷记事（{Editor.Text.Length} 字符）";
+        TitleText.Text = Title;
     }
 
-    // ---- 剪贴板建议条 ----
+    // ---- 工具栏：粘贴剪贴板 ----
 
-    private async Task ShowClipboardSuggestion()
+    private async void OnClipboardPaste(object sender, RoutedEventArgs e)
     {
-        _suggestionText = null;
-        ClipSuggestion.Visibility = Visibility.Collapsed;
         try
         {
             var content = Clipboard.GetContent();
-            if (content.Contains(StandardDataFormats.Text))
-            {
-                string? text = await content.GetTextAsync();
-                if (!string.IsNullOrEmpty(text) && text != Editor.Text)
-                {
-                    _suggestionText = text;
-                    ClipSuggestionText.Text = text.Length > 60 ? text[..60] + "…" : text;
-                    ClipSuggestion.Visibility = Visibility.Visible;
-                }
-            }
-        }
-        catch
-        {
-            // 剪贴板被占用等异常：静默隐藏建议条，不打扰记录
-            ClipSuggestion.Visibility = Visibility.Collapsed;
-        }
-    }
+            if (!content.Contains(StandardDataFormats.Text)) return;
 
-    private void OnClipSuggestionClick(object sender, RoutedEventArgs e)
-    {
-        if (_suggestionText is null) return;
-        Editor.Text += _suggestionText;
-        Editor.SelectionStart = Editor.Text.Length; // 光标移到末尾
-        _suggestionText = null;
-        ClipSuggestion.Visibility = Visibility.Collapsed;
+            string? text = await content.GetTextAsync();
+            if (string.IsNullOrEmpty(text)) return;
+
+            Editor.Text += text;
+            Editor.SelectionStart = Editor.Text.Length; // 光标移到末尾
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"剪贴板读取失败: {ex}");
+        }
     }
 
     // ---- AI 助手 ----
@@ -179,7 +172,7 @@ public sealed partial class NotepadWindow : Window
         var config = _configStore.Load();
         if (string.IsNullOrWhiteSpace(config.Ai.BaseUrl))
         {
-            AiReply.Text = "请先在“AI 配置”中填写 Base URL";
+            AiReply.Text = "请先在 AI 设置中填写 Base URL";
             return;
         }
 

@@ -12,7 +12,7 @@ namespace WithWindows;
 
 /// <summary>
 /// 一键切换配置窗口：亮暗（热键 + 立即切换 + 日出日落自动）与屏幕（热键 + 立即切换 + 勾选模式）。
-/// 保存后写回配置并触发热重载（立即生效，无需重启）。
+/// 修改即自动保存并热重载；"恢复默认"一键还原。内容随窗口宽度自适应。
 /// </summary>
 public sealed partial class ToggleWindow : Window
 {
@@ -22,6 +22,8 @@ public sealed partial class ToggleWindow : Window
     private readonly ThemeAction _theme = new();
     private readonly DisplayModeAction _display;
     private readonly DispatcherQueueTimer _statusTimer;
+    private readonly DispatcherQueueTimer _autoSaveTimer;
+    private bool _loading; // LoadConfig 期间屏蔽 AutoSave（避免回填触发保存）
     private bool _sized;
 
     public ToggleWindow(ConfigStore configStore, Action onSaved, Logger log)
@@ -35,8 +37,27 @@ public sealed partial class ToggleWindow : Window
         _statusTimer.Interval = TimeSpan.FromSeconds(3);
         _statusTimer.Tick += (_, _) => { _statusTimer.Stop(); StatusBar.IsOpen = false; };
 
+        // 文本输入防抖保存（避免每次击键触发热重载）
+        _autoSaveTimer = DispatcherQueue.CreateTimer();
+        _autoSaveTimer.Interval = TimeSpan.FromMilliseconds(600);
+        _autoSaveTimer.Tick += (_, _) => { _autoSaveTimer.Stop(); SaveConfig(notify: false); };
+
         InitializeComponent();
+        SetupTitleBar();
+
+        // 热键录制控件在代码中订阅（无 XAML 事件属性）
+        ThemeHotkey.HotkeyChanged += (_, _) => AutoSave(notify: true);
+        DisplayHotkey.HotkeyChanged += (_, _) => AutoSave(notify: true);
+
         LoadConfig();
+    }
+
+    private void SetupTitleBar()
+    {
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(TitleBarElement);
+        AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
+        AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
     }
 
     public void ShowAndFocus()
@@ -51,55 +72,56 @@ public sealed partial class ToggleWindow : Window
 
     private void LoadConfig()
     {
-        var config = _configStore.Load();
-
-        ThemeHotkey.HotkeyText = config.Bindings.GetValueOrDefault("theme") ?? "";
-        DisplayHotkey.HotkeyText = config.Bindings.GetValueOrDefault("display_mode") ?? "";
-
-        AutoThemeToggle.IsOn = config.Theme.Enabled;
-        ThemeLatitude.Text = config.Theme.Latitude?.ToString(CultureInfo.InvariantCulture) ?? "";
-        ThemeLongitude.Text = config.Theme.Longitude?.ToString(CultureInfo.InvariantCulture) ?? "";
-        ThemeSunrise.Text = config.Theme.Sunrise ?? "";
-        ThemeSunset.Text = config.Theme.Sunset ?? "";
-        ThemeOffset.Text = config.Theme.OffsetMinutes.ToString(CultureInfo.InvariantCulture);
-
-        ModeInternal.IsChecked = config.DisplayMode.Modes.Contains("internal");
-        ModeExtend.IsChecked = config.DisplayMode.Modes.Contains("extend");
-        ModeExternal.IsChecked = config.DisplayMode.Modes.Contains("external");
-        ModeClone.IsChecked = config.DisplayMode.Modes.Contains("clone");
-    }
-
-    private void OnAutoThemeToggled(object sender, RoutedEventArgs e)
-        => AutoThemeOptions.Visibility = AutoThemeToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
-
-    private void OnToggleTheme(object sender, RoutedEventArgs e) => RunAction(() => _theme.Execute("toggle"));
-
-    private void OnToggleDisplay(object sender, RoutedEventArgs e) => RunAction(() => _display.Execute("toggle"));
-
-    private void RunAction(Func<ActionResult> action)
-    {
+        _loading = true;
         try
         {
-            var result = action();
-            ShowStatus(result.Changed ? result.Message : result.Message);
-            _log.Info($"[toggle] {result.Message}");
+            var config = _configStore.Load();
+
+            ThemeHotkey.HotkeyText = config.Bindings.GetValueOrDefault("theme") ?? "";
+            DisplayHotkey.HotkeyText = config.Bindings.GetValueOrDefault("display_mode") ?? "";
+
+            AutoThemeToggle.IsOn = config.Theme.Enabled;
+            ThemeLatitude.Text = config.Theme.Latitude?.ToString(CultureInfo.InvariantCulture) ?? "";
+            ThemeLongitude.Text = config.Theme.Longitude?.ToString(CultureInfo.InvariantCulture) ?? "";
+            ThemeSunrise.Text = config.Theme.Sunrise ?? "";
+            ThemeSunset.Text = config.Theme.Sunset ?? "";
+            ThemeOffset.Text = config.Theme.OffsetMinutes.ToString(CultureInfo.InvariantCulture);
+
+            ModeInternal.IsChecked = config.DisplayMode.Modes.Contains("internal");
+            ModeExtend.IsChecked = config.DisplayMode.Modes.Contains("extend");
+            ModeExternal.IsChecked = config.DisplayMode.Modes.Contains("external");
+            ModeClone.IsChecked = config.DisplayMode.Modes.Contains("clone");
         }
-        catch (Exception ex)
+        finally
         {
-            ShowStatus($"切换失败：{ex.Message}");
-            _log.Error($"[toggle] 切换失败: {ex}");
+            _loading = false;
         }
     }
 
-    private void ShowStatus(string message)
+    // ---- 自动保存 ----
+
+    private void OnAutoThemeToggled(object sender, RoutedEventArgs e)
     {
-        StatusBar.Message = message;
-        StatusBar.IsOpen = true;
-        _statusTimer.Stop();
-        _statusTimer.Start();
+        AutoThemeOptions.Visibility = AutoThemeToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+        AutoSave(notify: true);
     }
 
-    private void OnSave(object sender, RoutedEventArgs e)
+    private void OnModeChanged(object sender, RoutedEventArgs e) => AutoSave(notify: true);
+
+    private void OnAutoSaveTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading) return;
+        _autoSaveTimer.Stop();
+        _autoSaveTimer.Start(); // 防抖
+    }
+
+    private void AutoSave(bool notify)
+    {
+        if (_loading) return;
+        SaveConfig(notify);
+    }
+
+    private void SaveConfig(bool notify)
     {
         try
         {
@@ -116,7 +138,6 @@ public sealed partial class ToggleWindow : Window
             config.Theme.OffsetMinutes = int.TryParse(ThemeOffset.Text, NumberStyles.Integer,
                 CultureInfo.InvariantCulture, out int offset) ? offset : 0;
 
-            // 勾选的模式作为 toggle 循环候选；全不选时回退默认 internal/extend
             var modes = new List<string>();
             if (ModeInternal.IsChecked == true) modes.Add("internal");
             if (ModeExtend.IsChecked == true) modes.Add("extend");
@@ -126,14 +147,66 @@ public sealed partial class ToggleWindow : Window
 
             _configStore.Save(config);
             _onSaved(); // 热重载：热键立即生效
-            _log.Info("[toggle] 配置已保存并热重载");
-            ShowStatus("配置已保存，立即生效");
+            _log.Info("[toggle] 已自动保存");
+            if (notify) ShowStatus("已自动保存");
         }
         catch (Exception ex)
         {
             _log.Error($"[toggle] 保存失败: {ex}");
             ShowStatus($"保存失败：{ex.Message}");
         }
+    }
+
+    // ---- 立即切换 ----
+
+    private void OnToggleTheme(object sender, RoutedEventArgs e) => RunAction(() => _theme.Execute("toggle"));
+
+    private void OnToggleDisplay(object sender, RoutedEventArgs e) => RunAction(() => _display.Execute("toggle"));
+
+    private void RunAction(Func<ActionResult> action)
+    {
+        try
+        {
+            var result = action();
+            ShowStatus(result.Message);
+            _log.Info($"[toggle] {result.Message}");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"切换失败：{ex.Message}");
+            _log.Error($"[toggle] 切换失败: {ex}");
+        }
+    }
+
+    // ---- 恢复默认 ----
+
+    private async void OnRestoreDefaults(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "恢复默认",
+            Content = "将恢复默认热键（F13 / F14 / F15）与默认设置，当前修改会被覆盖。",
+            PrimaryButtonText = "恢复",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        _configStore.Save(new AppConfig());
+        _onSaved();
+        LoadConfig();
+        ShowStatus("已恢复默认设置");
+        _log.Info("[toggle] 已恢复默认设置");
+    }
+
+    private void ShowStatus(string message)
+    {
+        StatusBar.Message = message;
+        StatusBar.IsOpen = true;
+        _statusTimer.Stop();
+        _statusTimer.Start();
     }
 
     private static double? ParseNullableDouble(string text)
