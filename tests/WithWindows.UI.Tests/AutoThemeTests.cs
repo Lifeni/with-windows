@@ -114,11 +114,9 @@ public class AutoThemeSchedulerTests
 public class AutoThemeSettingsTests
 {
     [Fact]
-    public void FromArgs_Coordinates_Valid()
+    public void FromConfig_Coordinates_Valid()
     {
-        var args = MiniJson.Parse("""{ "latitude": "39.9042", "longitude": "116.4074", "offset_minutes": "0" }""");
-
-        var settings = AutoThemeSettings.FromArgs(args);
+        var settings = AutoThemeSettings.FromConfig(new ThemeAutoConfig { Latitude = 39.9042, Longitude = 116.4074 });
 
         Assert.True(settings.HasCoordinates);
         Assert.Null(settings.Validate());
@@ -126,20 +124,18 @@ public class AutoThemeSettingsTests
     }
 
     [Fact]
-    public void FromArgs_FixedTimes_Valid()
+    public void FromConfig_FixedTimes_Valid()
     {
-        var args = MiniJson.Parse("""{ "sunrise": "06:30", "sunset": "18:30" }""");
-
-        var settings = AutoThemeSettings.FromArgs(args);
+        var settings = AutoThemeSettings.FromConfig(new ThemeAutoConfig { Sunrise = "06:30", Sunset = "18:30" });
 
         Assert.True(settings.HasFixedTimes);
         Assert.Null(settings.Validate());
     }
 
     [Fact]
-    public void FromArgs_MissingConfig_FallsBackToDefault()
+    public void FromConfig_MissingConfig_FallsBackToDefault()
     {
-        var settings = AutoThemeSettings.FromArgs(null);
+        var settings = AutoThemeSettings.FromConfig(new ThemeAutoConfig());
 
         Assert.True(settings.HasCoordinates);
         Assert.Null(settings.Validate());
@@ -148,11 +144,11 @@ public class AutoThemeSettingsTests
     }
 
     [Fact]
-    public void FromArgs_MissingConfig_ComputesDefaultDayTimes()
+    public void FromConfig_MissingConfig_ComputesDefaultDayTimes()
     {
         // 时区固定北京时间（UTC+8）：日出/日落时刻与机器时区无关，CI（UTC）与本地断言一致。
         // 参考值由 NOAA 算法独立实现（Python）计算：2026-08-15 日出 05:28、日落 19:03
-        var settings = AutoThemeSettings.FromArgs(null);
+        var settings = AutoThemeSettings.FromConfig(new ThemeAutoConfig());
 
         var (rise, set, allDay) = settings.GetDayTimes(DateTime.Parse("2026-08-15 10:00"));
 
@@ -166,28 +162,26 @@ public class AutoThemeSettingsTests
     }
 
     [Fact]
-    public void FromArgs_LatitudeOutOfRange_Invalid()
+    public void FromConfig_LatitudeOutOfRange_Invalid()
     {
-        var args = MiniJson.Parse("""{ "latitude": "100", "longitude": "116.4" }""");
+        var settings = AutoThemeSettings.FromConfig(new ThemeAutoConfig { Latitude = 100, Longitude = 116.4 });
 
-        Assert.NotNull(AutoThemeSettings.FromArgs(args).Validate());
+        Assert.NotNull(settings.Validate());
     }
 
     [Fact]
-    public void FromArgs_SunriseAfterSunset_Invalid()
+    public void FromConfig_SunriseAfterSunset_Invalid()
     {
-        var args = MiniJson.Parse("""{ "sunrise": "18:30", "sunset": "06:30" }""");
+        var settings = AutoThemeSettings.FromConfig(new ThemeAutoConfig { Sunrise = "18:30", Sunset = "06:30" });
 
-        Assert.NotNull(AutoThemeSettings.FromArgs(args).Validate());
+        Assert.NotNull(settings.Validate());
     }
 
     [Fact]
-    public void FromArgs_OnlyOneCoordinate_FallsBackToDefault()
+    public void FromConfig_OnlyOneCoordinate_FallsBackToDefault()
     {
         // 只给 latitude：不构成有效坐标对，回退内置默认坐标（不报错，开箱即用）
-        var args = MiniJson.Parse("""{ "latitude": "39.9" }""");
-
-        var settings = AutoThemeSettings.FromArgs(args);
+        var settings = AutoThemeSettings.FromConfig(new ThemeAutoConfig { Latitude = 39.9 });
 
         Assert.True(settings.HasCoordinates);
         Assert.Null(settings.Validate());
@@ -197,7 +191,7 @@ public class AutoThemeSettingsTests
     [Fact]
     public void GetDayTimes_FixedTimes_UsesLocalDate()
     {
-        var settings = AutoThemeSettings.FromArgs(MiniJson.Parse("""{ "sunrise": "06:30", "sunset": "18:30" }"""));
+        var settings = AutoThemeSettings.FromConfig(new ThemeAutoConfig { Sunrise = "06:30", Sunset = "18:30" });
 
         var (rise, set, allDay) = settings.GetDayTimes(DateTime.Parse("2026-08-15 10:00"));
 
@@ -209,8 +203,8 @@ public class AutoThemeSettingsTests
     [Fact]
     public void GetDayTimes_FixedTimes_AppliesOffset()
     {
-        var settings = AutoThemeSettings.FromArgs(
-            MiniJson.Parse("""{ "sunrise": "06:00", "sunset": "18:00", "offset_minutes": "30" }"""));
+        var settings = AutoThemeSettings.FromConfig(
+            new ThemeAutoConfig { Sunrise = "06:00", Sunset = "18:00", OffsetMinutes = 30 });
 
         var (rise, set, _) = settings.GetDayTimes(DateTime.Parse("2026-08-15 10:00"));
 

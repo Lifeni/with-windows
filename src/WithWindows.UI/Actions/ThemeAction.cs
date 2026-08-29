@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
-using WithWindows.Config;
 using WithWindows.Core;
 using WithWindows.Interop;
 
@@ -69,21 +68,6 @@ public sealed class ThemeAction : IAction
 
     internal static string ParseArgs(object? args)
     {
-        if (args is JsonObject obj)
-        {
-            string? mode = obj.TryGet("mode", out var modeVal) && modeVal is JsonString modeStr
-                ? modeStr.Value.Trim().ToLowerInvariant()
-                : null;
-
-            // net481 参考程序集无 NotNullWhen 标注，IsNullOrEmpty 不会收窄可空性，用显式判空
-            if (mode is null || mode.Length == 0)
-                throw new ArgumentException("缺少 args.mode（light|dark|toggle）");
-            return mode;
-        }
-
-        if (args is JsonString text && !string.IsNullOrWhiteSpace(text.Value))
-            return text.Value.Trim().ToLowerInvariant();
-
         if (args is string direct && !string.IsNullOrWhiteSpace(direct))
             return direct.Trim().ToLowerInvariant();
 

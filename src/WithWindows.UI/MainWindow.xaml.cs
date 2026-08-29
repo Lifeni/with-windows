@@ -1,5 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using WithWindows.Actions;
+using WithWindows.Config;
 using WithWindows.Core;
 using WinUIEx;
 
@@ -8,15 +10,24 @@ namespace WithWindows;
 public sealed partial class MainWindow : Window
 {
     private readonly HotkeyManager _hotkeys = new();
+    private readonly Logger _log;
     private TrayIcon? _tray; // 防 GC：托盘图标必须保持引用，否则会被回收
-    private int _triggers;
+    private AutoThemeScheduler? _autoTheme;
 
-    public MainWindow()
+    /// <summary>冒烟模式统计：热键注册失败数。</summary>
+    public int RegisterFailures { get; private set; }
+
+    public MainWindow(AppConfig config, Logger log)
     {
+        _log = log;
         InitializeComponent();
         SetupTray();
-        SetupHotkeys();
-        Closed += (_, _) => _hotkeys.Dispose();
+        SetupHotkeys(config);
+        Closed += (_, _) =>
+        {
+            _hotkeys.Dispose();
+            _autoTheme?.Stop();
+        };
     }
 
     private void SetupTray()
@@ -49,15 +60,59 @@ public sealed partial class MainWindow : Window
         this.Activate();
     }
 
-    private void SetupHotkeys()
+    private void SetupHotkeys(AppConfig config)
     {
-        // 临时验证热键：Ctrl+Shift+F13 计数并更新标题；正式绑定 Phase 3 接入配置
-        _hotkeys.Register(HotkeyParser.Parse("Ctrl+Shift+F13"),
-            () =>
+        var theme = new ThemeAction();
+        var display = new DisplayModeAction(config.DisplayMode.Modes.ToArray());
+
+        // 热键 → 动作分发
+        foreach (var (action, hotkeyText) in config.Bindings)
+        {
+            if (!HotkeyParser.TryParse(hotkeyText, out var hotkey, out var parseError))
             {
-                _triggers++;
-                Title = $"With Windows（热键触发 {_triggers} 次）";
-            },
-            out _);
+                _log.Error($"热键解析失败: {action}（{hotkeyText}）: {parseError}");
+                RegisterFailures++;
+                continue;
+            }
+
+            if (!_hotkeys.Register(hotkey, () => ExecuteAction(action, theme, display), out var registerError))
+            {
+                _log.Error($"热键注册失败: {action}: {registerError}");
+                RegisterFailures++;
+            }
+        }
+
+        // 自动亮暗：注册表标志或配置开关为真则恢复调度
+        _autoTheme = new AutoThemeScheduler(
+            theme,
+            AutoThemeSettings.FromConfig(config.Theme),
+            _log,
+            Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+        if (AutoThemeScheduler.GetEnabledFlag() || config.Theme.Enabled)
+        {
+            string? error = _autoTheme.TryStart();
+            if (error is not null)
+                _log.Error($"自动亮暗切换启动失败: {error}");
+        }
+    }
+
+    private void ExecuteAction(string action, ThemeAction theme, DisplayModeAction display)
+    {
+        try
+        {
+            ActionResult result = action switch
+            {
+                "theme" => theme.Execute("toggle"),
+                "display_mode" => display.Execute("toggle"),
+                "notepad" => new ActionResult(false, "记事本尚未实现"),
+                _ => new ActionResult(false, $"未知动作 {action}"),
+            };
+            if (result.Changed)
+                _log.Info($"[{action}] {result.Message}");
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"[{action}] 执行失败: {ex}");
+        }
     }
 }

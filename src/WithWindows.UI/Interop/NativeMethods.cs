@@ -12,6 +12,7 @@ internal static class NativeMethods
     public const uint MOD_SHIFT = 0x0004;
     public const uint MOD_WIN = 0x0008;
     public const uint MOD_NOREPEAT = 0x4000;
+
     public const uint ERROR_HOTKEY_ALREADY_REGISTERED = 1409;
 
     // SetDisplayConfig topology flags
@@ -67,6 +68,9 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
 
     // ---- 隐藏消息窗口（热键接收，替代 WinForms NativeWindow） ----
 

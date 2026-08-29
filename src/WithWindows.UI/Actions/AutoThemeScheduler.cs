@@ -29,17 +29,18 @@ public sealed class AutoThemeSettings
     public bool HasCoordinates => Latitude is not null && Longitude is not null;
     public bool HasFixedTimes => FixedSunrise is not null && FixedSunset is not null;
 
-    public static AutoThemeSettings FromArgs(object? args)
+    public static AutoThemeSettings FromConfig(ThemeAutoConfig config)
     {
         var settings = new AutoThemeSettings();
-        if (args is JsonObject obj)
+        if (config.Latitude is double lat && config.Longitude is double lon)
         {
-            if (TryParseDouble(obj, "latitude", out double lat)) settings.Latitude = lat;
-            if (TryParseDouble(obj, "longitude", out double lon)) settings.Longitude = lon;
-            if (TryParseInt(obj, "offset_minutes", out int offset)) settings.Offset = TimeSpan.FromMinutes(offset);
-            if (TryParseTime(obj, "sunrise", out TimeSpan rise)) settings.FixedSunrise = rise;
-            if (TryParseTime(obj, "sunset", out TimeSpan set)) settings.FixedSunset = set;
+            settings.Latitude = lat;
+            settings.Longitude = lon;
         }
+        if (config.OffsetMinutes != 0)
+            settings.Offset = TimeSpan.FromMinutes(config.OffsetMinutes);
+        if (TryParseTime(config.Sunrise, out TimeSpan rise)) settings.FixedSunrise = rise;
+        if (TryParseTime(config.Sunset, out TimeSpan set)) settings.FixedSunset = set;
 
         // 未配置坐标或固定时间：回退到内置默认坐标（北京），开箱即用
         if (!settings.HasCoordinates && !settings.HasFixedTimes)
@@ -78,25 +79,11 @@ public sealed class AutoThemeSettings
         return (times.Sunrise + Offset, times.Sunset + Offset, times.AllDay);
     }
 
-    private static bool TryParseDouble(JsonObject obj, string key, out double value)
-    {
-        value = 0;
-        return obj.TryGet(key, out var v) && v is JsonString s
-            && double.TryParse(s.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
-    }
-
-    private static bool TryParseInt(JsonObject obj, string key, out int value)
-    {
-        value = 0;
-        return obj.TryGet(key, out var v) && v is JsonString s
-            && int.TryParse(s.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
-    }
-
-    private static bool TryParseTime(JsonObject obj, string key, out TimeSpan value)
+    private static bool TryParseTime(string? text, out TimeSpan value)
     {
         value = default;
-        return obj.TryGet(key, out var v) && v is JsonString s
-            && TimeSpan.TryParseExact(s.Value, new[] { "h\\:mm", "hh\\:mm" }, CultureInfo.InvariantCulture, out value);
+        return !string.IsNullOrWhiteSpace(text)
+            && TimeSpan.TryParseExact(text, new[] { "h\\:mm", "hh\\:mm" }, CultureInfo.InvariantCulture, out value);
     }
 }
 

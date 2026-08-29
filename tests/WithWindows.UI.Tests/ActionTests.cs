@@ -27,26 +27,7 @@ public class DisplayModeActionTests
     [Fact]
     public void ParseArgs_StringArg_IsTrimmedAndLowercased()
     {
-        Assert.Equal(("extend", Array.Empty<string>()), DisplayModeAction.ParseArgs(" Extend "));
-    }
-
-    [Fact]
-    public void ParseArgs_JsonObjectArg_ReadsModeProperty()
-    {
-        var json = MiniJson.Parse("""{ "mode": "extend" }""");
-
-        Assert.Equal(("extend", Array.Empty<string>()), DisplayModeAction.ParseArgs(json));
-    }
-
-    [Fact]
-    public void ParseArgs_JsonWithToggleModes_ReadsBoth()
-    {
-        var json = MiniJson.Parse("""{ "mode": "toggle", "modes": ["internal", "extend"] }""");
-
-        var (mode, modes) = DisplayModeAction.ParseArgs(json);
-
-        Assert.Equal("toggle", mode);
-        Assert.Equal(new[] { "internal", "extend" }, modes);
+        Assert.Equal("extend", DisplayModeAction.ParseArgs(" Extend "));
     }
 
     [Theory]
@@ -56,15 +37,6 @@ public class DisplayModeActionTests
     public void ParseArgs_MissingOrBlank_Throws(string? input)
     {
         Assert.Throws<ArgumentException>(() => DisplayModeAction.ParseArgs(input));
-    }
-
-    [Fact]
-    public void ParseArgs_JsonWithoutMode_Throws()
-    {
-        // MiniJson 仅支持对象/数组/字符串，这里用字符串值构造"缺 mode"的对象
-        var json = MiniJson.Parse("""{ "other": "x" }""");
-
-        Assert.Throws<ArgumentException>(() => DisplayModeAction.ParseArgs(json));
     }
 
     [Theory]
@@ -167,22 +139,6 @@ public class ThemeActionTests
     public void ParseArgs_StringArg_IsTrimmedAndLowercased()
     {
         Assert.Equal("dark", ThemeAction.ParseArgs(" Dark "));
-    }
-
-    [Fact]
-    public void ParseArgs_JsonObjectArg_ReadsModeProperty()
-    {
-        var json = MiniJson.Parse("""{ "mode": "light" }""");
-
-        Assert.Equal("light", ThemeAction.ParseArgs(json));
-    }
-
-    [Fact]
-    public void ParseArgs_JsonWithoutMode_Throws()
-    {
-        var json = MiniJson.Parse("""{ "other": "x" }""");
-
-        Assert.Throws<ArgumentException>(() => ThemeAction.ParseArgs(json));
     }
 
     [Theory]

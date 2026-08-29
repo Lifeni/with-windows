@@ -1,4 +1,3 @@
-using WithWindows.Config;
 using WithWindows.Core;
 using WithWindows.Interop;
 
@@ -13,12 +12,17 @@ namespace WithWindows.Actions;
 /// </summary>
 public sealed class DisplayModeAction : IAction
 {
+    private readonly string[] _toggleModes;
+
+    /// <summary>构造时注入 toggle 候选模式（来自配置 displayMode.modes；空数组 = 默认 internal/extend）。</summary>
+    public DisplayModeAction(string[]? toggleModes = null) => _toggleModes = toggleModes ?? Array.Empty<string>();
+
     public string Name => "display_mode";
 
     public ActionResult Execute(object? args)
     {
-        var (requested, toggleModes) = ParseArgs(args);
-        var (target, isChange) = Decide(DisplayTopology.GetCurrentMode(), requested, toggleModes);
+        string requested = ParseArgs(args);
+        var (target, isChange) = Decide(DisplayTopology.GetCurrentMode(), requested, _toggleModes);
 
         if (!isChange)
             return new ActionResult(false, $"当前已是{ModeDisplayName(target)}");
@@ -45,30 +49,10 @@ public sealed class DisplayModeAction : IAction
         return index >= 0 ? modes[(index + 1) % modes.Length] : modes[0];
     }
 
-    internal static (string Mode, string[] Modes) ParseArgs(object? args)
+    internal static string ParseArgs(object? args)
     {
-        if (args is JsonObject obj)
-        {
-            string? mode = obj.TryGet("mode", out var modeVal) && modeVal is JsonString modeStr
-                ? modeStr.Value.Trim().ToLowerInvariant()
-                : null;
-
-            string[] modes = Array.Empty<string>();
-            if (obj.TryGet("modes", out var modesVal) && modesVal is JsonArray modesArr)
-                modes = modesArr.Items.OfType<JsonString>()
-                    .Select(x => x.Value.Trim().ToLowerInvariant())
-                    .ToArray();
-
-            if (string.IsNullOrEmpty(mode))
-                throw new ArgumentException("缺少 args.mode（internal|extend|external|clone|toggle）");
-            return (mode, modes);
-        }
-
-        if (args is JsonString text && !string.IsNullOrWhiteSpace(text.Value))
-            return (text.Value.Trim().ToLowerInvariant(), Array.Empty<string>());
-
         if (args is string direct && !string.IsNullOrWhiteSpace(direct))
-            return (direct.Trim().ToLowerInvariant(), Array.Empty<string>());
+            return direct.Trim().ToLowerInvariant();
 
         throw new ArgumentException("缺少 args.mode（internal|extend|external|clone|toggle）");
     }
