@@ -89,7 +89,7 @@ public sealed class AutoThemeSettings
 
 /// <summary>
 /// 按日出日落自动切换亮/暗的后台调度器。启用状态持久化到 HKCU\Software\WithWindows\AutoTheme 的
-/// Enabled 标志（托盘菜单勾选开关，重启后保持）。WinForms 定时器在 UI 线程上按"下一切换点"调度；
+/// Enabled 标志（一键切换窗口勾选开关，重启后保持）。DispatcherQueueTimer 在 UI 线程上按"下一切换点"调度；
 /// 错过切换点（睡眠唤醒等）时按当前时刻对账一次主题。极昼/极夜日无切换点，半天后重算。
 /// </summary>
 public sealed class AutoThemeScheduler : IDisposable
@@ -100,7 +100,7 @@ public sealed class AutoThemeScheduler : IDisposable
     private static readonly TimeSpan MaxReschedule = TimeSpan.FromHours(24);
     private static readonly TimeSpan MinReschedule = TimeSpan.FromMinutes(1);
 
-    private readonly IAction _themeAction;
+    private readonly ThemeAction _themeAction;
     private readonly AutoThemeSettings _settings;
     private readonly Logger _log;
     private readonly DispatcherQueueTimer _timer;
@@ -108,7 +108,7 @@ public sealed class AutoThemeScheduler : IDisposable
 
     public bool Enabled => _enabled;
 
-    public AutoThemeScheduler(IAction themeAction, AutoThemeSettings settings, Logger log, DispatcherQueue queue)
+    public AutoThemeScheduler(ThemeAction themeAction, AutoThemeSettings settings, Logger log, DispatcherQueue queue)
     {
         _themeAction = themeAction;
         _settings = settings;

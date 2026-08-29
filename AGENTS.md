@@ -73,11 +73,11 @@ Interop/             P/Invoke 集中地（RegisterHotKey、SetDisplayConfig、WM
 
 ### 新增一个动作（标准流程）
 
-1. 实现 `IAction`（`Name` + `Execute(object? args)` 返回 `ActionResult(Changed, Message)`）；失败抛异常由宿主捕获
+1. 新建动作类，暴露 `Execute(string mode)` 返回 `ActionResult(Changed, Message)`；失败抛异常由宿主捕获
 2. 纯逻辑抽 `internal static` 供测试（参考 `DisplayModeAction.Decide`/`ThemeAction.PickToggleTarget`）
 3. 在 `MainWindow.ExecuteAction` 的动作分发 switch 中接入
 4. 配置条目：`bindings` 加 `"动作名": "热键"`；一键切换窗口补对应配置 UI（如需要）
-5. 测试：纯函数 + 参数解析；**禁止写测试改变真实状态**（注册表/主题/显示器）
+5. 测试：纯函数 + 模式验证；**禁止写测试改变真实状态**（注册表/主题/显示器）
 
 ## 提交规范（硬性）
 

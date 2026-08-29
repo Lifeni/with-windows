@@ -25,18 +25,10 @@ public class DisplayModeActionTests
     }
 
     [Fact]
-    public void ParseArgs_StringArg_IsTrimmedAndLowercased()
+    public void Execute_UnknownMode_ThrowsBeforeChangingState()
     {
-        Assert.Equal("extend", DisplayModeAction.ParseArgs(" Extend "));
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void ParseArgs_MissingOrBlank_Throws(string? input)
-    {
-        Assert.Throws<ArgumentException>(() => DisplayModeAction.ParseArgs(input));
+        // 非法模式在验证阶段抛出，不触碰显示器状态
+        Assert.Throws<ArgumentException>(() => new DisplayModeAction().Execute("triple"));
     }
 
     [Theory]
@@ -111,34 +103,16 @@ public class DisplayModeActionTests
         Assert.True(isChange);
     }
 
-    [Fact]
-    public void Action_ExposesExpectedName()
-    {
-        Assert.Equal("display_mode", new DisplayModeAction().Name);
-    }
 }
 
 public class ThemeActionTests
 {
-    [Fact]
-    public void Action_ExposesExpectedName()
-    {
-        Assert.Equal("theme", new ThemeAction().Name);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void ParseArgs_MissingOrBlank_Throws(string? input)
-    {
-        Assert.Throws<ArgumentException>(() => ThemeAction.ParseArgs(input));
-    }
 
     [Fact]
-    public void ParseArgs_StringArg_IsTrimmedAndLowercased()
+    public void Execute_UnknownMode_ThrowsBeforeChangingState()
     {
-        Assert.Equal("dark", ThemeAction.ParseArgs(" Dark "));
+        // 非法模式在验证阶段抛出，不触碰注册表主题
+        Assert.Throws<ArgumentException>(() => new ThemeAction().Execute("neon"));
     }
 
     [Theory]
@@ -234,45 +208,4 @@ public class DisplayConfigLayoutTests
     }
 }
 
-public class ActionRegistryTests
-{
-    [Fact]
-    public void Find_RegisteredAction_ReturnsInstance()
-    {
-        var registry = new ActionRegistry();
-        var action = new DisplayModeAction();
-        registry.Register(action);
 
-        Assert.Same(action, registry.Find("display_mode"));
-    }
-
-    [Fact]
-    public void Find_IsCaseInsensitive()
-    {
-        var registry = new ActionRegistry();
-        registry.Register(new DisplayModeAction());
-
-        Assert.NotNull(registry.Find("DISPLAY_MODE"));
-        Assert.NotNull(registry.Find("Display_Mode"));
-    }
-
-    [Fact]
-    public void Find_UnknownAction_ReturnsNull()
-    {
-        var registry = new ActionRegistry();
-
-        Assert.Null(registry.Find("no_such_action"));
-    }
-
-    [Fact]
-    public void Register_SameName_Overwrites()
-    {
-        var registry = new ActionRegistry();
-        var first = new DisplayModeAction();
-        var second = new DisplayModeAction();
-        registry.Register(first);
-        registry.Register(second);
-
-        Assert.Same(second, registry.Find("display_mode"));
-    }
-}

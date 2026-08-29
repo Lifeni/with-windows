@@ -227,6 +227,7 @@ public sealed partial class NotepadWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        _aiCts.Cancel(); // 中断进行中的 AI 请求
         _saveTimer.Stop();
         Save();
         CopyToClipboard();

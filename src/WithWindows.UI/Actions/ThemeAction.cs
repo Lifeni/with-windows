@@ -9,10 +9,10 @@ namespace WithWindows.Actions;
 /// 切换 Windows 亮色/暗色模式（应用与系统外观同步切换），基于注册表
 /// HKCU\...\Themes\Personalize\AppsUseLightTheme / SystemUsesLightTheme 写入，并广播
 /// WM_SETTINGCHANGE("ImmersiveColorSet") 让正在运行的应用即时刷新，无需重启资源管理器。
-/// args 支持 {"mode": "light"} 或字符串 "light"；mode 取值：light / dark，以及 "toggle"：
-/// 读取当前模式并切换到相反值。目标模式与当前一致时返回 Changed=false，宿主不弹通知。
+/// mode 取值：light / dark，以及 "toggle"：读取当前模式并切换到相反值。
+/// 目标模式与当前一致时返回 Changed=false，宿主不弹通知。
 /// </summary>
-public sealed class ThemeAction : IAction
+public sealed class ThemeAction
 {
     /// <summary>主题注册表键（HKCU 完整路径，GetValue/SetValue 通用；SetValue 会自动建键）。</summary>
     internal const string PersonalizeKey =
@@ -21,11 +21,13 @@ public sealed class ThemeAction : IAction
     private const string AppsUseLightTheme = "AppsUseLightTheme";
     private const string SystemUsesLightTheme = "SystemUsesLightTheme";
 
-    public string Name => "theme";
-
-    public ActionResult Execute(object? args)
+    /// <summary>执行切换；mode 为 light / dark / toggle（大小写不敏感）。非法值抛 ArgumentException。</summary>
+    public ActionResult Execute(string mode)
     {
-        string requested = ParseArgs(args);
+        string requested = mode.Trim().ToLowerInvariant();
+        if (requested is not ("light" or "dark" or "toggle"))
+            throw new ArgumentException($"未知主题模式“{requested}”（支持 light|dark|toggle）");
+
         var (target, isChange) = Decide(GetCurrentMode(), requested);
 
         if (!isChange)
@@ -65,14 +67,6 @@ public sealed class ThemeAction : IAction
         "dark" => "light",
         _ => throw new InvalidOperationException("无法读取当前主题状态"),
     };
-
-    internal static string ParseArgs(object? args)
-    {
-        if (args is string direct && !string.IsNullOrWhiteSpace(direct))
-            return direct.Trim().ToLowerInvariant();
-
-        throw new ArgumentException("缺少 args.mode（light|dark|toggle）");
-    }
 
     /// <summary>写入应用与系统主题注册表并广播 WM_SETTINGCHANGE，运行中的应用即时切换。</summary>
     internal static void Apply(string mode)

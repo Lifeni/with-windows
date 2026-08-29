@@ -5,23 +5,24 @@ namespace WithWindows.Actions;
 
 /// <summary>
 /// 切换投影模式，基于 SetDisplayConfig 直接应用拓扑（比 DisplaySwitch.exe 可靠：同步、可验证结果）。
-/// args 支持 {"mode": "internal"} 或字符串 "internal"；mode 取值：
-/// internal（仅当前屏幕） / extend（扩展） / external（仅外接） / clone（复制），
-/// 以及 "toggle": 在 args.modes（默认 ["internal", "extend"]）中自动判断当前模式并切换到下一个。
+/// mode 取值：internal（仅当前屏幕） / extend（扩展） / external（仅外接） / clone（复制），
+/// 以及 "toggle"：在构造注入的候选模式（配置 displayMode.modes，默认 internal/extend）中循环切换。
 /// 目标模式与当前一致时返回 Changed=false，宿主不弹通知。
 /// </summary>
-public sealed class DisplayModeAction : IAction
+public sealed class DisplayModeAction
 {
     private readonly string[] _toggleModes;
 
     /// <summary>构造时注入 toggle 候选模式（来自配置 displayMode.modes；空数组 = 默认 internal/extend）。</summary>
     public DisplayModeAction(string[]? toggleModes = null) => _toggleModes = toggleModes ?? Array.Empty<string>();
 
-    public string Name => "display_mode";
-
-    public ActionResult Execute(object? args)
+    /// <summary>执行切换；mode 为 internal / extend / external / clone / toggle（大小写不敏感）。非法值抛 ArgumentException。</summary>
+    public ActionResult Execute(string mode)
     {
-        string requested = ParseArgs(args);
+        string requested = mode.Trim().ToLowerInvariant();
+        if (requested is not ("internal" or "extend" or "external" or "clone" or "toggle"))
+            throw new ArgumentException($"未知显示模式“{requested}”（支持 internal|extend|external|clone|toggle）");
+
         var (target, isChange) = Decide(DisplayTopology.GetCurrentMode(), requested, _toggleModes);
 
         if (!isChange)
@@ -47,14 +48,6 @@ public sealed class DisplayModeAction : IAction
             return modes[0];
         int index = Array.IndexOf(modes, current);
         return index >= 0 ? modes[(index + 1) % modes.Length] : modes[0];
-    }
-
-    internal static string ParseArgs(object? args)
-    {
-        if (args is string direct && !string.IsNullOrWhiteSpace(direct))
-            return direct.Trim().ToLowerInvariant();
-
-        throw new ArgumentException("缺少 args.mode（internal|extend|external|clone|toggle）");
     }
 
     internal static void Apply(string mode)

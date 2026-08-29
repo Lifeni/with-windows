@@ -72,7 +72,7 @@ internal static class NativeMethods
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
 
-    // ---- 隐藏消息窗口（热键接收，替代 WinForms NativeWindow） ----
+    // ---- 隐藏消息窗口（热键接收；WinUI 3 无托管消息窗口，手写 CreateWindowEx） ----
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr GetModuleHandle(string? lpModuleName);
