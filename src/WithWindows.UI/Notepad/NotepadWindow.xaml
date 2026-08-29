@@ -58,21 +58,15 @@
                                IsTextSelectionEnabled="True" />
                 </ScrollViewer>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="AskAiButton" Content="问 AI" Click="OnAskAi" />
+                    <Button x:Name="AskAiButton" Click="OnAskAi" ToolTipService.ToolTip="问 AI">
+                        <FontIcon Glyph="&#xE724;" FontSize="14" />
+                    </Button>
+                    <Button x:Name="AiConfigButton" Click="OnOpenAiConfig" ToolTipService.ToolTip="AI 设置">
+                        <FontIcon Glyph="&#xE713;" FontSize="14" />
+                    </Button>
                     <Button x:Name="ClearAiButton" Content="清除回复" Click="OnClearAi" />
                     <ProgressRing x:Name="AiProgress" IsActive="False" Width="20" Height="20" />
                 </StackPanel>
-
-                <!-- AI 配置 -->
-                <Expander Header="AI 配置（OpenAI 兼容端口）">
-                    <StackPanel Spacing="8">
-                        <TextBox x:Name="AiBaseUrl" Header="Base URL" PlaceholderText="http://127.0.0.1:11434/v1" />
-                        <TextBox x:Name="AiApiKey" Header="API Key" PlaceholderText="留空则不携带" />
-                        <TextBox x:Name="AiModel" Header="模型" PlaceholderText="如 qwen2.5" />
-                        <Button x:Name="SaveAiConfigButton" Content="保存 AI 配置" Click="OnSaveAiConfig"
-                                HorizontalAlignment="Left" />
-                    </StackPanel>
-                </Expander>
             </StackPanel>
             </ScrollViewer>
         </Expander>

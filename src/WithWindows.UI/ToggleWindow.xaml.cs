@@ -1,15 +1,17 @@
 using System.Globalization;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Graphics;
+using WithWindows.Actions;
 using WithWindows.Config;
 using WithWindows.Core;
 
 namespace WithWindows;
 
 /// <summary>
-/// 一键切换配置窗口：亮暗（热键 + 日出日落自动切换）与屏幕（热键 + 勾选切换模式）。
+/// 一键切换配置窗口：亮暗（热键 + 立即切换 + 日出日落自动）与屏幕（热键 + 立即切换 + 勾选模式）。
 /// 保存后写回配置并触发热重载（立即生效，无需重启）。
 /// </summary>
 public sealed partial class ToggleWindow : Window
@@ -17,6 +19,9 @@ public sealed partial class ToggleWindow : Window
     private readonly ConfigStore _configStore;
     private readonly Action _onSaved;
     private readonly Logger _log;
+    private readonly ThemeAction _theme = new();
+    private readonly DisplayModeAction _display;
+    private readonly DispatcherQueueTimer _statusTimer;
     private bool _sized;
 
     public ToggleWindow(ConfigStore configStore, Action onSaved, Logger log)
@@ -24,6 +29,12 @@ public sealed partial class ToggleWindow : Window
         _configStore = configStore;
         _onSaved = onSaved;
         _log = log;
+        _display = new DisplayModeAction(configStore.Load().DisplayMode.Modes.ToArray());
+
+        _statusTimer = DispatcherQueue.CreateTimer();
+        _statusTimer.Interval = TimeSpan.FromSeconds(3);
+        _statusTimer.Tick += (_, _) => { _statusTimer.Stop(); StatusBar.IsOpen = false; };
+
         InitializeComponent();
         LoadConfig();
     }
@@ -33,7 +44,7 @@ public sealed partial class ToggleWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(560, 700));
+            AppWindow.Resize(new SizeInt32(560, 640));
             _sized = true;
         }
     }
@@ -60,6 +71,33 @@ public sealed partial class ToggleWindow : Window
 
     private void OnAutoThemeToggled(object sender, RoutedEventArgs e)
         => AutoThemeOptions.Visibility = AutoThemeToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+
+    private void OnToggleTheme(object sender, RoutedEventArgs e) => RunAction(() => _theme.Execute("toggle"));
+
+    private void OnToggleDisplay(object sender, RoutedEventArgs e) => RunAction(() => _display.Execute("toggle"));
+
+    private void RunAction(Func<ActionResult> action)
+    {
+        try
+        {
+            var result = action();
+            ShowStatus(result.Changed ? result.Message : result.Message);
+            _log.Info($"[toggle] {result.Message}");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"切换失败：{ex.Message}");
+            _log.Error($"[toggle] 切换失败: {ex}");
+        }
+    }
+
+    private void ShowStatus(string message)
+    {
+        StatusBar.Message = message;
+        StatusBar.IsOpen = true;
+        _statusTimer.Stop();
+        _statusTimer.Start();
+    }
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
@@ -89,10 +127,12 @@ public sealed partial class ToggleWindow : Window
             _configStore.Save(config);
             _onSaved(); // 热重载：热键立即生效
             _log.Info("[toggle] 配置已保存并热重载");
+            ShowStatus("配置已保存，立即生效");
         }
         catch (Exception ex)
         {
             _log.Error($"[toggle] 保存失败: {ex}");
+            ShowStatus($"保存失败：{ex.Message}");
         }
     }
 

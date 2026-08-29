@@ -43,7 +43,6 @@ public sealed partial class NotepadWindow : Window
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); Save(); };
 
         LoadSavedText();
-        LoadAiConfig();
         Closed += OnClosed;
     }
 
@@ -130,30 +129,37 @@ public sealed partial class NotepadWindow : Window
 
     // ---- AI 助手 ----
 
-    private void LoadAiConfig()
+    private async void OnOpenAiConfig(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            var config = _configStore.Load();
-            AiBaseUrl.Text = config.Ai.BaseUrl;
-            AiApiKey.Text = config.Ai.ApiKey;
-            AiModel.Text = config.Ai.Model;
-        }
-        catch (Exception ex)
-        {
-            _log.Error($"AI 配置读取失败: {ex}");
-        }
-    }
+        var config = _configStore.Load();
+        var urlBox = new TextBox { Header = "Base URL", Text = config.Ai.BaseUrl, PlaceholderText = "http://127.0.0.1:11434/v1" };
+        var keyBox = new TextBox { Header = "API Key", Text = config.Ai.ApiKey, PlaceholderText = "留空则不携带" };
+        var modelBox = new TextBox { Header = "模型", Text = config.Ai.Model, PlaceholderText = "如 qwen2.5" };
 
-    private void OnSaveAiConfig(object sender, RoutedEventArgs e)
-    {
+        var panel = new StackPanel { Spacing = 12, MinWidth = 320 };
+        panel.Children.Add(urlBox);
+        panel.Children.Add(keyBox);
+        panel.Children.Add(modelBox);
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "AI 设置",
+            Content = panel,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
         try
         {
-            var config = _configStore.Load();
-            config.Ai.BaseUrl = AiBaseUrl.Text.Trim();
-            config.Ai.ApiKey = AiApiKey.Text.Trim();
-            config.Ai.Model = AiModel.Text.Trim();
-            _configStore.Save(config);
+            var updated = _configStore.Load();
+            updated.Ai.BaseUrl = urlBox.Text.Trim();
+            updated.Ai.ApiKey = keyBox.Text.Trim();
+            updated.Ai.Model = modelBox.Text.Trim();
+            _configStore.Save(updated);
             _log.Info("[ai] 配置已保存");
         }
         catch (Exception ex)

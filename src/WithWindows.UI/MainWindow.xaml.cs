@@ -52,16 +52,21 @@ public sealed partial class MainWindow : Window
 
     private MenuFlyout BuildMenu()
     {
-        var notepad = new MenuFlyoutItem { Text = "快捷记事" };
+        var notepad = new MenuFlyoutItem { Text = "快捷记事", Icon = new FontIcon { Glyph = "\uE7C3" } };
         notepad.Click += (_, _) => _notepad.Toggle();
 
-        var toggle = new MenuFlyoutItem { Text = "一键切换" };
+        var toggle = new MenuFlyoutItem { Text = "一键切换", Icon = new FontIcon { Glyph = "\uE8B9" } };
         toggle.Click += (_, _) => ShowToggleWindow();
 
-        var autoStart = new ToggleMenuFlyoutItem { Text = "开机自启", IsChecked = AutoStart.IsEnabled() };
+        var autoStart = new ToggleMenuFlyoutItem
+        {
+            Text = "开机自启",
+            Icon = new FontIcon { Glyph = "\uE7E8" },
+            IsChecked = AutoStart.IsEnabled(),
+        };
         autoStart.Click += (_, _) => ToggleAutoStart(autoStart);
 
-        var exit = new MenuFlyoutItem { Text = "退出" };
+        var exit = new MenuFlyoutItem { Text = "退出", Icon = new FontIcon { Glyph = "\uE711" } };
         exit.Click += (_, _) => Application.Current.Exit();
 
         var menu = new MenuFlyout();
