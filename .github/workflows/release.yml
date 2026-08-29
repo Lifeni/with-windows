@@ -14,10 +14,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 测试
-        run: dotnet test tests/WithWindows.Tests/WithWindows.Tests.csproj -c Release
+        run: dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -c Release -p:Platform=x64
 
       - name: 发布产物
-        run: dotnet publish src/WithWindows/WithWindows.csproj -c Release -o dist
+        run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true
 
       - name: 提取更新日志为 Release 正文
         shell: pwsh
