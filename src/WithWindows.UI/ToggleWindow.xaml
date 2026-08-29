@@ -1,0 +1,55 @@
+<Window
+    x:Class="WithWindows.ToggleWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WithWindows.Controls"
+    Title="一键切换">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="16" Spacing="12" MaxWidth="460" HorizontalAlignment="Left">
+
+            <TextBlock Text="切换亮暗" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="快捷键" VerticalAlignment="Center" />
+                <controls:HotkeyInputBox x:Name="ThemeHotkey" Grid.Column="1" />
+            </Grid>
+            <ToggleSwitch x:Name="AutoThemeToggle"
+                          Header="日出日落自动切换"
+                          OnContent="启用"
+                          OffContent="关闭"
+                          Toggled="OnAutoThemeToggled" />
+            <StackPanel x:Name="AutoThemeOptions" Spacing="8" Visibility="Collapsed">
+                <TextBlock Text="坐标与固定时间二选一（不填坐标时使用内置默认坐标）"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+                <TextBox x:Name="ThemeLatitude" Header="纬度" />
+                <TextBox x:Name="ThemeLongitude" Header="经度" />
+                <TextBox x:Name="ThemeSunrise" Header="固定日出（HH:mm，可选）" />
+                <TextBox x:Name="ThemeSunset" Header="固定日落（HH:mm，可选）" />
+                <TextBox x:Name="ThemeOffset" Header="偏移分钟（正数 = 延后）" />
+            </StackPanel>
+
+            <TextBlock Text="切换屏幕" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="快捷键" VerticalAlignment="Center" />
+                <controls:HotkeyInputBox x:Name="DisplayHotkey" Grid.Column="1" />
+            </Grid>
+            <TextBox x:Name="DisplayModes" Header="切换模式列表（逗号分隔）"
+                     PlaceholderText="internal,extend" />
+            <TextBlock Text="可选值：internal（仅当前屏幕）/ extend（扩展）/ external（仅外接）/ clone（复制）"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap" />
+
+            <Button x:Name="SaveButton" Content="保存并生效" Click="OnSave"
+                    HorizontalAlignment="Right" Style="{StaticResource AccentButtonStyle}" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

@@ -13,8 +13,10 @@ public sealed partial class MainWindow : Window
     private readonly HotkeyManager _hotkeys = new();
     private readonly Logger _log;
     private readonly NotepadHost _notepad;
+    private readonly ConfigStore _configStore;
     private TrayIcon? _tray; // 防 GC：托盘图标必须保持引用，否则会被回收
     private AutoThemeScheduler? _autoTheme;
+    private ToggleWindow? _toggleWindow;
     private ThemeAction _theme = null!;
     private DisplayModeAction _display = null!;
 
@@ -24,6 +26,7 @@ public sealed partial class MainWindow : Window
     public MainWindow(AppConfig config, Logger log, ConfigStore configStore)
     {
         _log = log;
+        _configStore = configStore;
         string dataRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WithWindows");
         _notepad = new NotepadHost(dataRoot, log, configStore);
@@ -43,7 +46,7 @@ public sealed partial class MainWindow : Window
         string iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
         _tray = new TrayIcon(1, iconPath, "With Windows");
         _tray.ContextMenu += (_, e) => e.Flyout = BuildMenu();
-        _tray.LeftDoubleClick += (_, _) => ShowWindow();
+        _tray.LeftDoubleClick += (_, _) => ShowToggleWindow();
         _tray.IsVisible = true;
     }
 
@@ -52,24 +55,29 @@ public sealed partial class MainWindow : Window
         var notepad = new MenuFlyoutItem { Text = "记事本" };
         notepad.Click += (_, _) => _notepad.Toggle();
 
-        var show = new MenuFlyoutItem { Text = "显示窗口" };
-        show.Click += (_, _) => ShowWindow();
+        var toggle = new MenuFlyoutItem { Text = "一键切换" };
+        toggle.Click += (_, _) => ShowToggleWindow();
 
         var exit = new MenuFlyoutItem { Text = "退出" };
         exit.Click += (_, _) => Application.Current.Exit();
 
         var menu = new MenuFlyout();
         menu.Items.Add(notepad);
-        menu.Items.Add(show);
+        menu.Items.Add(toggle);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(exit);
         return menu;
     }
 
-    private void ShowWindow()
+    private void ShowToggleWindow()
     {
-        this.Show();
-        this.Activate();
+        _toggleWindow ??= new ToggleWindow(_configStore, OnToggleSaved, _log);
+        _toggleWindow.ShowAndFocus();
+    }
+
+    private void OnToggleSaved()
+    {
+        ReloadBindings(_configStore.Load());
     }
 
     private void SetupHotkeys(AppConfig config)
@@ -93,11 +101,25 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>重新注册全部热键绑定（设置保存后热重载：先注销再注册）。</summary>
+    /// <summary>重新注册全部热键并重建自动亮暗调度（设置保存后热重载，立即生效）。</summary>
     public void ReloadBindings(AppConfig config)
     {
         _hotkeys.UnregisterAll();
         RegisterBindings(config);
+
+        // 自动亮暗配置热重载：停旧调度器，按新配置重建
+        _autoTheme?.Stop();
+        _autoTheme = new AutoThemeScheduler(
+            _theme,
+            AutoThemeSettings.FromConfig(config.Theme),
+            _log,
+            Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+        if (config.Theme.Enabled || AutoThemeScheduler.GetEnabledFlag())
+        {
+            string? error = _autoTheme.TryStart();
+            if (error is not null)
+                _log.Error($"自动亮暗切换启动失败: {error}");
+        }
     }
 
     private void RegisterBindings(AppConfig config)
