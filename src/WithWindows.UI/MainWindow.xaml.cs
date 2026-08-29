@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using WithWindows.Actions;
 using WithWindows.Config;
 using WithWindows.Core;
+using WithWindows.Notepad;
 using WinUIEx;
 
 namespace WithWindows;
@@ -11,6 +12,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly HotkeyManager _hotkeys = new();
     private readonly Logger _log;
+    private readonly NotepadHost _notepad;
     private TrayIcon? _tray; // 防 GC：托盘图标必须保持引用，否则会被回收
     private AutoThemeScheduler? _autoTheme;
     private ThemeAction _theme = null!;
@@ -22,6 +24,10 @@ public sealed partial class MainWindow : Window
     public MainWindow(AppConfig config, Logger log)
     {
         _log = log;
+        string dataRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WithWindows");
+        _notepad = new NotepadHost(dataRoot, log);
+
         InitializeComponent();
         SetupTray();
         SetupHotkeys(config);
@@ -43,6 +49,9 @@ public sealed partial class MainWindow : Window
 
     private MenuFlyout BuildMenu()
     {
+        var notepad = new MenuFlyoutItem { Text = "记事本" };
+        notepad.Click += (_, _) => _notepad.Toggle();
+
         var show = new MenuFlyoutItem { Text = "显示窗口" };
         show.Click += (_, _) => ShowWindow();
 
@@ -50,6 +59,7 @@ public sealed partial class MainWindow : Window
         exit.Click += (_, _) => Application.Current.Exit();
 
         var menu = new MenuFlyout();
+        menu.Items.Add(notepad);
         menu.Items.Add(show);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(exit);
@@ -83,7 +93,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>注册全部热键绑定（热重载：先注销再注册）。</summary>
+    /// <summary>重新注册全部热键绑定（设置保存后热重载：先注销再注册）。</summary>
     public void ReloadBindings(AppConfig config)
     {
         _hotkeys.UnregisterAll();
@@ -120,7 +130,7 @@ public sealed partial class MainWindow : Window
             {
                 "theme" => _theme.Execute("toggle"),
                 "display_mode" => _display.Execute("toggle"),
-                "notepad" => new ActionResult(false, "记事本尚未实现"),
+                "notepad" => _notepad.Toggle(),
                 _ => new ActionResult(false, $"未知动作 {action}"),
             };
             if (result.Changed)

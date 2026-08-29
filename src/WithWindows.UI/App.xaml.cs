@@ -8,6 +8,7 @@ namespace WithWindows;
 public partial class App : Application
 {
     private Window? _window;
+    private Logger? _log; // 生命周期 = 应用：热键回调跨 OnLaunched 使用，不能用 using 局部释放
 
     public App()
     {
@@ -29,7 +30,8 @@ public partial class App : Application
         // 数据目录：%APPDATA%\WithWindows（配置 + 日志），exe 目录保持干净
         string dataRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WithWindows");
-        using var log = Logger.Open(dataRoot);
+        var log = Logger.Open(dataRoot);
+        _log = log;
         log.Info("WithWindows 启动");
 
         // 1. 确保配置存在（首次运行自举默认配置）
@@ -54,7 +56,6 @@ public partial class App : Application
 
         // 3. 主窗口：托盘 + 热键注册 + 动作分发（含自动亮暗恢复）
         _window = new MainWindow(config, log);
-        _window.Activate();
 
         if (smoke)
         {
@@ -62,5 +63,6 @@ public partial class App : Application
             log.Info($"smoke: 绑定 {config.Bindings.Count}，注册失败 {window.RegisterFailures}");
             Exit();
         }
+        // 常驻：不显示主窗口（仅托盘），由托盘/热键唤出
     }
 }

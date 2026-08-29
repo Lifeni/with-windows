@@ -1,0 +1,47 @@
+<Window
+    x:Class="WithWindows.Notepad.NotepadWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="快捷记事">
+
+    <Grid Padding="8" RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 剪贴板建议条：打开时若剪贴板有文本且与正文不同，显示可点击条目 -->
+        <Border x:Name="ClipSuggestion"
+                Grid.Row="0"
+                Visibility="Collapsed"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="4">
+            <Button x:Name="ClipSuggestionButton"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Padding="8,4"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnClipSuggestionClick">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE16F;" FontSize="14" />
+                    <TextBlock x:Name="ClipSuggestionText"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="420" />
+                </StackPanel>
+            </Button>
+        </Border>
+
+        <TextBox x:Name="Editor"
+                 Grid.Row="1"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 FontFamily="Consolas"
+                 FontSize="14"
+                 VerticalAlignment="Stretch"
+                 TextChanged="OnTextChanged" />
+    </Grid>
+</Window>
