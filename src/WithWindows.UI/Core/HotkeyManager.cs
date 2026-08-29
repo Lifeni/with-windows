@@ -87,6 +87,15 @@ public sealed class HotkeyManager : IDisposable
             handler();
     }
 
+    /// <summary>注销全部热键（热重载前调用；再次 Register 即重新注册）。</summary>
+    public void UnregisterAll()
+    {
+        foreach (int id in _registeredIds)
+            NativeMethods.UnregisterHotKey(_window.Handle, id);
+        _registeredIds.Clear();
+        _handlers.Clear();
+    }
+
     public void Dispose()
     {
         foreach (int id in _registeredIds)
