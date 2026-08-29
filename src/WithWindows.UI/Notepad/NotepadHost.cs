@@ -30,7 +30,12 @@ public sealed class NotepadHost
             return new ActionResult(true, "已复制内容并关闭记事本", Notify: false);
         }
 
-        _window ??= new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore);
+        if (_window is null)
+        {
+            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore);
+            window.Closed += (_, _) => _window = null; // 用户关闭窗口后下次重建（热键隐藏不触发 Closed）
+            _window = window;
+        }
         _window.ShowAndFocus();
         _log.Info("[notepad] 已打开记事本");
         return new ActionResult(true, "已打开记事本", Notify: false);

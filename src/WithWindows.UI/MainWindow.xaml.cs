@@ -52,11 +52,14 @@ public sealed partial class MainWindow : Window
 
     private MenuFlyout BuildMenu()
     {
-        var notepad = new MenuFlyoutItem { Text = "记事本" };
+        var notepad = new MenuFlyoutItem { Text = "快捷记事" };
         notepad.Click += (_, _) => _notepad.Toggle();
 
         var toggle = new MenuFlyoutItem { Text = "一键切换" };
         toggle.Click += (_, _) => ShowToggleWindow();
+
+        var autoStart = new ToggleMenuFlyoutItem { Text = "开机自启", IsChecked = AutoStart.IsEnabled() };
+        autoStart.Click += (_, _) => ToggleAutoStart(autoStart);
 
         var exit = new MenuFlyoutItem { Text = "退出" };
         exit.Click += (_, _) => Application.Current.Exit();
@@ -65,13 +68,28 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(notepad);
         menu.Items.Add(toggle);
         menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(autoStart);
+        menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(exit);
         return menu;
     }
 
+    private void ToggleAutoStart(ToggleMenuFlyoutItem item)
+    {
+        // ToggleMenuFlyoutItem 点击后 IsChecked 已翻转
+        if (item.IsChecked) AutoStart.Enable();
+        else AutoStart.Disable();
+        _log.Info($"开机自启 {(item.IsChecked ? "已启用" : "已停用")}");
+    }
+
     private void ShowToggleWindow()
     {
-        _toggleWindow ??= new ToggleWindow(_configStore, OnToggleSaved, _log);
+        if (_toggleWindow is null)
+        {
+            var window = new ToggleWindow(_configStore, OnToggleSaved, _log);
+            window.Closed += (_, _) => _toggleWindow = null; // 用户关闭窗口后下次重建
+            _toggleWindow = window;
+        }
         _toggleWindow.ShowAndFocus();
     }
 

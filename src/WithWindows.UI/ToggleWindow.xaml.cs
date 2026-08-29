@@ -9,7 +9,7 @@ using WithWindows.Core;
 namespace WithWindows;
 
 /// <summary>
-/// 一键切换配置窗口：亮暗（热键 + 日出日落自动切换）与屏幕（热键 + 模式列表）。
+/// 一键切换配置窗口：亮暗（热键 + 日出日落自动切换）与屏幕（热键 + 勾选切换模式）。
 /// 保存后写回配置并触发热重载（立即生效，无需重启）。
 /// </summary>
 public sealed partial class ToggleWindow : Window
@@ -52,7 +52,10 @@ public sealed partial class ToggleWindow : Window
         ThemeSunset.Text = config.Theme.Sunset ?? "";
         ThemeOffset.Text = config.Theme.OffsetMinutes.ToString(CultureInfo.InvariantCulture);
 
-        DisplayModes.Text = string.Join(",", config.DisplayMode.Modes);
+        ModeInternal.IsChecked = config.DisplayMode.Modes.Contains("internal");
+        ModeExtend.IsChecked = config.DisplayMode.Modes.Contains("extend");
+        ModeExternal.IsChecked = config.DisplayMode.Modes.Contains("external");
+        ModeClone.IsChecked = config.DisplayMode.Modes.Contains("clone");
     }
 
     private void OnAutoThemeToggled(object sender, RoutedEventArgs e)
@@ -75,10 +78,13 @@ public sealed partial class ToggleWindow : Window
             config.Theme.OffsetMinutes = int.TryParse(ThemeOffset.Text, NumberStyles.Integer,
                 CultureInfo.InvariantCulture, out int offset) ? offset : 0;
 
-            config.DisplayMode.Modes = DisplayModes.Text
-                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                .Select(m => m.ToLowerInvariant())
-                .ToList();
+            // 勾选的模式作为 toggle 循环候选；全不选时回退默认 internal/extend
+            var modes = new List<string>();
+            if (ModeInternal.IsChecked == true) modes.Add("internal");
+            if (ModeExtend.IsChecked == true) modes.Add("extend");
+            if (ModeExternal.IsChecked == true) modes.Add("external");
+            if (ModeClone.IsChecked == true) modes.Add("clone");
+            config.DisplayMode.Modes = modes.Count > 0 ? modes : new List<string> { "internal", "extend" };
 
             _configStore.Save(config);
             _onSaved(); // 热重载：热键立即生效
