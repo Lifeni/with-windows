@@ -8,6 +8,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- 剪贴板建议条：打开时若剪贴板有文本且与正文不同，显示可点击条目 -->
@@ -43,5 +44,37 @@
                  FontSize="14"
                  VerticalAlignment="Stretch"
                  TextChanged="OnTextChanged" />
+
+        <!-- AI 助手：上下布局，回复面板可折叠 -->
+        <Expander x:Name="AiPanel"
+                  Grid.Row="2"
+                  Header="AI 助手"
+                  IsExpanded="False">
+                        <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="8">
+                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="AiReply"
+                               TextWrapping="Wrap"
+                               IsTextSelectionEnabled="True" />
+                </ScrollViewer>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="AskAiButton" Content="问 AI" Click="OnAskAi" />
+                    <Button x:Name="ClearAiButton" Content="清除回复" Click="OnClearAi" />
+                    <ProgressRing x:Name="AiProgress" IsActive="False" Width="20" Height="20" />
+                </StackPanel>
+
+                <!-- AI 配置 -->
+                <Expander Header="AI 配置（OpenAI 兼容端口）">
+                    <StackPanel Spacing="8">
+                        <TextBox x:Name="AiBaseUrl" Header="Base URL" PlaceholderText="http://127.0.0.1:11434/v1" />
+                        <TextBox x:Name="AiApiKey" Header="API Key" PlaceholderText="留空则不携带" />
+                        <TextBox x:Name="AiModel" Header="模型" PlaceholderText="如 qwen2.5" />
+                        <Button x:Name="SaveAiConfigButton" Content="保存 AI 配置" Click="OnSaveAiConfig"
+                                HorizontalAlignment="Left" />
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+            </ScrollViewer>
+        </Expander>
     </Grid>
 </Window>

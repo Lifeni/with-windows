@@ -55,7 +55,7 @@ public partial class App : Application
         }
 
         // 3. 主窗口：托盘 + 热键注册 + 动作分发（含自动亮暗恢复）
-        _window = new MainWindow(config, log);
+        _window = new MainWindow(config, log, configStore);
 
         if (smoke)
         {

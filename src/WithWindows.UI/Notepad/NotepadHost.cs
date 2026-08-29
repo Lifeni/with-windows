@@ -1,3 +1,4 @@
+using WithWindows.Config;
 using WithWindows.Core;
 
 namespace WithWindows.Notepad;
@@ -10,12 +11,14 @@ public sealed class NotepadHost
 {
     private readonly string _dataRoot;
     private readonly Logger _log;
+    private readonly ConfigStore _configStore;
     private NotepadWindow? _window;
 
-    public NotepadHost(string dataRoot, Logger log)
+    public NotepadHost(string dataRoot, Logger log, ConfigStore configStore)
     {
         _dataRoot = dataRoot;
         _log = log;
+        _configStore = configStore;
     }
 
     public ActionResult Toggle()
@@ -27,7 +30,7 @@ public sealed class NotepadHost
             return new ActionResult(true, "已复制内容并关闭记事本", Notify: false);
         }
 
-        _window ??= new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log);
+        _window ??= new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore);
         _window.ShowAndFocus();
         _log.Info("[notepad] 已打开记事本");
         return new ActionResult(true, "已打开记事本", Notify: false);

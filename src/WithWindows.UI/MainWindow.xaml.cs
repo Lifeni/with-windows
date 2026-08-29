@@ -21,12 +21,12 @@ public sealed partial class MainWindow : Window
     /// <summary>冒烟模式统计：热键注册失败数。</summary>
     public int RegisterFailures { get; private set; }
 
-    public MainWindow(AppConfig config, Logger log)
+    public MainWindow(AppConfig config, Logger log, ConfigStore configStore)
     {
         _log = log;
         string dataRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WithWindows");
-        _notepad = new NotepadHost(dataRoot, log);
+        _notepad = new NotepadHost(dataRoot, log, configStore);
 
         InitializeComponent();
         SetupTray();
