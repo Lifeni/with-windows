@@ -97,6 +97,7 @@ public sealed partial class NotepadWindow : Window
             LoadWindowState(); // 先设尺寸/位置/字体再显示，避免闪跳
             _sized = true;
         }
+        AppWindow.Show(); // 先显示（恢复渲染），再聚焦，减少合成延迟黑帧
         Activate();
         // 重开窗口恢复置顶状态（IsChecked 与视觉树可能被重置，用字段兜底）
         PinButton.IsChecked = _pinned;
