@@ -49,7 +49,8 @@ public sealed partial class ToggleWindow : Window
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
 
         string icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
-        IntPtr hIcon = NativeMethods.LoadImage(IntPtr.Zero, icoPath, 1 /* IMAGE_ICON */, 0, 0, 0x10 /* LR_LOADFROMFILE */);
+        // 显式 32x32 帧：避免系统默认尺寸取帧不一致导致拉伸/模糊
+        IntPtr hIcon = NativeMethods.LoadImage(IntPtr.Zero, icoPath, 1 /* IMAGE_ICON */, 32, 32, 0x10 /* LR_LOADFROMFILE */);
         if (hIcon != IntPtr.Zero)
             AppWindow.SetIcon(new IconId((ulong)hIcon));
     }

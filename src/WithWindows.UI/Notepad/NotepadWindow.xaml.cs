@@ -60,7 +60,7 @@ public sealed partial class NotepadWindow : Window
         Editor.PointerWheelChanged += OnEditorWheel; // Ctrl+滚轮缩放字体
         // 行距加大：设置默认段落格式并写回，作用于已有与新内容
         var fmt = Editor.Document.GetDefaultParagraphFormat();
-        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.35f);
+        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.2f);
         Editor.Document.SetDefaultParagraphFormat(fmt);
         LoadSavedText();
         Closed += OnClosed;
@@ -75,7 +75,8 @@ public sealed partial class NotepadWindow : Window
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
 
         string icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
-        IntPtr hIcon = NativeMethods.LoadImage(IntPtr.Zero, icoPath, 1 /* IMAGE_ICON */, 0, 0, 0x10 /* LR_LOADFROMFILE */);
+        // 显式 32x32 帧：避免系统默认尺寸取帧不一致导致拉伸/模糊
+        IntPtr hIcon = NativeMethods.LoadImage(IntPtr.Zero, icoPath, 1 /* IMAGE_ICON */, 32, 32, 0x10 /* LR_LOADFROMFILE */);
         if (hIcon != IntPtr.Zero)
             AppWindow.SetIcon(new IconId((ulong)hIcon));
     }
@@ -111,10 +112,10 @@ public sealed partial class NotepadWindow : Window
         }
         // 对全部文本应用行距（加载后段落格式重置为默认）
         var fmt = Editor.Document.GetDefaultParagraphFormat();
-        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.35f);
+        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.2f);
         var selection = Editor.Document.Selection;
         selection.SetRange(0, int.MaxValue);
-        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.35f);
+        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.2f);
         selection.SetRange(0, 0);
         UpdateStatus();
     }

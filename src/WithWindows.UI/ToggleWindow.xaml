@@ -20,7 +20,7 @@
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Padding="12,12,12,20" Spacing="0" MaxWidth="460" HorizontalAlignment="Left">
+            <StackPanel Padding="12,12,12,20" Spacing="0" HorizontalAlignment="Stretch">
 
                 <!-- 快捷记事 -->
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -119,6 +119,7 @@
                  Severity="Informational"
                  IsOpen="False"
                  IsClosable="False"
+                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                  VerticalAlignment="Bottom"
                  Margin="12,0,12,12" />
     </Grid>
