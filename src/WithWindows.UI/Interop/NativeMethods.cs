@@ -101,6 +101,10 @@ internal static class NativeMethods
     [DllImport("gdi32.dll")]
     public static extern IntPtr CreateSolidBrush(uint color);
 
+    // 窗口过渡动画（Win11 打开动画）：DWMWA_TRANSITIONS_FORCEDISABLED = 3
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
     [DllImport("user32.dll")]
     public static extern IntPtr CallWindowProc(IntPtr prevWndProc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 

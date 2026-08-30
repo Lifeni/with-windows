@@ -1,10 +1,7 @@
 using Microsoft.UI;
-using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
-using Microsoft.UI.Xaml.Hosting;
-using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -56,6 +53,9 @@ public sealed partial class NotepadWindow : Window
         // 窗口类背景画刷 = 内容同色，显示瞬间即灰色无黑框
         NativeMethods.SetClassLongPtr(WinRT.Interop.WindowNative.GetWindowHandle(this), -10 /* GCLP_HBRBACKGROUND */,
             NativeMethods.CreateSolidBrush(0x00302B2B)); // RGB(0x2B, 0x2B, 0x30)
+        // 恢复 Win11 窗口过渡动画（WinUI 3 可能默认禁用）
+        int enabled = 0;
+        NativeMethods.DwmSetWindowAttribute(WinRT.Interop.WindowNative.GetWindowHandle(this), 3 /* DWMWA_TRANSITIONS_FORCEDISABLED */, ref enabled, sizeof(int));
         _pinned = Registry.GetValue(PinRegistryPath, PinRegistryValue, 0) is int v && v != 0;
 
         _saveTimer = DispatcherQueue.CreateTimer();
@@ -102,7 +102,6 @@ public sealed partial class NotepadWindow : Window
         }
         AppWindow.Show(); // 先显示（恢复渲染），再聚焦，减少合成延迟黑帧
         Activate();
-        PlayOpenAnimation(); // Win11 风格打开动画（缩放 + 淡入）
         // 重开窗口恢复置顶状态（IsChecked 与视觉树可能被重置，用字段兜底）
         PinButton.IsChecked = _pinned;
         ApplyPinVisual();
@@ -244,28 +243,6 @@ public sealed partial class NotepadWindow : Window
 
     private static bool IsCtrlDown()
         => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
-
-    /// <summary>窗口打开动画：模拟 Win11 的放大淡入效果。</summary>
-    private void PlayOpenAnimation()
-    {
-        var visual = ElementCompositionPreview.GetElementVisual(RootGrid);
-        visual.CenterPoint = new Vector3((float)RootGrid.ActualWidth / 2, (float)RootGrid.ActualHeight / 2, 0);
-        var compositor = visual.Compositor;
-        var easing = compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0f), new Vector2(0.2f, 1f));
-
-        var scale = compositor.CreateVector3KeyFrameAnimation();
-        scale.InsertKeyFrame(0f, new Vector3(0.95f, 0.95f, 1f), easing);
-        scale.InsertKeyFrame(1f, new Vector3(1f, 1f, 1f), easing);
-        scale.Duration = TimeSpan.FromMilliseconds(250);
-        visual.StartAnimation("Scale", scale);
-
-        var opacity = compositor.CreateScalarKeyFrameAnimation();
-        opacity.InsertKeyFrame(0f, 0f, easing);
-        opacity.InsertKeyFrame(1f, 1f, easing);
-        opacity.Duration = TimeSpan.FromMilliseconds(250);
-        visual.StartAnimation("Opacity", opacity);
-    }
-
     // ---- 置顶开关 ----
 
     private void OnPinToggle(object sender, RoutedEventArgs e)
