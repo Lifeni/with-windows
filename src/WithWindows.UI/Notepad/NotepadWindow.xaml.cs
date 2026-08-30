@@ -45,8 +45,6 @@ public sealed partial class NotepadWindow : Window
         SetupTitleBar();
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsAlwaysOnTop = true; // 始终置顶：随时弹出记录
-        // 竖长形态；最小尺寸 = 设置窗口大小，不限制最大（Win32 WM_GETMINMAXINFO）
-        WindowSizeLimits.Apply(WinRT.Interop.WindowNative.GetWindowHandle(this), 520, 780);
 
         _saveTimer = DispatcherQueue.CreateTimer();
         _saveTimer.Interval = TimeSpan.FromMilliseconds(400);

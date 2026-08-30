@@ -13,6 +13,12 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        // 兜底：XAML 异常记录日志并继续运行，避免整进程崩溃
+        UnhandledException += (_, e) =>
+        {
+            try { _log?.Error($"未处理异常: {e.Exception}"); } catch { }
+            e.Handled = true;
+        };
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
