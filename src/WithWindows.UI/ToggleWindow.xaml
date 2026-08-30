@@ -20,167 +20,164 @@
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Padding="24,16,24,24" Spacing="0">
+            <Grid ColumnSpacing="32" Padding="24,16,24,24" MaxWidth="920" HorizontalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                <!-- 亮暗 -->
-                <TextBlock Text="切换亮暗" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
-                <Button x:Name="ThemeCard"
-                        Height="76"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        Padding="16,0"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Click="OnToggleTheme">
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon Glyph="&#xE790;" FontSize="22" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="点击切换" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ThemeStatusText" FontSize="12"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="14" VerticalAlignment="Center" />
-                    </Grid>
-                </Button>
-                <Expander Header="更多选项" IsExpanded="False" HorizontalAlignment="Stretch" Margin="0,8,0,0">
-                    <StackPanel Spacing="8">
-                        <Grid ColumnSpacing="8">
+                <!-- 左栏：切换区域 -->
+                <StackPanel Spacing="0">
+                    <TextBlock Text="切换亮暗" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
+                    <Button x:Name="ThemeCard"
+                            Height="64"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="14,0"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Click="OnToggleTheme">
+                        <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" MinWidth="72" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="快捷键" VerticalAlignment="Center"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock x:Name="ThemeHotkeyText" Grid.Column="1" VerticalAlignment="Center" />
-                            <Button Grid.Column="2" Content="设置快捷键" Click="OnSetThemeHotkey" />
+                            <FontIcon Glyph="&#xE790;" FontSize="20" VerticalAlignment="Center" />
+                            <TextBlock x:Name="ThemeStatusText" Grid.Column="1" VerticalAlignment="Center" />
+                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="14" VerticalAlignment="Center" />
                         </Grid>
-                        <ToggleSwitch x:Name="AutoThemeToggle"
-                                      Header="自动亮暗"
-                                      OnContent="启用"
-                                      OffContent="关闭"
-                                      Toggled="OnAutoThemeToggled" />
-                        <StackPanel x:Name="AutoThemeOptions" Spacing="8" Visibility="Collapsed">
-                            <TextBlock Text="打开开关时自动按系统时区填入默认坐标；坐标与固定时间二选一"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap" />
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="ThemeLatitude" Header="纬度" TextChanged="OnAutoSaveTextChanged" />
-                                <TextBox x:Name="ThemeLongitude" Grid.Column="1" Header="经度" TextChanged="OnAutoSaveTextChanged" />
-                            </Grid>
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="ThemeSunrise" Header="固定日出（HH:mm）" TextChanged="OnAutoSaveTextChanged" />
-                                <TextBox x:Name="ThemeSunset" Grid.Column="1" Header="固定日落（HH:mm）" TextChanged="OnAutoSaveTextChanged" />
-                            </Grid>
-                            <TextBox x:Name="ThemeOffset" Header="偏移分钟（正数 = 延后）" TextChanged="OnAutoSaveTextChanged" />
-                        </StackPanel>
-                    </StackPanel>
-                </Expander>
+                    </Button>
+                    <ToggleSwitch x:Name="AutoThemeToggle"
+                                  Header="自动亮暗（日出日落）"
+                                  OnContent="启用"
+                                  OffContent="关闭"
+                                  Toggled="OnAutoThemeToggled"
+                                  Margin="0,12,0,0" />
 
-                <!-- 屏幕 -->
-                <TextBlock Text="切换屏幕" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,28,0,12" />
-                <Button x:Name="DisplayCard"
-                        Height="76"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        Padding="16,0"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Click="OnToggleDisplay">
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon Glyph="&#xE7F4;" FontSize="22" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="点击切换" FontWeight="SemiBold" />
-                            <TextBlock x:Name="DisplayStatusText" FontSize="12"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="14" VerticalAlignment="Center" />
-                    </Grid>
-                </Button>
-                <Expander Header="更多选项" IsExpanded="False" HorizontalAlignment="Stretch" Margin="0,8,0,0">
-                    <StackPanel Spacing="8">
-                        <Grid ColumnSpacing="8">
+                    <TextBlock Text="切换屏幕" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,24,0,12" />
+                    <Button x:Name="DisplayCard"
+                            Height="64"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="14,0"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Click="OnToggleDisplay">
+                        <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" MinWidth="72" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="快捷键" VerticalAlignment="Center"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock x:Name="DisplayHotkeyText" Grid.Column="1" VerticalAlignment="Center" />
-                            <Button Grid.Column="2" Content="设置快捷键" Click="OnSetDisplayHotkey" />
+                            <FontIcon Glyph="&#xE7F4;" FontSize="20" VerticalAlignment="Center" />
+                            <TextBlock x:Name="DisplayStatusText" Grid.Column="1" VerticalAlignment="Center" />
+                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="14" VerticalAlignment="Center" />
                         </Grid>
-                        <TextBlock Text="切换模式（勾选参与循环切换的模式）"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Grid ColumnSpacing="12" RowSpacing="4">
+                    </Button>
+                    <TextBlock Text="切换模式（勾选参与循环切换的模式）"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Margin="0,12,0,8" />
+                    <Grid ColumnSpacing="12" RowSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <CheckBox x:Name="ModeInternal" Content="仅当前屏幕" Tag="internal"
+                                  Checked="OnModeChanged" Unchecked="OnModeChanged" />
+                        <CheckBox x:Name="ModeExtend" Grid.Column="1" Content="扩展模式" Tag="extend"
+                                  Checked="OnModeChanged" Unchecked="OnModeChanged" />
+                        <CheckBox x:Name="ModeExternal" Grid.Row="1" Content="仅外接屏幕" Tag="external"
+                                  Checked="OnModeChanged" Unchecked="OnModeChanged" />
+                        <CheckBox x:Name="ModeClone" Grid.Row="1" Grid.Column="1" Content="复制模式" Tag="clone"
+                                  Checked="OnModeChanged" Unchecked="OnModeChanged" />
+                    </Grid>
+
+                    <Button x:Name="RestoreDefaultsButton"
+                            Content="恢复默认"
+                            Click="OnRestoreDefaults"
+                            HorizontalAlignment="Left"
+                            Margin="0,24,0,0" />
+                    <ToggleSwitch x:Name="AutoStartToggle"
+                                  Header="开机自启"
+                                  OnContent="开启"
+                                  OffContent="关闭"
+                                  Toggled="OnAutoStartToggled"
+                                  Margin="0,12,0,0" />
+
+                    <!-- 关于 -->
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="14,10"
+                            Margin="0,24,0,0">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="With Windows" FontWeight="SemiBold" />
+                            <TextBlock x:Name="VersionText" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- 右栏：快捷键 + AI 设置 -->
+                <Border Grid.Column="1"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1,0,0,0"
+                        Padding="24,0,0,0">
+                    <StackPanel Spacing="0">
+                        <TextBlock Text="快捷键" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
+                        <TextBlock Text="记事本" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid ColumnSpacing="8" Margin="0,4,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <CheckBox x:Name="ModeInternal" Content="仅当前屏幕" Tag="internal"
-                                      Checked="OnModeChanged" Unchecked="OnModeChanged" />
-                            <CheckBox x:Name="ModeExtend" Grid.Column="1" Content="扩展模式" Tag="extend"
-                                      Checked="OnModeChanged" Unchecked="OnModeChanged" />
-                            <CheckBox x:Name="ModeExternal" Grid.Row="1" Content="仅外接屏幕" Tag="external"
-                                      Checked="OnModeChanged" Unchecked="OnModeChanged" />
-                            <CheckBox x:Name="ModeClone" Grid.Row="1" Grid.Column="1" Content="复制模式" Tag="clone"
-                                      Checked="OnModeChanged" Unchecked="OnModeChanged" />
+                            <TextBlock x:Name="NotepadHotkeyText" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="设置" Click="OnSetNotepadHotkey" />
                         </Grid>
+                        <TextBlock Text="切换亮暗" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid ColumnSpacing="8" Margin="0,4,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="ThemeHotkeyText" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="设置" Click="OnSetThemeHotkey" />
+                        </Grid>
+                        <TextBlock Text="切换屏幕" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid ColumnSpacing="8" Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="DisplayHotkeyText" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="设置" Click="OnSetDisplayHotkey" />
+                        </Grid>
+
+                        <TextBlock Text="AI 设置" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,28,0,12" />
+                        <TextBox x:Name="AiBaseUrl" Header="Base URL" PlaceholderText="http://127.0.0.1:11434/v1" />
+                        <TextBox x:Name="AiApiKey" Header="API Key" PlaceholderText="留空则不携带" Margin="0,8,0,0" />
+                        <TextBox x:Name="AiModel" Header="模型" PlaceholderText="如 qwen2.5" Margin="0,8,0,0" />
+                        <Button x:Name="SaveAiButton" Content="保存 AI 配置" Click="OnSaveAiConfig"
+                                HorizontalAlignment="Left" Margin="0,12,0,0" />
                     </StackPanel>
-                </Expander>
-
-                <!-- 记事本 -->
-                <TextBlock Text="记事本" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,28,0,12" />
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" MinWidth="72" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="快捷键" VerticalAlignment="Center"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock x:Name="NotepadHotkeyText" Grid.Column="1" VerticalAlignment="Center" />
-                    <Button Grid.Column="2" Content="设置快捷键" Click="OnSetNotepadHotkey" />
-                </Grid>
-
-                <!-- 底部 -->
-                <Button x:Name="RestoreDefaultsButton"
-                        Content="恢复默认"
-                        Click="OnRestoreDefaults"
-                        HorizontalAlignment="Left"
-                        Margin="0,28,0,0" />
-                <InfoBar x:Name="StatusBar"
-                         Severity="Informational"
-                         IsOpen="False"
-                         IsClosable="False"
-                         Margin="0,12,0,0" />
-            </StackPanel>
+                </Border>
+            </Grid>
         </ScrollViewer>
+
+        <InfoBar x:Name="StatusBar"
+                 Severity="Informational"
+                 IsOpen="False"
+                 IsClosable="False"
+                 Margin="12,0" />
     </Grid>
 </Window>

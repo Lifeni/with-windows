@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
@@ -9,11 +10,12 @@ using WithWindows.Actions;
 using WithWindows.Config;
 using WithWindows.Core;
 using WithWindows.Interop;
+
 namespace WithWindows;
 
 /// <summary>
-/// 设置窗口：大卡片点击即切换（亮暗 / 屏幕），快捷键弹窗录制，更多选项折叠，含记事本快捷键。
-/// 修改即自动保存并热重载；"恢复默认"一键还原。内容随窗口宽度自适应。
+/// 设置窗口：两栏布局——左（亮暗/屏幕切换卡片、自动亮暗、模式勾选、恢复默认、开机自启、关于），
+/// 右（三组快捷键 + AI 设置）。修改即自动保存并热重载。
 /// </summary>
 public sealed partial class ToggleWindow : Window
 {
@@ -69,7 +71,7 @@ public sealed partial class ToggleWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(440, 760));
+            AppWindow.Resize(new SizeInt32(760, 640));
             _sized = true;
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
@@ -84,21 +86,23 @@ public sealed partial class ToggleWindow : Window
         {
             var config = _configStore.Load();
 
+            NotepadHotkeyText.Text = FormatHotkeyText(config.Bindings, "notepad");
             ThemeHotkeyText.Text = FormatHotkeyText(config.Bindings, "theme");
             DisplayHotkeyText.Text = FormatHotkeyText(config.Bindings, "display_mode");
-            NotepadHotkeyText.Text = FormatHotkeyText(config.Bindings, "notepad");
 
             AutoThemeToggle.IsOn = config.Theme.Enabled;
-            ThemeLatitude.Text = config.Theme.Latitude?.ToString(CultureInfo.InvariantCulture) ?? "";
-            ThemeLongitude.Text = config.Theme.Longitude?.ToString(CultureInfo.InvariantCulture) ?? "";
-            ThemeSunrise.Text = config.Theme.Sunrise ?? "";
-            ThemeSunset.Text = config.Theme.Sunset ?? "";
-            ThemeOffset.Text = config.Theme.OffsetMinutes.ToString(CultureInfo.InvariantCulture);
+            AutoStartToggle.IsOn = AutoStart.IsEnabled();
+
+            AiBaseUrl.Text = config.Ai.BaseUrl;
+            AiApiKey.Text = config.Ai.ApiKey;
+            AiModel.Text = config.Ai.Model;
 
             ModeInternal.IsChecked = config.DisplayMode.Modes.Contains("internal");
             ModeExtend.IsChecked = config.DisplayMode.Modes.Contains("extend");
             ModeExternal.IsChecked = config.DisplayMode.Modes.Contains("external");
             ModeClone.IsChecked = config.DisplayMode.Modes.Contains("clone");
+
+            VersionText.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0"}";
         }
         finally
         {
@@ -160,14 +164,14 @@ public sealed partial class ToggleWindow : Window
 
     // ---- 快捷键设置（弹窗录制） ----
 
+    private async void OnSetNotepadHotkey(object sender, RoutedEventArgs e)
+        => await SetHotkey("notepad", "设置记事本快捷键", NotepadHotkeyText);
+
     private async void OnSetThemeHotkey(object sender, RoutedEventArgs e)
         => await SetHotkey("theme", "设置亮暗快捷键", ThemeHotkeyText);
 
     private async void OnSetDisplayHotkey(object sender, RoutedEventArgs e)
         => await SetHotkey("display_mode", "设置屏幕快捷键", DisplayHotkeyText);
-
-    private async void OnSetNotepadHotkey(object sender, RoutedEventArgs e)
-        => await SetHotkey("notepad", "设置记事本快捷键", NotepadHotkeyText);
 
     private async Task SetHotkey(string action, string title, TextBlock display)
     {
@@ -205,25 +209,17 @@ public sealed partial class ToggleWindow : Window
     // ---- 自动保存 ----
 
     private void OnAutoThemeToggled(object sender, RoutedEventArgs e)
-    {
-        AutoThemeOptions.Visibility = AutoThemeToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
-        if (AutoThemeToggle.IsOn && string.IsNullOrWhiteSpace(ThemeLatitude.Text))
-        {
-            // 按系统时区自动填入默认坐标，用户无需手动设置
-            ThemeLatitude.Text = AutoThemeSettings.DefaultLatitude.ToString(CultureInfo.InvariantCulture);
-            ThemeLongitude.Text = AutoThemeSettings.DefaultLongitude.ToString(CultureInfo.InvariantCulture);
-            ShowStatus($"已按系统时区（{TimeZoneInfo.Local.Id}）自动填入坐标");
-        }
-        AutoSave(notify: true);
-    }
+        => AutoSave(notify: true);
 
     private void OnModeChanged(object sender, RoutedEventArgs e) => AutoSave(notify: true);
 
-    private void OnAutoSaveTextChanged(object sender, TextChangedEventArgs e)
+    private void OnAutoStartToggled(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
-        _autoSaveTimer.Stop();
-        _autoSaveTimer.Start(); // 防抖
+        if (AutoStartToggle.IsOn) AutoStart.Enable();
+        else AutoStart.Disable();
+        ShowStatus(AutoStartToggle.IsOn ? "开机自启已开启" : "开机自启已关闭");
+        _log.Info($"[toggle] 开机自启 {(AutoStartToggle.IsOn ? "已启用" : "已停用")}");
     }
 
     private void AutoSave(bool notify)
@@ -239,12 +235,6 @@ public sealed partial class ToggleWindow : Window
             var config = _configStore.Load();
 
             config.Theme.Enabled = AutoThemeToggle.IsOn;
-            config.Theme.Latitude = ParseNullableDouble(ThemeLatitude.Text);
-            config.Theme.Longitude = ParseNullableDouble(ThemeLongitude.Text);
-            config.Theme.Sunrise = string.IsNullOrWhiteSpace(ThemeSunrise.Text) ? null : ThemeSunrise.Text.Trim();
-            config.Theme.Sunset = string.IsNullOrWhiteSpace(ThemeSunset.Text) ? null : ThemeSunset.Text.Trim();
-            config.Theme.OffsetMinutes = int.TryParse(ThemeOffset.Text, NumberStyles.Integer,
-                CultureInfo.InvariantCulture, out int offset) ? offset : 0;
 
             var modes = new List<string>();
             if (ModeInternal.IsChecked == true) modes.Add("internal");
@@ -261,6 +251,27 @@ public sealed partial class ToggleWindow : Window
         catch (Exception ex)
         {
             _log.Error($"[toggle] 保存失败: {ex}");
+            ShowStatus($"保存失败：{ex.Message}");
+        }
+    }
+
+    // ---- AI 设置 ----
+
+    private void OnSaveAiConfig(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var config = _configStore.Load();
+            config.Ai.BaseUrl = AiBaseUrl.Text.Trim();
+            config.Ai.ApiKey = AiApiKey.Text.Trim();
+            config.Ai.Model = AiModel.Text.Trim();
+            _configStore.Save(config);
+            _log.Info("[ai] 配置已保存");
+            ShowStatus("AI 配置已保存");
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"[ai] 配置保存失败: {ex}");
             ShowStatus($"保存失败：{ex.Message}");
         }
     }
@@ -295,7 +306,4 @@ public sealed partial class ToggleWindow : Window
         _statusTimer.Stop();
         _statusTimer.Start();
     }
-
-    private static double? ParseNullableDouble(string text)
-        => double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : null;
 }

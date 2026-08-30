@@ -10,7 +10,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 标题栏兼工具栏：左（剪贴板 / 复制 / 另存为 / AI 回复）右（进度，避让系统按钮） -->
+        <!-- 标题栏兼工具栏：左（AI 模式 / 设置）右（进度，避让系统按钮） -->
         <Grid x:Name="TitleBarElement"
               Grid.Row="0"
               Height="44"
@@ -20,74 +20,35 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="4,0,0,0">
-                <ToggleButton x:Name="AiPanelButton"
+                <ToggleButton x:Name="AiModeButton"
                               Padding="10,6"
-                              ToolTipService.ToolTip="AI 助手"
-                              Checked="OnAiPanelToggle"
-                              Unchecked="OnAiPanelToggle">
-                    <FontIcon Glyph="&#xE8F2;" FontSize="14" />
+                              ToolTipService.ToolTip="开启 AI 聊天模式"
+                              Checked="OnAiModeToggle"
+                              Unchecked="OnAiModeToggle">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE8F2;" FontSize="14" />
+                        <TextBlock Text="AI 模式" VerticalAlignment="Center" />
+                    </StackPanel>
                 </ToggleButton>
-                <Button x:Name="SaveAsButton"
-                        Click="OnSaveAs"
+                <Button x:Name="SettingsButton"
+                        Click="OnOpenSettings"
                         Padding="10,6"
-                        ToolTipService.ToolTip="另存为">
-                    <FontIcon Glyph="&#xE74E;" FontSize="14" />
-                </Button>
-                <Button x:Name="CopyButton"
-                        Click="OnCopyAll"
-                        Padding="10,6"
-                        ToolTipService.ToolTip="复制全部内容">
-                    <FontIcon Glyph="&#xE8C8;" FontSize="14" />
-                </Button>
-                <Button x:Name="ClipboardButton"
-                        Click="OnClipboardPaste"
-                        Padding="10,6"
-                        ToolTipService.ToolTip="粘贴剪贴板内容">
-                    <FontIcon Glyph="&#xE16F;" FontSize="14" />
+                        ToolTipService.ToolTip="设置">
+                    <FontIcon Glyph="&#xE713;" FontSize="14" />
                 </Button>
             </StackPanel>
-            <!-- 右侧避让系统标题栏按钮（最小化/最大化/关闭 约 138px） -->
+            <!-- 右侧避让系统标题栏按钮（约 138px） -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         VerticalAlignment="Center" Margin="0,0,146,0">
                 <ProgressRing x:Name="AiProgress" IsActive="False" Width="20" Height="20" />
             </StackPanel>
         </Grid>
 
-        <!-- 内容区：AI 侧栏（左）+ 编辑器（右） -->
+        <!-- 内容区：普通编辑模式 / AI 聊天模式 -->
         <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="AiColumn" Width="0" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- AI 侧栏：默认隐藏；打开即自动提问，未配置则弹设置 -->
-            <Grid x:Name="AiSidePanel" Grid.Column="0" Visibility="Collapsed">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="0,0,1,0"
-                        Padding="12,8">
-                    <TextBlock Text="AI 回复" FontSize="12"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </Border>
-                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
-                            Spacing="8" Padding="0,8">
-                    <Button x:Name="AskAiButton" Content="问 AI" Click="OnAskAi" />
-                    <Button x:Name="AiConfigButton" Content="AI 设置" Click="OnOpenAiConfig" />
-                </StackPanel>
-                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                    <TextBlock x:Name="AiReply"
-                               TextWrapping="Wrap"
-                               IsTextSelectionEnabled="True"
-                               Padding="12,8,12,8" />
-                </ScrollViewer>
-            </Grid>
-
+            <!-- 普通模式：编辑器（Ctrl+C/V 原生复制粘贴，Ctrl+S 另存为） -->
             <TextBox x:Name="Editor"
-                     Grid.Column="1"
+                     Grid.Column="0"
                      AcceptsReturn="True"
                      TextWrapping="Wrap"
                      FontFamily="Consolas"
@@ -96,7 +57,40 @@
                      Padding="12"
                      VerticalAlignment="Stretch"
                      TextChanged="OnTextChanged"
-                     SelectionChanged="OnSelectionChanged" />
+                     SelectionChanged="OnSelectionChanged"
+                     KeyDown="OnEditorKeyDown" />
+
+            <!-- AI 聊天模式：上方对话，下方输入 + 发送 -->
+            <Grid x:Name="AiChatGrid" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <ScrollViewer x:Name="ChatScroller" VerticalScrollBarVisibility="Auto" Padding="12,8">
+                    <StackPanel x:Name="ChatMessages" Spacing="8" />
+                </ScrollViewer>
+                <Grid Grid.Row="1" ColumnSpacing="8" Padding="12,8,12,10"
+                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                      BorderThickness="0,1,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="ChatInput"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             MinHeight="36"
+                             MaxHeight="96"
+                             VerticalAlignment="Stretch"
+                             PlaceholderText="输入问题，Enter 发送（Shift+Enter 换行）"
+                             KeyDown="OnChatInputKeyDown" />
+                    <Button x:Name="SendButton"
+                            Grid.Column="1"
+                            Content="发送"
+                            Click="OnSendChat"
+                            VerticalAlignment="Bottom" />
+                </Grid>
+            </Grid>
         </Grid>
 
         <!-- 状态栏：行列与字符数 -->

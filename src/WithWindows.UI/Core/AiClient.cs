@@ -5,6 +5,9 @@ using WithWindows.Config;
 
 namespace WithWindows.Core;
 
+/// <summary>对话消息（角色 + 内容），用于多轮上下文。</summary>
+public sealed record ChatMessage(string Role, string Content);
+
 /// <summary>
 /// OpenAI 兼容端口的流式对话客户端（chat/completions + SSE）。零第三方依赖，手写流解析。
 /// </summary>
@@ -13,10 +16,10 @@ public sealed class AiClient
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(2) };
 
     /// <summary>
-    /// 发起流式对话。onDelta 按片段回调（后台线程，UI 侧需 marshal）；失败时 onError 给原因。
+    /// 发起流式对话（多消息上下文）。onDelta 按片段回调（后台线程，UI 侧需 marshal）；失败时 onError 给原因。
     /// 返回是否成功完成（含收到 [DONE]）。
     /// </summary>
-    public async Task<bool> AskAsync(AiConfig config, string userMessage,
+    public async Task<bool> AskAsync(AiConfig config, IReadOnlyList<ChatMessage> messages,
         Action<string> onDelta, Action<string> onError, CancellationToken ct = default)
     {
         try
@@ -29,7 +32,7 @@ public sealed class AiClient
             var payload = new
             {
                 model = string.IsNullOrWhiteSpace(config.Model) ? "gpt-3.5-turbo" : config.Model.Trim(),
-                messages = new[] { new { role = "user", content = userMessage } },
+                messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
                 stream = true,
             };
             request.Content = new StringContent(

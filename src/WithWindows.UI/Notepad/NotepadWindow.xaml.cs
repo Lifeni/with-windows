@@ -1,12 +1,14 @@
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
-using Windows.Storage;
-using Windows.Storage.Pickers;
+using Windows.System;
+using Windows.UI.Core;
 using WithWindows.Config;
 using WithWindows.Core;
 using WithWindows.Interop;
@@ -14,33 +16,37 @@ using WithWindows.Interop;
 namespace WithWindows.Notepad;
 
 /// <summary>
-/// 快捷记事本：独立置顶窗口，标题栏兼工具栏（粘贴剪贴板 / 复制全部 / 另存为 / AI 助手）。
-/// AI 侧栏（左）：打开即自动提问，未配置时弹出设置；回复完成后保持展开。
-/// 底部状态栏显示行列与字符数；隐藏/关闭时内容自动复制到剪贴板并保存。
+/// 快捷记事本：竖长置顶窗口。普通模式为纯文本编辑（Ctrl+C/V 复制粘贴，Ctrl+S 另存为，关闭自动复制到剪贴板并保存）；
+/// "AI 模式"把编辑区切换为聊天视图（上方对话、下方输入发送），进入时自动把当前文本发给 AI，未配置则提示前往设置。
 /// </summary>
 public sealed partial class NotepadWindow : Window
 {
     private readonly string _savePath;
     private readonly Logger _log;
     private readonly ConfigStore _configStore;
-    private readonly DispatcherQueueTimer _saveTimer;
+    private readonly Action _onOpenSettings;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _saveTimer;
     private readonly AiClient _ai = new();
     private readonly CancellationTokenSource _aiCts = new();
+    private readonly List<ChatMessage> _chatHistory = new();
     private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
     public bool Visible => AppWindow.IsVisible;
 
-    public NotepadWindow(string savePath, Logger log, ConfigStore configStore)
+    public NotepadWindow(string savePath, Logger log, ConfigStore configStore, Action onOpenSettings)
     {
         _savePath = savePath;
         _log = log;
         _configStore = configStore;
+        _onOpenSettings = onOpenSettings;
         InitializeComponent();
 
         SetupTitleBar();
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsAlwaysOnTop = true; // 始终置顶：随时弹出记录
+        // 竖长形态与尺寸限制（Win32 WM_GETMINMAXINFO）
+        WindowSizeLimits.Apply(WinRT.Interop.WindowNative.GetWindowHandle(this), 420, 600, 720, 1200);
 
         _saveTimer = DispatcherQueue.CreateTimer();
         _saveTimer.Interval = TimeSpan.FromMilliseconds(400);
@@ -70,7 +76,7 @@ public sealed partial class NotepadWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(820, 620));
+            AppWindow.Resize(new SizeInt32(520, 780));
             _sized = true;
         }
     }
@@ -122,53 +128,49 @@ public sealed partial class NotepadWindow : Window
         AppWindow.Title = title; // 自绘标题栏下 Window.Title 不同步 Win32 文本，需显式设置
     }
 
+    // ---- 快捷键：Ctrl+S 另存为（Ctrl+C/V 由 TextBox 原生支持） ----
+
+    private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.S && IsCtrlDown())
+        {
+            e.Handled = true;
+            _ = SaveAsAsync();
+        }
+    }
+
+    private void OnChatInputKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter && !IsShiftDown())
+        {
+            e.Handled = true;
+            _ = SendChatAsync();
+        }
+    }
+
+    private static bool IsCtrlDown()
+        => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
+
+    private static bool IsShiftDown()
+        => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down);
+
     // ---- 工具栏 ----
 
-    private async void OnClipboardPaste(object sender, RoutedEventArgs e)
+    private void OnOpenSettings(object sender, RoutedEventArgs e) => _onOpenSettings();
+
+    /// <summary>另存为（Ctrl+S / 工具栏）。</summary>
+    private async Task SaveAsAsync()
     {
         try
         {
-            var content = Clipboard.GetContent();
-            if (!content.Contains(StandardDataFormats.Text)) return;
-
-            string? text = await content.GetTextAsync();
-            if (string.IsNullOrEmpty(text)) return;
-
-            Editor.Text += text;
-            Editor.SelectionStart = Editor.Text.Length; // 光标移到末尾
-        }
-        catch (Exception ex)
-        {
-            _log.Error($"剪贴板读取失败: {ex}");
-        }
-    }
-
-    private void OnCopyAll(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var data = new DataPackage();
-            data.SetText(Editor.Text);
-            Clipboard.SetContent(data);
-        }
-        catch (Exception ex)
-        {
-            _log.Error($"复制失败: {ex}");
-        }
-    }
-
-    private async void OnSaveAs(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var picker = new FileSavePicker();
+            var picker = new Windows.Storage.Pickers.FileSavePicker();
             WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
             picker.FileTypeChoices.Add("文本文件", new List<string> { ".txt" });
             picker.SuggestedFileName = $"记事本-{DateTime.Now:yyyyMMdd-HHmmss}";
 
             var file = await picker.PickSaveFileAsync();
             if (file is null) return;
-            await FileIO.WriteTextAsync(file, Editor.Text);
+            await Windows.Storage.FileIO.WriteTextAsync(file, Editor.Text);
             _log.Info($"[notepad] 已另存为: {file.Path}");
         }
         catch (Exception ex)
@@ -177,107 +179,99 @@ public sealed partial class NotepadWindow : Window
         }
     }
 
-    // ---- AI 侧栏 ----
+    // ---- AI 聊天模式 ----
 
-    /// <summary>工具栏切换按钮：展开即自动提问，未配置则弹设置。</summary>
-    private async void OnAiPanelToggle(object sender, RoutedEventArgs e)
+    /// <summary>AI 模式开关：开启后编辑区变为聊天视图，自动把当前文本发给 AI。</summary>
+    private void OnAiModeToggle(object sender, RoutedEventArgs e)
     {
-        bool visible = AiPanelButton.IsChecked == true;
-        SetAiPanelVisible(visible);
-        if (!visible) return;
+        bool on = AiModeButton.IsChecked == true;
+        if (on)
+        {
+            EditorGridVisible(false);
+            ChatMessages.Children.Clear();
+            _chatHistory.Clear();
 
-        var config = _configStore.Load();
-        if (string.IsNullOrWhiteSpace(config.Ai.BaseUrl))
-            await ShowAiConfigDialog();
+            string text = Editor.Text.Trim();
+            if (text.Length > 0)
+                _ = AskAsync(text); // 自动提问
+            ChatInput.Focus(FocusState.Programmatic);
+        }
         else
-            await AskAiCore();
+        {
+            EditorGridVisible(true);
+        }
     }
 
-    private async void OnAskAi(object sender, RoutedEventArgs e) => await AskAiCore();
-
-    /// <summary>执行提问：校验 → 流式回复 → 完成后自动收起侧栏。</summary>
-    private async Task AskAiCore()
+    private void EditorGridVisible(bool editorVisible)
     {
-        if (string.IsNullOrWhiteSpace(Editor.Text))
-        {
-            AiReply.Text = "请先在编辑区输入内容";
-            return;
-        }
+        Editor.Visibility = editorVisible ? Visibility.Visible : Visibility.Collapsed;
+        AiChatGrid.Visibility = editorVisible ? Visibility.Collapsed : Visibility.Visible;
+    }
 
+    private async void OnSendChat(object sender, RoutedEventArgs e) => await SendChatAsync();
+
+    private async Task SendChatAsync()
+    {
+        string text = ChatInput.Text.Trim();
+        if (text.Length == 0) return;
+        await AskAsync(text);
+    }
+
+    /// <summary>发送消息并流式接收回复；未配置 AI 时提示并给出前往设置的入口。</summary>
+    private async Task AskAsync(string userText)
+    {
         var config = _configStore.Load();
         if (string.IsNullOrWhiteSpace(config.Ai.BaseUrl))
         {
-            AiReply.Text = "请先在 AI 设置中填写 Base URL";
-            await ShowAiConfigDialog();
+            AddChatBubble("assistant", "尚未配置 AI，点击下方按钮前往设置。");
+            var goBtn = new Button { Content = "前往设置", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 4) };
+            goBtn.Click += (_, _) => _onOpenSettings();
+            ChatMessages.Children.Add(goBtn);
+            _log.Info("[ai] 未配置，提示前往设置");
             return;
         }
 
-        AiReply.Text = "";
-        AskAiButton.IsEnabled = false;
+        _chatHistory.Add(new ChatMessage("user", userText));
+        AddChatBubble("user", userText);
+        ChatInput.Text = "";
+        SendButton.IsEnabled = false;
         AiProgress.IsActive = true;
 
-        bool ok = await _ai.AskAsync(config.Ai, Editor.Text,
-            delta => DispatcherQueue.TryEnqueue(() => AiReply.Text += delta),
-            error => DispatcherQueue.TryEnqueue(() => AiReply.Text = error),
+        var reply = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        AddChatBubble("assistant", reply);
+
+        bool ok = await _ai.AskAsync(config.Ai, _chatHistory,
+            delta => DispatcherQueue.TryEnqueue(() => reply.Text += delta),
+            error => DispatcherQueue.TryEnqueue(() => reply.Text = error),
             _aiCts.Token);
 
         AiProgress.IsActive = false;
-        AskAiButton.IsEnabled = true;
+        SendButton.IsEnabled = true;
+        _chatHistory.Add(new ChatMessage("assistant", reply.Text));
         _log.Info($"[ai] 请求完成: 成功={ok}");
-        // 回复完成后侧栏保持展开，由用户手动收起
+
+        // 滚动到底部
+        DispatcherQueue.TryEnqueue(() => ChatScroller.ChangeView(null, ChatScroller.ScrollableHeight, null));
     }
 
-    private async void OnOpenAiConfig(object sender, RoutedEventArgs e) => await ShowAiConfigDialog();
+    /// <summary>向对话区追加一条消息气泡（用户右对齐，AI 左对齐）。</summary>
+    private void AddChatBubble(string role, string content)
+        => AddChatBubble(role, new TextBlock { Text = content, TextWrapping = TextWrapping.Wrap });
 
-    /// <summary>AI 设置弹窗；保存后若已配置且侧栏展开，自动提问。</summary>
-    private async Task ShowAiConfigDialog()
+    private void AddChatBubble(string role, TextBlock content)
     {
-        var config = _configStore.Load();
-        var urlBox = new TextBox { Header = "Base URL", Text = config.Ai.BaseUrl, PlaceholderText = "http://127.0.0.1:11434/v1" };
-        var keyBox = new TextBox { Header = "API Key", Text = config.Ai.ApiKey, PlaceholderText = "留空则不携带" };
-        var modelBox = new TextBox { Header = "模型", Text = config.Ai.Model, PlaceholderText = "如 qwen2.5" };
-
-        var panel = new StackPanel { Spacing = 12, MinWidth = 320 };
-        panel.Children.Add(urlBox);
-        panel.Children.Add(keyBox);
-        panel.Children.Add(modelBox);
-
-        var dialog = new ContentDialog
+        var border = new Border
         {
-            XamlRoot = Content.XamlRoot,
-            Title = "AI 设置",
-            Content = panel,
-            PrimaryButtonText = "保存",
-            CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Primary,
+            Background = role == "user"
+                ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
+                : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12, 8, 12, 8),
+            MaxWidth = 360,
+            HorizontalAlignment = role == "user" ? HorizontalAlignment.Right : HorizontalAlignment.Left,
         };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-
-        try
-        {
-            var updated = _configStore.Load();
-            updated.Ai.BaseUrl = urlBox.Text.Trim();
-            updated.Ai.ApiKey = keyBox.Text.Trim();
-            updated.Ai.Model = modelBox.Text.Trim();
-            _configStore.Save(updated);
-            _log.Info("[ai] 配置已保存");
-
-            // 保存后若侧栏展开，自动提问
-            if (AiPanelButton.IsChecked == true && !string.IsNullOrWhiteSpace(updated.Ai.BaseUrl))
-                await AskAiCore();
-        }
-        catch (Exception ex)
-        {
-            _log.Error($"AI 配置保存失败: {ex}");
-        }
-    }
-
-    /// <summary>显示/隐藏 AI 侧栏（列宽随动）。IsChecked 由触发方维护，避免事件递归。</summary>
-    private void SetAiPanelVisible(bool visible)
-    {
-        AiColumn.Width = visible ? new GridLength(300) : new GridLength(0);
-        AiSidePanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        border.Child = content;
+        ChatMessages.Children.Add(border);
     }
 
     // ---- 保存与剪贴板 ----

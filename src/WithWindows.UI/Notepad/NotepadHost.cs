@@ -12,13 +12,15 @@ public sealed class NotepadHost
     private readonly string _dataRoot;
     private readonly Logger _log;
     private readonly ConfigStore _configStore;
+    private readonly Action _onOpenSettings;
     private NotepadWindow? _window;
 
-    public NotepadHost(string dataRoot, Logger log, ConfigStore configStore)
+    public NotepadHost(string dataRoot, Logger log, ConfigStore configStore, Action onOpenSettings)
     {
         _dataRoot = dataRoot;
         _log = log;
         _configStore = configStore;
+        _onOpenSettings = onOpenSettings;
     }
 
     public ActionResult Toggle()
@@ -32,7 +34,7 @@ public sealed class NotepadHost
 
         if (_window is null)
         {
-            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore);
+            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore, _onOpenSettings);
             window.Closed += (_, _) => _window = null; // 用户关闭窗口后下次重建（热键隐藏不触发 Closed）
             _window = window;
         }

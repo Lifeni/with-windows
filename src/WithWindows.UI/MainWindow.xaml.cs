@@ -29,7 +29,7 @@ public sealed partial class MainWindow : Window
         _configStore = configStore;
         string dataRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WithWindows");
-        _notepad = new NotepadHost(dataRoot, log, configStore);
+        _notepad = new NotepadHost(dataRoot, log, configStore, ShowToggleWindow);
 
         InitializeComponent();
         if (withTray)
@@ -65,13 +65,6 @@ public sealed partial class MainWindow : Window
         var settings = new MenuFlyoutItem { Text = "设置" };
         settings.Click += (_, _) => ShowToggleWindow();
 
-        var autoStart = new ToggleMenuFlyoutItem
-        {
-            Text = "开机自启",
-            IsChecked = AutoStart.IsEnabled(),
-        };
-        autoStart.Click += (_, _) => ToggleAutoStart(autoStart);
-
         var exit = new MenuFlyoutItem { Text = "退出" };
         exit.Click += (_, _) => Application.Current.Exit();
 
@@ -79,8 +72,6 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(notepad);
         menu.Items.Add(display);
         menu.Items.Add(theme);
-        menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(autoStart);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(settings);
         menu.Items.Add(new MenuFlyoutSeparator());
