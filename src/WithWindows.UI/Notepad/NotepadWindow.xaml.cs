@@ -90,7 +90,8 @@ public sealed partial class NotepadWindow : Window
             AppWindow.Resize(new SizeInt32(520, 780));
             _sized = true;
         }
-        ApplyPinVisual(); // 重开窗口同步置顶状态视觉
+        // 重开窗口同步置顶状态视觉（延迟到视觉树就绪，隐藏期间样式会被重置）
+        DispatcherQueue.TryEnqueue(() => ApplyPinVisual());
     }
 
     /// <summary>复制内容到剪贴板并隐藏（热键再次按下）。</summary>
