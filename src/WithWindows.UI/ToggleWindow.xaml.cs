@@ -83,7 +83,7 @@ public sealed partial class ToggleWindow : Window
             ModeExternal.IsChecked = config.DisplayMode.Modes.Contains("external");
             ModeClone.IsChecked = config.DisplayMode.Modes.Contains("clone");
 
-            AboutText.Text = $"With Windows {Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0"}";
+            AboutText.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0"}";
         }
         finally
         {

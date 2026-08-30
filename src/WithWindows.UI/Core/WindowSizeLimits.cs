@@ -33,11 +33,15 @@ internal static class WindowSizeLimits
     private static IntPtr _prevProc;
     private static NativeMethods.WndProcDelegate _proc = null!;
 
-    /// <summary>给窗口套用最小/最大尺寸限制（逻辑像素）。</summary>
-    public static void Apply(IntPtr hwnd, int minWidth, int minHeight, int maxWidth, int maxHeight)
+    private static int _minW, _minH;
+
+    /// <summary>给窗口套用最小尺寸限制（不限制最大，可自由放大）。</summary>
+    public static void Apply(IntPtr hwnd, int minWidth, int minHeight)
     {
         if (_prevProc != IntPtr.Zero) return; // 已应用（单例）
 
+        _minW = minWidth;
+        _minH = minHeight;
         _proc = WndProc;
         _prevProc = NativeMethods.SetWindowLongPtr(hwnd, GWLP_WNDPROC,
             Marshal.GetFunctionPointerForDelegate(_proc));
@@ -48,10 +52,10 @@ internal static class WindowSizeLimits
         if (msg == WM_GETMINMAXINFO)
         {
             var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
-            mmi.PtMinTrackSize.X = 420;
-            mmi.PtMinTrackSize.Y = 600;
-            mmi.PtMaxTrackSize.X = 720;
-            mmi.PtMaxTrackSize.Y = 1200;
+            mmi.PtMinTrackSize.X = _minW;
+            mmi.PtMinTrackSize.Y = _minH;
+            mmi.PtMaxTrackSize.X = 10000; // 不限制最大
+            mmi.PtMaxTrackSize.Y = 10000;
             Marshal.StructureToPtr(mmi, lParam, false);
         }
         return NativeMethods.CallWindowProc(_prevProc, hWnd, msg, wParam, lParam);

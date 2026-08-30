@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.UI.Input;
 using Windows.Graphics;
 using Windows.System;
 using Windows.UI.Core;
@@ -26,6 +27,9 @@ public sealed partial class NotepadWindow : Window
     private readonly ConfigStore _configStore;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _saveTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _clockTimer;
+    private const double MinFontSize = 10;
+    private const double MaxFontSize = 32;
+    private const double DefaultFontSize = 14;
     private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
@@ -41,8 +45,8 @@ public sealed partial class NotepadWindow : Window
         SetupTitleBar();
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsAlwaysOnTop = true; // 始终置顶：随时弹出记录
-        // 竖长形态与尺寸限制（Win32 WM_GETMINMAXINFO）
-        WindowSizeLimits.Apply(WinRT.Interop.WindowNative.GetWindowHandle(this), 420, 600, 720, 1200);
+        // 竖长形态；最小尺寸 = 设置窗口大小，不限制最大（Win32 WM_GETMINMAXINFO）
+        WindowSizeLimits.Apply(WinRT.Interop.WindowNative.GetWindowHandle(this), 520, 780);
 
         _saveTimer = DispatcherQueue.CreateTimer();
         _saveTimer.Interval = TimeSpan.FromMilliseconds(400);
@@ -54,6 +58,7 @@ public sealed partial class NotepadWindow : Window
         _clockTimer.Tick += (_, _) => TitleTimeText.Text = DateTime.Now.ToString("HH:mm:ss");
         _clockTimer.Start();
 
+        Editor.PointerWheelChanged += OnEditorWheel; // Ctrl+滚轮缩放字体
         LoadSavedText();
         Closed += OnClosed;
     }
@@ -134,11 +139,42 @@ public sealed partial class NotepadWindow : Window
 
     private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.S && IsCtrlDown())
+        if (!IsCtrlDown()) return;
+
+        if (e.Key == VirtualKey.S)
         {
             e.Handled = true;
             _ = SaveAsAsync();
         }
+        else if ((uint)e.Key == 0xBB || e.Key == VirtualKey.Add) // Ctrl+加号 / Ctrl+=（0xBB = 等号键）
+        {
+            e.Handled = true;
+            ZoomFont(1);
+        }
+        else if ((uint)e.Key == 0xBD || e.Key == VirtualKey.Subtract) // Ctrl+减号 / Ctrl+-（0xBD = 减号键）
+        {
+            e.Handled = true;
+            ZoomFont(-1);
+        }
+        else if (e.Key == VirtualKey.Number0) // Ctrl+0 重置
+        {
+            e.Handled = true;
+            Editor.FontSize = DefaultFontSize;
+        }
+    }
+
+    /// <summary>Ctrl+滚轮缩放字体。</summary>
+    private void OnEditorWheel(object sender, PointerRoutedEventArgs e)
+    {
+        if (!IsCtrlDown()) return;
+        int delta = e.GetCurrentPoint(Editor).Properties.MouseWheelDelta;
+        ZoomFont(delta > 0 ? 1 : -1);
+        e.Handled = true;
+    }
+
+    private void ZoomFont(double step)
+    {
+        Editor.FontSize = Math.Clamp(Editor.FontSize + step, MinFontSize, MaxFontSize);
     }
 
     private static bool IsCtrlDown()

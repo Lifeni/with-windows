@@ -20,18 +20,7 @@
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Padding="20,12,20,20" Spacing="0" MaxWidth="460" HorizontalAlignment="Left">
-
-                <!-- 开机自启 -->
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8" Padding="16,6" Margin="0,0,0,10">
-                    <ToggleSwitch x:Name="AutoStartToggle"
-                                  Header="开机自启"
-                                  OnContent="开启"
-                                  OffContent="关闭"
-                                  Toggled="OnAutoStartToggled" />
-                </Border>
+            <StackPanel Padding="12,12,12,20" Spacing="0" MaxWidth="460" HorizontalAlignment="Left">
 
                 <!-- 快捷记事 -->
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -101,11 +90,27 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 关于：纯文字 -->
-                <TextBlock x:Name="AboutText"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           FontSize="12"
-                           Margin="4,8,0,0" />
+                <!-- 开机自启 -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,10">
+                    <ToggleSwitch x:Name="AutoStartToggle"
+                                  Header="开机自启"
+                                  OnContent="开启"
+                                  OffContent="关闭"
+                                  Toggled="OnAutoStartToggled" />
+                </Border>
+
+                <!-- 关于 -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,0">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="With Windows" FontWeight="SemiBold" />
+                        <TextBlock x:Name="AboutText" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
 
