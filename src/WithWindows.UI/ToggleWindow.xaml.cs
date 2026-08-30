@@ -1,7 +1,10 @@
 using System.Reflection;
 using Microsoft.UI;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml.Hosting;
+using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Graphics;
@@ -69,6 +72,28 @@ public sealed partial class ToggleWindow : Window
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsResizable = false; // 固定尺寸
+        PlayOpenAnimation(); // Win11 风格打开动画（缩放 + 淡入）
+    }
+
+    /// <summary>窗口打开动画：模拟 Win11 的放大淡入效果。</summary>
+    private void PlayOpenAnimation()
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(RootGrid);
+        visual.CenterPoint = new Vector3((float)RootGrid.ActualWidth / 2, (float)RootGrid.ActualHeight / 2, 0);
+        var compositor = visual.Compositor;
+        var easing = compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0f), new Vector2(0.2f, 1f));
+
+        var scale = compositor.CreateVector3KeyFrameAnimation();
+        scale.InsertKeyFrame(0f, new Vector3(0.95f, 0.95f, 1f), easing);
+        scale.InsertKeyFrame(1f, new Vector3(1f, 1f, 1f), easing);
+        scale.Duration = TimeSpan.FromMilliseconds(250);
+        visual.StartAnimation("Scale", scale);
+
+        var opacity = compositor.CreateScalarKeyFrameAnimation();
+        opacity.InsertKeyFrame(0f, 0f, easing);
+        opacity.InsertKeyFrame(1f, 1f, easing);
+        opacity.Duration = TimeSpan.FromMilliseconds(250);
+        visual.StartAnimation("Opacity", opacity);
     }
 
     /// <summary>恢复记忆的窗口尺寸/位置。</summary>
