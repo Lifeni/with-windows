@@ -9,6 +9,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.Input;
 using Windows.Graphics;
 using Microsoft.UI.Text;
+using Microsoft.Win32;
 using Windows.System;
 using Windows.UI.Core;
 using WithWindows.Config;
@@ -28,11 +29,13 @@ public sealed partial class NotepadWindow : Window
     private readonly ConfigStore _configStore;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _saveTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _clockTimer;
+    private const string PinRegistryPath = @"HKEY_CURRENT_USER\Software\WithWindows\Notepad";
+    private const string PinRegistryValue = "Pinned";
     private const double MinFontSize = 10;
     private const double MaxFontSize = 32;
     private const double DefaultFontSize = 14;
     private OverlappedPresenter? _presenter;
-    private bool _pinned; // 置顶状态持久化（窗口隐藏重开时 IsChecked 可能被视觉树重置）
+    private bool _pinned; // 置顶状态（持久化注册表，窗口销毁重建也能恢复）
     private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
@@ -46,7 +49,8 @@ public sealed partial class NotepadWindow : Window
         InitializeComponent();
 
         SetupTitleBar();
-        _presenter = AppWindow.Presenter as OverlappedPresenter; // 默认不置顶，状态栏按钮控制
+        _presenter = AppWindow.Presenter as OverlappedPresenter; // 置顶由状态栏按钮控制
+        _pinned = Registry.GetValue(PinRegistryPath, PinRegistryValue, 0) is int v && v != 0;
 
         _saveTimer = DispatcherQueue.CreateTimer();
         _saveTimer.Interval = TimeSpan.FromMilliseconds(400);
@@ -61,7 +65,7 @@ public sealed partial class NotepadWindow : Window
         Editor.PointerWheelChanged += OnEditorWheel; // Ctrl+滚轮缩放字体
         // 行距加大：设置默认段落格式并写回，作用于已有与新内容
         var fmt = Editor.Document.GetDefaultParagraphFormat();
-        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.1f);
+        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.05f);
         Editor.Document.SetDefaultParagraphFormat(fmt);
         LoadSavedText();
         Closed += OnClosed;
@@ -116,10 +120,10 @@ public sealed partial class NotepadWindow : Window
         }
         // 对全部文本应用行距（加载后段落格式重置为默认）
         var fmt = Editor.Document.GetDefaultParagraphFormat();
-        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.1f);
+        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.05f);
         var selection = Editor.Document.Selection;
         selection.SetRange(0, int.MaxValue);
-        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.1f);
+        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.05f);
         selection.SetRange(0, 0);
         UpdateStatus();
     }
@@ -200,6 +204,7 @@ public sealed partial class NotepadWindow : Window
         _pinned = PinButton.IsChecked == true;
         if (_presenter is not null)
             _presenter.IsAlwaysOnTop = _pinned;
+        Registry.SetValue(PinRegistryPath, PinRegistryValue, _pinned ? 1 : 0, RegistryValueKind.DWord);
         ApplyPinVisual();
     }
 
