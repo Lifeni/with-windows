@@ -90,6 +90,21 @@ public sealed partial class ToggleWindow : Window
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsResizable = false; // 固定尺寸
+        EnsureWindowVisible(); // 防拓扑变化后窗口跑到屏幕外
+    }
+
+    /// <summary>若窗口不在任何显示器内，移到主屏居中。</summary>
+    private void EnsureWindowVisible()
+    {
+        var size = AppWindow.Size;
+        var pos = AppWindow.Position;
+        if (IsOnAnyDisplay(pos.X, pos.Y, size.Width, size.Height)) return;
+
+        var primary = DisplayArea.GetFromPoint(new PointInt32(0, 0), DisplayAreaFallback.Primary);
+        AppWindow.Move(new PointInt32(
+            primary.WorkArea.X + (primary.WorkArea.Width - size.Width) / 2,
+            primary.WorkArea.Y + (primary.WorkArea.Height - size.Height) / 2));
+        _log.Info("[toggle] 窗口位置超出屏幕，已移到主屏居中");
     }
 
     /// <summary>恢复记忆的窗口尺寸/位置。</summary>
@@ -99,7 +114,7 @@ public sealed partial class ToggleWindow : Window
         {
             var ws = _configStore.Load().WindowState;
             AppWindow.Resize(new SizeInt32((int)ws.SettingsWidth, (int)ws.SettingsHeight));
-            if (ws.SettingsX != 0 || ws.SettingsY != 0)
+            if (ws.SettingsX != 0 || ws.SettingsY != 0 && IsOnAnyDisplay((int)ws.SettingsX, (int)ws.SettingsY, (int)ws.SettingsWidth, (int)ws.SettingsHeight))
                 AppWindow.Move(new PointInt32((int)ws.SettingsX, (int)ws.SettingsY));
         }
         catch (Exception ex)
@@ -107,6 +122,14 @@ public sealed partial class ToggleWindow : Window
             _log.Error($"窗口状态恢复失败: {ex}");
         }
     }
+
+    /// <summary>窗口位置可见性：落在任一显示器工作区内才恢复，否则由 ShowAndFocus 移到主屏居中。</summary>
+    private static bool IsOnAnyDisplay(int x, int y, int width, int height)
+        => DisplayArea.FindAll().Any(da =>
+            x < da.WorkArea.X + da.WorkArea.Width &&
+            x + width > da.WorkArea.X &&
+            y < da.WorkArea.Y + da.WorkArea.Height &&
+            y + height > da.WorkArea.Y);
 
     /// <summary>保存窗口尺寸/位置（关闭时）。</summary>
     private void SaveWindowState()

@@ -75,6 +75,7 @@ public sealed partial class NotepadWindow : Window
         _showTimer.Tick += (_, _) =>
         {
             _showTimer.Stop();
+            EnsureWindowVisible(); // 防拓扑变化后窗口跑到屏幕外
             AppWindow.Show();
             Activate();
             PinButton.IsChecked = _pinned;
@@ -126,13 +127,36 @@ public sealed partial class NotepadWindow : Window
             var ws = _configStore.Load().WindowState;
             Editor.FontSize = Math.Clamp(ws.NotepadFontSize, MinFontSize, MaxFontSize);
             AppWindow.Resize(new SizeInt32((int)ws.NotepadWidth, (int)ws.NotepadHeight));
-            if (ws.NotepadX != 0 || ws.NotepadY != 0)
+            if (ws.NotepadX != 0 || ws.NotepadY != 0
+                && IsOnAnyDisplay((int)ws.NotepadX, (int)ws.NotepadY, (int)ws.NotepadWidth, (int)ws.NotepadHeight))
                 AppWindow.Move(new PointInt32((int)ws.NotepadX, (int)ws.NotepadY));
         }
         catch (Exception ex)
         {
             _log.Error($"窗口状态恢复失败: {ex}");
         }
+    }
+
+    /// <summary>窗口位置可见性：落在任一显示器工作区内才有效。</summary>
+    private static bool IsOnAnyDisplay(int x, int y, int width, int height)
+        => DisplayArea.FindAll().Any(da =>
+            x < da.WorkArea.X + da.WorkArea.Width &&
+            x + width > da.WorkArea.X &&
+            y < da.WorkArea.Y + da.WorkArea.Height &&
+            y + height > da.WorkArea.Y);
+
+    /// <summary>若窗口不在任何显示器内，移到主屏居中。</summary>
+    private void EnsureWindowVisible()
+    {
+        var size = AppWindow.Size;
+        var pos = AppWindow.Position;
+        if (IsOnAnyDisplay(pos.X, pos.Y, size.Width, size.Height)) return;
+
+        var primary = DisplayArea.GetFromPoint(new PointInt32(0, 0), DisplayAreaFallback.Primary);
+        AppWindow.Move(new PointInt32(
+            primary.WorkArea.X + (primary.WorkArea.Width - size.Width) / 2,
+            primary.WorkArea.Y + (primary.WorkArea.Height - size.Height) / 2));
+        _log.Info("[notepad] 窗口位置超出屏幕，已移到主屏居中");
     }
 
     /// <summary>保存窗口尺寸/位置与字体大小（关闭或隐藏时）。</summary>
