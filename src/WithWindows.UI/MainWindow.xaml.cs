@@ -27,7 +27,7 @@ public sealed partial class MainWindow : Window
         _configStore = configStore;
         string dataRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WithWindows");
-        _notepad = new NotepadHost(dataRoot, log, configStore, ShowToggleWindow);
+        _notepad = new NotepadHost(dataRoot, log, configStore);
 
         InitializeComponent();
         if (withTray)

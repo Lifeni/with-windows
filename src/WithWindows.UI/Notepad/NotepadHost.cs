@@ -12,15 +12,13 @@ public sealed class NotepadHost
     private readonly string _dataRoot;
     private readonly Logger _log;
     private readonly ConfigStore _configStore;
-    private readonly Action _onOpenSettings;
     private NotepadWindow? _window;
 
-    public NotepadHost(string dataRoot, Logger log, ConfigStore configStore, Action onOpenSettings)
+    public NotepadHost(string dataRoot, Logger log, ConfigStore configStore)
     {
         _dataRoot = dataRoot;
         _log = log;
         _configStore = configStore;
-        _onOpenSettings = onOpenSettings;
     }
 
     /// <summary>打开并聚焦记事本（托盘左键；已打开则不重复操作）。</summary>
@@ -28,7 +26,7 @@ public sealed class NotepadHost
     {
         if (_window is null)
         {
-            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore, _onOpenSettings);
+            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore);
             window.Closed += (_, _) => _window = null;
             _window = window;
         }
@@ -46,7 +44,7 @@ public sealed class NotepadHost
 
         if (_window is null)
         {
-            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore, _onOpenSettings);
+            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore);
             window.Closed += (_, _) => _window = null; // 用户关闭窗口后下次重建（热键隐藏不触发 Closed）
             _window = window;
         }

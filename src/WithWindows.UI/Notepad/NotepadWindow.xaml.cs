@@ -24,19 +24,18 @@ public sealed partial class NotepadWindow : Window
     private readonly string _savePath;
     private readonly Logger _log;
     private readonly ConfigStore _configStore;
-    private readonly Action _onOpenSettings;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _saveTimer;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _clockTimer;
     private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
     public new bool Visible => AppWindow.IsVisible;
 
-    public NotepadWindow(string savePath, Logger log, ConfigStore configStore, Action onOpenSettings)
+    public NotepadWindow(string savePath, Logger log, ConfigStore configStore)
     {
         _savePath = savePath;
         _log = log;
         _configStore = configStore;
-        _onOpenSettings = onOpenSettings;
         InitializeComponent();
 
         SetupTitleBar();
@@ -48,6 +47,12 @@ public sealed partial class NotepadWindow : Window
         _saveTimer = DispatcherQueue.CreateTimer();
         _saveTimer.Interval = TimeSpan.FromMilliseconds(400);
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); Save(); };
+
+        // 标题栏时钟：每秒刷新
+        _clockTimer = DispatcherQueue.CreateTimer();
+        _clockTimer.Interval = TimeSpan.FromSeconds(1);
+        _clockTimer.Tick += (_, _) => TitleTimeText.Text = DateTime.Now.ToString("HH:mm:ss");
+        _clockTimer.Start();
 
         LoadSavedText();
         Closed += OnClosed;
@@ -139,11 +144,9 @@ public sealed partial class NotepadWindow : Window
     private static bool IsCtrlDown()
         => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
 
-    // ---- 工具栏 ----
+    // ---- 另存为（Ctrl+S） ----
 
-    private void OnOpenSettings(object sender, RoutedEventArgs e) => _onOpenSettings();
-
-    /// <summary>另存为（Ctrl+S / 工具栏）。</summary>
+    /// <summary>另存为。</summary>
     private async Task SaveAsAsync()
     {
         try
@@ -194,6 +197,7 @@ public sealed partial class NotepadWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        _clockTimer.Stop();
         _saveTimer.Stop();
         Save();
         CopyToClipboard();

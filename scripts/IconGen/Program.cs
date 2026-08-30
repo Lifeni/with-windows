@@ -8,7 +8,7 @@ using System.Drawing.Imaging;
 int[] sizes = { 16, 24, 32, 48, 64, 128, 256 };
 string output = args.Length > 0
     ? args[0]
-    : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "WithWindows", "Assets", "with-windows.ico");
+    : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "WithWindows.UI", "Assets", "with-windows.ico");
 
 // 基准 256x256 绘制
 using var canvas = new Bitmap(256, 256, PixelFormat.Format32bppArgb);
@@ -17,10 +17,11 @@ using (var g = Graphics.FromImage(canvas))
     g.SmoothingMode = SmoothingMode.AntiAlias;
 
     using var bgPath = RoundedRect(0, 0, 256, 256, 56);
+    // 亮蓝渐变背景 + 白色闪电：深浅任务栏下均高对比、清晰
     using var bgBrush = new LinearGradientBrush(
         new Rectangle(0, 0, 256, 256),
-        Color.FromArgb(0xFF, 0x33, 0x37, 0x48),
-        Color.FromArgb(0xFF, 0x17, 0x19, 0x21),
+        Color.FromArgb(0xFF, 0x1E, 0x88, 0xE5),
+        Color.FromArgb(0xFF, 0x0F, 0x54, 0xA0),
         45f);
     g.FillPath(bgBrush, bgPath);
 
@@ -34,7 +35,7 @@ using (var g = Graphics.FromImage(canvas))
         new(192, 102),
         new(134, 102),
     };
-    using var boltBrush = new SolidBrush(Color.FromArgb(0xFF, 0xFF, 0xC9, 0x3C));
+    using var boltBrush = new SolidBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
     g.FillPolygon(boltBrush, bolt);
 }
 

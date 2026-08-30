@@ -5,7 +5,6 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Graphics;
-using WithWindows.Actions;
 using WithWindows.Config;
 using WithWindows.Core;
 using WithWindows.Interop;
@@ -23,7 +22,6 @@ public sealed partial class ToggleWindow : Window
     private readonly ConfigStore _configStore;
     private readonly Action _onSaved;
     private readonly Logger _log;
-    private readonly DisplayModeAction _display;
     private readonly DispatcherQueueTimer _statusTimer;
     private bool _loading; // LoadConfig 期间屏蔽 AutoSave（避免回填触发保存）
     private bool _sized;
@@ -33,8 +31,6 @@ public sealed partial class ToggleWindow : Window
         _configStore = configStore;
         _onSaved = onSaved;
         _log = log;
-        _display = new DisplayModeAction(configStore.Load().DisplayMode.Modes.ToArray());
-
         _statusTimer = DispatcherQueue.CreateTimer();
         _statusTimer.Interval = TimeSpan.FromSeconds(3);
         _statusTimer.Tick += (_, _) => { _statusTimer.Stop(); StatusBar.IsOpen = false; };
@@ -63,12 +59,11 @@ public sealed partial class ToggleWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(760, 600));
+            AppWindow.Resize(new SizeInt32(560, 640));
             _sized = true;
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsResizable = false; // 固定尺寸
-        RefreshStatusTexts();
     }
 
     private void LoadConfig()
@@ -88,47 +83,16 @@ public sealed partial class ToggleWindow : Window
             ModeExternal.IsChecked = config.DisplayMode.Modes.Contains("external");
             ModeClone.IsChecked = config.DisplayMode.Modes.Contains("clone");
 
-            VersionText.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0"}";
+            AboutText.Text = $"With Windows {Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0"}";
         }
         finally
         {
             _loading = false;
         }
-        RefreshStatusTexts();
     }
 
     private static string FormatHotkeyText(Dictionary<string, string> bindings, string action)
         => string.IsNullOrWhiteSpace(bindings.GetValueOrDefault(action)) ? Unset : bindings[action];
-
-    private void RefreshStatusTexts()
-    {
-        DisplayStatusText.Text = DisplayTopology.GetCurrentMode() switch
-        {
-            "internal" => "当前：仅当前屏幕",
-            "extend" => "当前：扩展模式",
-            "external" => "当前：仅外接屏幕",
-            "clone" => "当前：复制模式",
-            _ => "当前：未知",
-        };
-    }
-
-    // ---- 大卡片切换 ----
-
-    private void OnToggleDisplay(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var result = _display.Execute("toggle");
-            ShowStatus(result.Message);
-            _log.Info($"[toggle] {result.Message}");
-        }
-        catch (Exception ex)
-        {
-            ShowStatus($"切换失败：{ex.Message}");
-            _log.Error($"[toggle] 切换失败: {ex}");
-        }
-        RefreshStatusTexts();
-    }
 
     // ---- 快捷键设置（弹窗录制） ----
 
