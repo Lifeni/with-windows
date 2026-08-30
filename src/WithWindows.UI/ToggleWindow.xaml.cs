@@ -24,8 +24,8 @@ public sealed partial class ToggleWindow : Window
     private readonly ConfigStore _configStore;
     private readonly Action _onSaved;
     private readonly Logger _log;
-    private readonly ThemeAction _theme = new();
     private readonly DisplayModeAction _display;
+    private readonly SpeedTest _speedTest = new();
     private readonly DispatcherQueueTimer _statusTimer;
     private readonly DispatcherQueueTimer _autoSaveTimer;
     private bool _loading; // LoadConfig 期间屏蔽 AutoSave（避免回填触发保存）
@@ -71,7 +71,7 @@ public sealed partial class ToggleWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(760, 640));
+            AppWindow.Resize(new SizeInt32(840, 720));
             _sized = true;
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
@@ -87,7 +87,6 @@ public sealed partial class ToggleWindow : Window
             var config = _configStore.Load();
 
             NotepadHotkeyText.Text = FormatHotkeyText(config.Bindings, "notepad");
-            ThemeHotkeyText.Text = FormatHotkeyText(config.Bindings, "theme");
             DisplayHotkeyText.Text = FormatHotkeyText(config.Bindings, "display_mode");
 
             AutoThemeToggle.IsOn = config.Theme.Enabled;
@@ -117,12 +116,6 @@ public sealed partial class ToggleWindow : Window
     /// <summary>刷新两张大卡片的当前状态文字。</summary>
     private void RefreshStatusTexts()
     {
-        ThemeStatusText.Text = ThemeAction.GetCurrentMode() switch
-        {
-            "light" => "当前：亮色",
-            "dark" => "当前：暗色",
-            _ => "当前：未知",
-        };
         DisplayStatusText.Text = DisplayTopology.GetCurrentMode() switch
         {
             "internal" => "当前：仅当前屏幕",
@@ -134,12 +127,6 @@ public sealed partial class ToggleWindow : Window
     }
 
     // ---- 大卡片切换 ----
-
-    private void OnToggleTheme(object sender, RoutedEventArgs e)
-    {
-        RunAction(() => _theme.Execute("toggle"));
-        RefreshStatusTexts();
-    }
 
     private void OnToggleDisplay(object sender, RoutedEventArgs e)
     {
@@ -166,9 +153,6 @@ public sealed partial class ToggleWindow : Window
 
     private async void OnSetNotepadHotkey(object sender, RoutedEventArgs e)
         => await SetHotkey("notepad", "设置记事本快捷键", NotepadHotkeyText);
-
-    private async void OnSetThemeHotkey(object sender, RoutedEventArgs e)
-        => await SetHotkey("theme", "设置亮暗快捷键", ThemeHotkeyText);
 
     private async void OnSetDisplayHotkey(object sender, RoutedEventArgs e)
         => await SetHotkey("display_mode", "设置屏幕快捷键", DisplayHotkeyText);
@@ -273,6 +257,31 @@ public sealed partial class ToggleWindow : Window
         {
             _log.Error($"[ai] 配置保存失败: {ex}");
             ShowStatus($"保存失败：{ex.Message}");
+        }
+    }
+
+    // ---- 网络测速 ----
+
+    private async void OnSpeedTest(object sender, RoutedEventArgs e)
+    {
+        SpeedTestButton.IsEnabled = false;
+        try
+        {
+            SpeedResult.Text = "下载测速中…";
+            double down = await _speedTest.DownloadAsync();
+            SpeedResult.Text = $"下载：{down:F1} Mbps\n上传测速中…";
+            double up = await _speedTest.UploadAsync();
+            SpeedResult.Text = $"下载：{down:F1} Mbps\n上传：{up:F1} Mbps";
+            _log.Info($"[speed] 下载 {down:F1} Mbps，上传 {up:F1} Mbps");
+        }
+        catch (Exception ex)
+        {
+            SpeedResult.Text = $"测速失败：{ex.Message}";
+            _log.Error($"[speed] 测速失败: {ex}");
+        }
+        finally
+        {
+            SpeedTestButton.IsEnabled = true;
         }
     }
 

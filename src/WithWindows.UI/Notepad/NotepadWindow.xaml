@@ -4,6 +4,24 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Grid>
+        <Grid.Resources>
+            <!-- 无边框无聚焦下划线的编辑器模板（默认模板聚焦时显示主题色下划线） -->
+            <Style x:Key="PlainEditorStyle" TargetType="TextBox">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <ScrollViewer x:Name="ContentElement"
+                                          Margin="0"
+                                          Padding="{TemplateBinding Padding}"
+                                          IsTabStop="False"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Auto"
+                                          ZoomMode="Disabled" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -56,6 +74,7 @@
                      BorderThickness="0"
                      Padding="12"
                      VerticalAlignment="Stretch"
+                     Style="{StaticResource PlainEditorStyle}"
                      TextChanged="OnTextChanged"
                      SelectionChanged="OnSelectionChanged"
                      KeyDown="OnEditorKeyDown" />

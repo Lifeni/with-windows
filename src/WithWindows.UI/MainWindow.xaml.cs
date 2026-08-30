@@ -47,44 +47,28 @@ public sealed partial class MainWindow : Window
         string iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
         _tray = new TrayIcon(1, iconPath, "With Windows");
         _tray.ContextMenu += (_, e) => e.Flyout = BuildMenu();
-        _tray.LeftDoubleClick += (_, _) => ShowToggleWindow();
+        _tray.Selected += (_, _) => _notepad.ShowOrFocus(); // 左键单击打开记事本（双击重复触发无副作用）
         _tray.IsVisible = true;
     }
 
     private MenuFlyout BuildMenu()
     {
-        var notepad = new MenuFlyoutItem { Text = "快捷记事" };
-        notepad.Click += (_, _) => _notepad.Toggle();
-
-        var display = new MenuFlyoutItem { Text = "切换屏幕" };
-        display.Click += (_, _) => ExecuteAction("display_mode");
-
-        var theme = new MenuFlyoutItem { Text = "切换亮暗" };
-        theme.Click += (_, _) => ExecuteAction("theme");
-
-        var settings = new MenuFlyoutItem { Text = "设置" };
-        settings.Click += (_, _) => ShowToggleWindow();
-
-        var exit = new MenuFlyoutItem { Text = "退出" };
-        exit.Click += (_, _) => Application.Current.Exit();
-
         var menu = new MenuFlyout();
-        menu.Items.Add(notepad);
-        menu.Items.Add(display);
-        menu.Items.Add(theme);
+        menu.Items.Add(MenuItem("快捷记事", () => _notepad.Toggle()));
+        menu.Items.Add(MenuItem("切换屏幕", () => ExecuteAction("display_mode")));
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(settings);
+        menu.Items.Add(MenuItem("设置", ShowToggleWindow));
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(exit);
+        menu.Items.Add(MenuItem("退出", () => Application.Current.Exit()));
         return menu;
     }
 
-    private void ToggleAutoStart(ToggleMenuFlyoutItem item)
+    /// <summary>紧凑菜单项（缩小行高）。</summary>
+    private static MenuFlyoutItem MenuItem(string text, Action handler)
     {
-        // ToggleMenuFlyoutItem 点击后 IsChecked 已翻转
-        if (item.IsChecked) AutoStart.Enable();
-        else AutoStart.Disable();
-        _log.Info($"开机自启 {(item.IsChecked ? "已启用" : "已停用")}");
+        var item = new MenuFlyoutItem { Text = text, MinHeight = 30 };
+        item.Click += (_, _) => handler();
+        return item;
     }
 
     private void ShowToggleWindow()
@@ -173,7 +157,6 @@ public sealed partial class MainWindow : Window
         {
             ActionResult result = action switch
             {
-                "theme" => _theme.Execute("toggle"),
                 "display_mode" => _display.Execute("toggle"),
                 "notepad" => _notepad.Toggle(),
                 _ => new ActionResult(false, $"未知动作 {action}"),

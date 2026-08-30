@@ -23,6 +23,18 @@ public sealed class NotepadHost
         _onOpenSettings = onOpenSettings;
     }
 
+    /// <summary>打开并聚焦记事本（托盘左键；已打开则不重复操作）。</summary>
+    public void ShowOrFocus()
+    {
+        if (_window is null)
+        {
+            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore, _onOpenSettings);
+            window.Closed += (_, _) => _window = null;
+            _window = window;
+        }
+        _window.ShowAndFocus();
+    }
+
     public ActionResult Toggle()
     {
         if (_window is not null && _window.Visible)

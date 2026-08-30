@@ -114,7 +114,6 @@ public class ConfigStoreTests : IDisposable
         Assert.True(File.Exists(store.Path));
         var config = store.Load();
         Assert.Equal("F13", config.Bindings["notepad"]);
-        Assert.Equal("F14", config.Bindings["theme"]);
         Assert.Equal("F15", config.Bindings["display_mode"]);
     }
 

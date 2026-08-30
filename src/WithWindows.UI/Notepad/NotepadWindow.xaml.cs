@@ -9,6 +9,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using Windows.System;
 using Windows.UI.Core;
+using CommunityToolkit.WinUI.UI.Controls;
 using WithWindows.Config;
 using WithWindows.Core;
 using WithWindows.Interop;
@@ -32,7 +33,7 @@ public sealed partial class NotepadWindow : Window
     private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
-    public bool Visible => AppWindow.IsVisible;
+    public new bool Visible => AppWindow.IsVisible;
 
     public NotepadWindow(string savePath, Logger log, ConfigStore configStore, Action onOpenSettings)
     {
@@ -237,8 +238,8 @@ public sealed partial class NotepadWindow : Window
         SendButton.IsEnabled = false;
         AiProgress.IsActive = true;
 
-        var reply = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        AddChatBubble("assistant", reply);
+        var reply = new MarkdownTextBlock { Text = "" };
+        AddChatBubble("assistant", reply, getCopyText: () => reply.Text);
 
         bool ok = await _ai.AskAsync(config.Ai, _chatHistory,
             delta => DispatcherQueue.TryEnqueue(() => reply.Text += delta),
@@ -254,24 +255,55 @@ public sealed partial class NotepadWindow : Window
         DispatcherQueue.TryEnqueue(() => ChatScroller.ChangeView(null, ChatScroller.ScrollableHeight, null));
     }
 
-    /// <summary>向对话区追加一条消息气泡（用户右对齐，AI 左对齐）。</summary>
+    /// <summary>向对话区追加一条消息气泡（用户右对齐、AI 左对齐；AI 消息支持 Markdown 渲染并带复制按钮）。</summary>
     private void AddChatBubble(string role, string content)
-        => AddChatBubble(role, new TextBlock { Text = content, TextWrapping = TextWrapping.Wrap });
-
-    private void AddChatBubble(string role, TextBlock content)
     {
-        var border = new Border
+        FrameworkElement contentBlock = role == "assistant"
+            ? new MarkdownTextBlock { Text = content }
+            : new TextBlock { Text = content, TextWrapping = TextWrapping.Wrap };
+        AddChatBubble(role, contentBlock, role == "assistant" ? () => content : null);
+    }
+
+    private void AddChatBubble(string role, FrameworkElement content, Func<string>? getCopyText = null)
+    {
+        var bubble = new Grid { ColumnSpacing = 8, MaxWidth = 420 };
+        bubble.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        bubble.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var contentHost = new Border
         {
             Background = role == "user"
                 ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
                 : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(12, 8, 12, 8),
-            MaxWidth = 360,
-            HorizontalAlignment = role == "user" ? HorizontalAlignment.Right : HorizontalAlignment.Left,
         };
-        border.Child = content;
-        ChatMessages.Children.Add(border);
+        contentHost.Child = content;
+        bubble.Children.Add(contentHost);
+
+        if (getCopyText is not null)
+        {
+            var copyBtn = new Button
+            {
+                Padding = new Thickness(6),
+                VerticalAlignment = VerticalAlignment.Top,
+                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                BorderThickness = new Thickness(0),
+            };
+            Grid.SetColumn(copyBtn, 1);
+            ToolTipService.SetToolTip(copyBtn, "复制回复");
+            copyBtn.Content = new FontIcon { Glyph = "\uE8C8", FontSize = 12 };
+            copyBtn.Click += (_, _) =>
+            {
+                var data = new DataPackage();
+                data.SetText(getCopyText());
+                Clipboard.SetContent(data);
+            };
+            bubble.Children.Add(copyBtn);
+        }
+
+        bubble.HorizontalAlignment = role == "user" ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        ChatMessages.Children.Add(bubble);
     }
 
     // ---- 保存与剪贴板 ----
