@@ -14,6 +14,7 @@ public sealed class AppConfig
     };
 
     public DisplayModeConfig DisplayMode { get; set; } = new();
+    public WindowStateConfig WindowState { get; set; } = new();
 }
 
 /// <summary>屏幕切换参数。</summary>
@@ -21,6 +22,20 @@ public sealed class DisplayModeConfig
 {
     /// <summary>toggle 循环的候选模式，默认 internal/extend。</summary>
     public List<string> Modes { get; set; } = new() { "internal", "extend" };
+}
+
+/// <summary>窗口状态记忆（尺寸/位置/字体），关闭重开恢复。</summary>
+public sealed class WindowStateConfig
+{
+    public double NotepadFontSize { get; set; } = 14;
+    public double NotepadWidth { get; set; } = 520;
+    public double NotepadHeight { get; set; } = 780;
+    public double NotepadX { get; set; }
+    public double NotepadY { get; set; }
+    public double SettingsWidth { get; set; } = 520;
+    public double SettingsHeight { get; set; } = 780;
+    public double SettingsX { get; set; }
+    public double SettingsY { get; set; }
 }
 
 /// <summary>配置读写（v3）。首次启动自举默认值；旧 v2 数组格式自动迁移为 v3 对象格式。</summary>

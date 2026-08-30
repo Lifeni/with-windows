@@ -93,12 +93,15 @@
                 <!-- 开机自启 -->
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,10">
-                    <ToggleSwitch x:Name="AutoStartToggle"
-                                  Header="开机自启"
-                                  OnContent="开启"
-                                  OffContent="关闭"
-                                  Toggled="OnAutoStartToggled" />
+                        BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,10">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="开机自启" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ToggleSwitch x:Name="AutoStartToggle"
+                                      Header="开启后随 Windows 启动"
+                                      OnContent="开启"
+                                      OffContent="关闭"
+                                      Toggled="OnAutoStartToggled" />
+                    </StackPanel>
                 </Border>
 
                 <!-- 关于 -->

@@ -51,6 +51,7 @@ public sealed partial class NotepadWindow : Window
         SetupTitleBar();
         _presenter = AppWindow.Presenter as OverlappedPresenter; // 置顶由状态栏按钮控制
         _pinned = Registry.GetValue(PinRegistryPath, PinRegistryValue, 0) is int v && v != 0;
+        AppWindow.Changed += OnAppWindowChanged; // 最小尺寸钳制
 
         _saveTimer = DispatcherQueue.CreateTimer();
         _saveTimer.Interval = TimeSpan.FromMilliseconds(400);
@@ -92,7 +93,7 @@ public sealed partial class NotepadWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(520, 780));
+            LoadWindowState(); // 首次恢复记忆的尺寸/位置/字体
             _sized = true;
         }
         // 重开窗口恢复置顶状态（IsChecked 与视觉树可能被重置，用字段兜底）
@@ -100,10 +101,59 @@ public sealed partial class NotepadWindow : Window
         ApplyPinVisual();
     }
 
+    /// <summary>最小尺寸钳制（纯托管，避免 Win32 子类化崩溃）。</summary>
+    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (!args.DidSizeChange) return;
+        var size = AppWindow.Size;
+        const int minW = 520, minH = 780;
+        if (size.Width < minW || size.Height < minH)
+            AppWindow.Resize(new SizeInt32(Math.Max(size.Width, minW), Math.Max(size.Height, minH)));
+    }
+
+    /// <summary>恢复记忆的窗口尺寸/位置与字体大小。</summary>
+    private void LoadWindowState()
+    {
+        try
+        {
+            var ws = _configStore.Load().WindowState;
+            Editor.FontSize = Math.Clamp(ws.NotepadFontSize, MinFontSize, MaxFontSize);
+            AppWindow.Resize(new SizeInt32((int)ws.NotepadWidth, (int)ws.NotepadHeight));
+            if (ws.NotepadX != 0 || ws.NotepadY != 0)
+                AppWindow.Move(new PointInt32((int)ws.NotepadX, (int)ws.NotepadY));
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"窗口状态恢复失败: {ex}");
+        }
+    }
+
+    /// <summary>保存窗口尺寸/位置与字体大小（关闭或隐藏时）。</summary>
+    private void SaveWindowState()
+    {
+        try
+        {
+            var config = _configStore.Load();
+            var ws = config.WindowState;
+            ws.NotepadFontSize = Editor.FontSize;
+            ws.NotepadWidth = AppWindow.Size.Width;
+            ws.NotepadHeight = AppWindow.Size.Height;
+            var pos = AppWindow.Position;
+            ws.NotepadX = pos.X;
+            ws.NotepadY = pos.Y;
+            _configStore.Save(config);
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"窗口状态保存失败: {ex}");
+        }
+    }
+
     /// <summary>复制内容到剪贴板并隐藏（热键再次按下）。</summary>
     public void CopyAndHide()
     {
         CopyToClipboard();
+        SaveWindowState();
         AppWindow.Hide();
     }
 
@@ -278,5 +328,6 @@ public sealed partial class NotepadWindow : Window
         _saveTimer.Stop();
         Save();
         CopyToClipboard();
+        SaveWindowState();
     }
 }

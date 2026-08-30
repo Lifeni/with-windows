@@ -38,6 +38,7 @@ public sealed partial class ToggleWindow : Window
         InitializeComponent();
         SetupTitleBar();
         AppWindow.Title = "设置";
+        Closed += (_, _) => SaveWindowState();
         LoadConfig();
     }
 
@@ -60,11 +61,47 @@ public sealed partial class ToggleWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(520, 780)); // 与记事本窗口一致
+            LoadWindowState(); // 首次恢复记忆的尺寸/位置
             _sized = true;
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsResizable = false; // 固定尺寸
+    }
+
+    /// <summary>恢复记忆的窗口尺寸/位置。</summary>
+    private void LoadWindowState()
+    {
+        try
+        {
+            var ws = _configStore.Load().WindowState;
+            AppWindow.Resize(new SizeInt32((int)ws.SettingsWidth, (int)ws.SettingsHeight));
+            if (ws.SettingsX != 0 || ws.SettingsY != 0)
+                AppWindow.Move(new PointInt32((int)ws.SettingsX, (int)ws.SettingsY));
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"窗口状态恢复失败: {ex}");
+        }
+    }
+
+    /// <summary>保存窗口尺寸/位置（关闭时）。</summary>
+    private void SaveWindowState()
+    {
+        try
+        {
+            var config = _configStore.Load();
+            var ws = config.WindowState;
+            ws.SettingsWidth = AppWindow.Size.Width;
+            ws.SettingsHeight = AppWindow.Size.Height;
+            var pos = AppWindow.Position;
+            ws.SettingsX = pos.X;
+            ws.SettingsY = pos.Y;
+            _configStore.Save(config);
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"窗口状态保存失败: {ex}");
+        }
     }
 
     private void LoadConfig()
