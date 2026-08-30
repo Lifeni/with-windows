@@ -166,9 +166,7 @@ public sealed partial class NotepadWindow : Window
     {
         CopyToClipboard();
         SaveWindowState();
-        SetTransitions(false); // 隐藏期间禁用过渡，避免残留动画帧
-        SetCloak(true);        // 从合成层移除：无黑帧
-        AppWindow.Hide();
+        AppWindow.Hide(); // 直接隐藏，保留系统关闭动画
     }
 
     private void LoadSavedText()
@@ -351,8 +349,6 @@ public sealed partial class NotepadWindow : Window
         Save();
         CopyToClipboard();
         SaveWindowState();
-        SetTransitions(false);
-        SetCloak(true);
-        AppWindow.Hide();
+        AppWindow.Hide(); // 保留系统关闭动画
     }
 }
