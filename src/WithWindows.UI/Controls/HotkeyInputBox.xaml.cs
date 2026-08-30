@@ -31,6 +31,9 @@ public sealed partial class HotkeyInputBox : UserControl
     /// <summary>HotkeyText 变化事件（含清空）。</summary>
     public event EventHandler? HotkeyChanged;
 
+    /// <summary>聚焦内部输入框进入录制模式（弹窗打开后调用）。</summary>
+    public void FocusInput() => InputBox.Focus(FocusState.Programmatic);
+
     public HotkeyInputBox()
     {
         InitializeComponent();

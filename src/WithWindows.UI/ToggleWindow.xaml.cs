@@ -115,6 +115,7 @@ public sealed partial class ToggleWindow : Window
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Primary,
         };
+        dialog.Opened += (_, _) => box.FocusInput(); // 打开后自动进入录制模式
 
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
@@ -178,7 +179,7 @@ public sealed partial class ToggleWindow : Window
 
     private void OnResetNotepadHotkey(object sender, RoutedEventArgs e) => ResetHotkey("notepad", "F13", NotepadHotkeyText);
 
-    private void OnResetDisplayHotkey(object sender, RoutedEventArgs e) => ResetHotkey("display_mode", "F15", DisplayHotkeyText);
+    private void OnResetDisplayHotkey(object sender, RoutedEventArgs e) => ResetHotkey("display_mode", "F14", DisplayHotkeyText);
 
     private void ResetHotkey(string action, string defaultHotkey, TextBlock display)
     {

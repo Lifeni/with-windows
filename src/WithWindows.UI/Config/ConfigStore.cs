@@ -10,7 +10,7 @@ public sealed class AppConfig
     public Dictionary<string, string> Bindings { get; set; } = new()
     {
         ["notepad"] = "F13",
-        ["display_mode"] = "F15",
+        ["display_mode"] = "F14",
     };
 
     public DisplayModeConfig DisplayMode { get; set; } = new();
@@ -31,7 +31,7 @@ public sealed class ConfigStore
         {
           "bindings": {
             "notepad": "F13",
-            "display_mode": "F15"
+            "display_mode": "F14"
           },
           "displayMode": {
             "modes": [ "internal", "extend" ]

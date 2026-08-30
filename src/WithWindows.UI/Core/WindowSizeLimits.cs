@@ -1,15 +1,14 @@
 using System.Runtime.InteropServices;
-using WithWindows.Interop;
 
 namespace WithWindows.Core;
 
 /// <summary>
-/// Win32 窗口尺寸限制（WinUI 3 无 Min/Max 尺寸 API，通过 WM_GETMINMAXINFO 子类化窗口实现）。
+/// Win32 窗口最小尺寸限制（WinUI 3 无 Min 尺寸 API，通过 WM_GETMINMAXINFO 子类化实现）。
+/// 用 SetWindowSubclass（comctl32）链式子类化，避免覆盖 WinUI 3 内部窗口过程导致崩溃。
 /// 单例：仅用于记事本窗口。
 /// </summary>
 internal static class WindowSizeLimits
 {
-    private const int GWLP_WNDPROC = -4;
     private const uint WM_GETMINMAXINFO = 0x0024;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -29,25 +28,30 @@ internal static class WindowSizeLimits
         public POINT PtMaxTrackSize;
     }
 
-    // 防 GC：原窗口过程与新委托必须存活于窗口生命周期
-    private static IntPtr _prevProc;
-    private static NativeMethods.WndProcDelegate _proc = null!;
+    private delegate IntPtr SubclassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData);
 
+    // 防 GC：子类过程委托必须存活
+    private static SubclassProc _proc = null!;
     private static int _minW, _minH;
+
+    [DllImport("comctl32.dll", SetLastError = true)]
+    private static extern bool SetWindowSubclass(IntPtr hWnd, SubclassProc pfnSubclass, UIntPtr uIdSubclass, IntPtr dwRefData);
+
+    [DllImport("comctl32.dll")]
+    private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     /// <summary>给窗口套用最小尺寸限制（不限制最大，可自由放大）。</summary>
     public static void Apply(IntPtr hwnd, int minWidth, int minHeight)
     {
-        if (_prevProc != IntPtr.Zero) return; // 已应用（单例）
+        if (_proc is not null) return; // 已应用（单例）
 
         _minW = minWidth;
         _minH = minHeight;
         _proc = WndProc;
-        _prevProc = NativeMethods.SetWindowLongPtr(hwnd, GWLP_WNDPROC,
-            Marshal.GetFunctionPointerForDelegate(_proc));
+        SetWindowSubclass(hwnd, _proc, (UIntPtr)1, IntPtr.Zero);
     }
 
-    private static IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    private static IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData)
     {
         if (msg == WM_GETMINMAXINFO)
         {
@@ -58,6 +62,6 @@ internal static class WindowSizeLimits
             mmi.PtMaxTrackSize.Y = 10000;
             Marshal.StructureToPtr(mmi, lParam, false);
         }
-        return NativeMethods.CallWindowProc(_prevProc, hWnd, msg, wParam, lParam);
+        return DefSubclassProc(hWnd, msg, wParam, lParam);
     }
 }

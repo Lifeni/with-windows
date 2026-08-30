@@ -62,7 +62,7 @@ public class ConfigStoreTests : IDisposable
         // 迁移后的 bindings
         Assert.Equal("F13", config.Bindings["notepad"]);
         Assert.Equal("F14", config.Bindings["theme"]);
-        Assert.Equal("F15", config.Bindings["display_mode"]);
+        Assert.Equal("F15", config.Bindings["display_mode"]); // 迁移保留旧热键
         // display_mode 参数归位
         Assert.Equal(new[] { "internal", "extend" }, config.DisplayMode.Modes);
         // 已回写为 v3 格式（文件根不再是数组）
@@ -104,7 +104,7 @@ public class ConfigStoreTests : IDisposable
         Assert.True(File.Exists(store.Path));
         var config = store.Load();
         Assert.Equal("F13", config.Bindings["notepad"]);
-        Assert.Equal("F15", config.Bindings["display_mode"]);
+        Assert.Equal("F14", config.Bindings["display_mode"]);
     }
 
     [Fact]
