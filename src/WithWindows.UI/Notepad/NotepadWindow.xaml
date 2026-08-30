@@ -70,9 +70,11 @@
                            FontSize="12"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <ToggleButton x:Name="PinButton"
+                              Width="22"
+                              Height="22"
                               HorizontalAlignment="Right"
                               VerticalAlignment="Bottom"
-                              Padding="6,3"
+                              Padding="0"
                               Margin="0,0,4,4"
                               ToolTipService.ToolTip="置顶"
                               Checked="OnPinToggle"

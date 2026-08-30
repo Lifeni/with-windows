@@ -90,6 +90,7 @@ public sealed partial class NotepadWindow : Window
             AppWindow.Resize(new SizeInt32(520, 780));
             _sized = true;
         }
+        ApplyPinVisual(); // 重开窗口同步置顶状态视觉
     }
 
     /// <summary>复制内容到剪贴板并隐藏（热键再次按下）。</summary>
@@ -193,9 +194,15 @@ public sealed partial class NotepadWindow : Window
 
     private void OnPinToggle(object sender, RoutedEventArgs e)
     {
-        bool pinned = PinButton.IsChecked == true;
         if (_presenter is not null)
-            _presenter.IsAlwaysOnTop = pinned;
+            _presenter.IsAlwaysOnTop = PinButton.IsChecked == true;
+        ApplyPinVisual();
+    }
+
+    /// <summary>按置顶状态同步按钮视觉（初始/重开窗口时也需应用，避免灰色默认态）。</summary>
+    private void ApplyPinVisual()
+    {
+        bool pinned = PinButton.IsChecked == true;
         // 未选中：无边框无背景；选中：加背景与边框（图标不变）
         PinButton.Background = pinned
             ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
