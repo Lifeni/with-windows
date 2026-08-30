@@ -9,7 +9,6 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using Windows.System;
 using Windows.UI.Core;
-using CommunityToolkit.WinUI.UI.Controls;
 using WithWindows.Config;
 using WithWindows.Core;
 using WithWindows.Interop;
@@ -17,8 +16,8 @@ using WithWindows.Interop;
 namespace WithWindows.Notepad;
 
 /// <summary>
-/// 快捷记事本：竖长置顶窗口。普通模式为纯文本编辑（Ctrl+C/V 复制粘贴，Ctrl+S 另存为，关闭自动复制到剪贴板并保存）；
-/// "AI 模式"把编辑区切换为聊天视图（上方对话、下方输入发送），进入时自动把当前文本发给 AI，未配置则提示前往设置。
+/// 快捷记事本：竖长置顶窗口。纯文本编辑（Ctrl+C/V 复制粘贴，Ctrl+S 另存为），
+/// 隐藏/关闭时内容自动复制到剪贴板并保存到 notepad.txt；工具栏"设置"打开设置窗口。
 /// </summary>
 public sealed partial class NotepadWindow : Window
 {
@@ -27,9 +26,6 @@ public sealed partial class NotepadWindow : Window
     private readonly ConfigStore _configStore;
     private readonly Action _onOpenSettings;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _saveTimer;
-    private readonly AiClient _ai = new();
-    private readonly CancellationTokenSource _aiCts = new();
-    private readonly List<ChatMessage> _chatHistory = new();
     private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
@@ -140,20 +136,8 @@ public sealed partial class NotepadWindow : Window
         }
     }
 
-    private void OnChatInputKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == VirtualKey.Enter && !IsShiftDown())
-        {
-            e.Handled = true;
-            _ = SendChatAsync();
-        }
-    }
-
     private static bool IsCtrlDown()
         => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
-
-    private static bool IsShiftDown()
-        => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down);
 
     // ---- 工具栏 ----
 
@@ -178,132 +162,6 @@ public sealed partial class NotepadWindow : Window
         {
             _log.Error($"另存为失败: {ex}");
         }
-    }
-
-    // ---- AI 聊天模式 ----
-
-    /// <summary>AI 模式开关：开启后编辑区变为聊天视图，自动把当前文本发给 AI。</summary>
-    private void OnAiModeToggle(object sender, RoutedEventArgs e)
-    {
-        bool on = AiModeButton.IsChecked == true;
-        if (on)
-        {
-            EditorGridVisible(false);
-            ChatMessages.Children.Clear();
-            _chatHistory.Clear();
-
-            string text = Editor.Text.Trim();
-            if (text.Length > 0)
-                _ = AskAsync(text); // 自动提问
-            ChatInput.Focus(FocusState.Programmatic);
-        }
-        else
-        {
-            EditorGridVisible(true);
-        }
-    }
-
-    private void EditorGridVisible(bool editorVisible)
-    {
-        Editor.Visibility = editorVisible ? Visibility.Visible : Visibility.Collapsed;
-        AiChatGrid.Visibility = editorVisible ? Visibility.Collapsed : Visibility.Visible;
-    }
-
-    private async void OnSendChat(object sender, RoutedEventArgs e) => await SendChatAsync();
-
-    private async Task SendChatAsync()
-    {
-        string text = ChatInput.Text.Trim();
-        if (text.Length == 0) return;
-        await AskAsync(text);
-    }
-
-    /// <summary>发送消息并流式接收回复；未配置 AI 时提示并给出前往设置的入口。</summary>
-    private async Task AskAsync(string userText)
-    {
-        var config = _configStore.Load();
-        if (string.IsNullOrWhiteSpace(config.Ai.BaseUrl))
-        {
-            AddChatBubble("assistant", "尚未配置 AI，点击下方按钮前往设置。");
-            var goBtn = new Button { Content = "前往设置", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 4) };
-            goBtn.Click += (_, _) => _onOpenSettings();
-            ChatMessages.Children.Add(goBtn);
-            _log.Info("[ai] 未配置，提示前往设置");
-            return;
-        }
-
-        _chatHistory.Add(new ChatMessage("user", userText));
-        AddChatBubble("user", userText);
-        ChatInput.Text = "";
-        SendButton.IsEnabled = false;
-        AiProgress.IsActive = true;
-
-        var reply = new MarkdownTextBlock { Text = "" };
-        AddChatBubble("assistant", reply, getCopyText: () => reply.Text);
-
-        bool ok = await _ai.AskAsync(config.Ai, _chatHistory,
-            delta => DispatcherQueue.TryEnqueue(() => reply.Text += delta),
-            error => DispatcherQueue.TryEnqueue(() => reply.Text = error),
-            _aiCts.Token);
-
-        AiProgress.IsActive = false;
-        SendButton.IsEnabled = true;
-        _chatHistory.Add(new ChatMessage("assistant", reply.Text));
-        _log.Info($"[ai] 请求完成: 成功={ok}");
-
-        // 滚动到底部
-        DispatcherQueue.TryEnqueue(() => ChatScroller.ChangeView(null, ChatScroller.ScrollableHeight, null));
-    }
-
-    /// <summary>向对话区追加一条消息气泡（用户右对齐、AI 左对齐；AI 消息支持 Markdown 渲染并带复制按钮）。</summary>
-    private void AddChatBubble(string role, string content)
-    {
-        FrameworkElement contentBlock = role == "assistant"
-            ? new MarkdownTextBlock { Text = content }
-            : new TextBlock { Text = content, TextWrapping = TextWrapping.Wrap };
-        AddChatBubble(role, contentBlock, role == "assistant" ? () => content : null);
-    }
-
-    private void AddChatBubble(string role, FrameworkElement content, Func<string>? getCopyText = null)
-    {
-        var bubble = new Grid { ColumnSpacing = 8, MaxWidth = 420 };
-        bubble.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        bubble.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var contentHost = new Border
-        {
-            Background = role == "user"
-                ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
-                : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(12, 8, 12, 8),
-        };
-        contentHost.Child = content;
-        bubble.Children.Add(contentHost);
-
-        if (getCopyText is not null)
-        {
-            var copyBtn = new Button
-            {
-                Padding = new Thickness(6),
-                VerticalAlignment = VerticalAlignment.Top,
-                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
-                BorderThickness = new Thickness(0),
-            };
-            Grid.SetColumn(copyBtn, 1);
-            ToolTipService.SetToolTip(copyBtn, "复制回复");
-            copyBtn.Content = new FontIcon { Glyph = "\uE8C8", FontSize = 12 };
-            copyBtn.Click += (_, _) =>
-            {
-                var data = new DataPackage();
-                data.SetText(getCopyText());
-                Clipboard.SetContent(data);
-            };
-            bubble.Children.Add(copyBtn);
-        }
-
-        bubble.HorizontalAlignment = role == "user" ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-        ChatMessages.Children.Add(bubble);
     }
 
     // ---- 保存与剪贴板 ----
@@ -336,7 +194,6 @@ public sealed partial class NotepadWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
-        _aiCts.Cancel(); // 中断进行中的 AI 请求
         _saveTimer.Stop();
         Save();
         CopyToClipboard();

@@ -28,7 +28,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 标题栏兼工具栏：左（AI 模式 / 设置）右（进度，避让系统按钮） -->
+        <!-- 标题栏兼工具栏：左（设置）右（避让系统按钮） -->
         <Grid x:Name="TitleBarElement"
               Grid.Row="0"
               Height="44"
@@ -38,16 +38,6 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="4,0,0,0">
-                <ToggleButton x:Name="AiModeButton"
-                              Padding="10,6"
-                              ToolTipService.ToolTip="开启 AI 聊天模式"
-                              Checked="OnAiModeToggle"
-                              Unchecked="OnAiModeToggle">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xE8F2;" FontSize="14" />
-                        <TextBlock Text="AI 模式" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ToggleButton>
                 <Button x:Name="SettingsButton"
                         Click="OnOpenSettings"
                         Padding="10,6"
@@ -57,60 +47,23 @@
             </StackPanel>
             <!-- 右侧避让系统标题栏按钮（约 138px） -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                        VerticalAlignment="Center" Margin="0,0,146,0">
-                <ProgressRing x:Name="AiProgress" IsActive="False" Width="20" Height="20" />
-            </StackPanel>
+                        VerticalAlignment="Center" Margin="0,0,146,0" />
         </Grid>
 
-        <!-- 内容区：普通编辑模式 / AI 聊天模式 -->
-        <Grid Grid.Row="1">
-            <!-- 普通模式：编辑器（Ctrl+C/V 原生复制粘贴，Ctrl+S 另存为） -->
-            <TextBox x:Name="Editor"
-                     Grid.Column="0"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     FontFamily="Consolas"
-                     FontSize="14"
-                     BorderThickness="0"
-                     Padding="12"
-                     VerticalAlignment="Stretch"
-                     Style="{StaticResource PlainEditorStyle}"
-                     TextChanged="OnTextChanged"
-                     SelectionChanged="OnSelectionChanged"
-                     KeyDown="OnEditorKeyDown" />
-
-            <!-- AI 聊天模式：上方对话，下方输入 + 发送 -->
-            <Grid x:Name="AiChatGrid" Visibility="Collapsed">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <ScrollViewer x:Name="ChatScroller" VerticalScrollBarVisibility="Auto" Padding="12,8">
-                    <StackPanel x:Name="ChatMessages" Spacing="8" />
-                </ScrollViewer>
-                <Grid Grid.Row="1" ColumnSpacing="8" Padding="12,8,12,10"
-                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                      BorderThickness="0,1,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="ChatInput"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             MinHeight="36"
-                             MaxHeight="96"
-                             VerticalAlignment="Stretch"
-                             PlaceholderText="输入问题，Enter 发送（Shift+Enter 换行）"
-                             KeyDown="OnChatInputKeyDown" />
-                    <Button x:Name="SendButton"
-                            Grid.Column="1"
-                            Content="发送"
-                            Click="OnSendChat"
-                            VerticalAlignment="Bottom" />
-                </Grid>
-            </Grid>
-        </Grid>
+        <!-- 编辑器（Ctrl+C/V 原生复制粘贴，Ctrl+S 另存为） -->
+        <TextBox x:Name="Editor"
+                 Grid.Row="1"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 FontFamily="Consolas"
+                 FontSize="14"
+                 BorderThickness="0"
+                 Padding="12"
+                 VerticalAlignment="Stretch"
+                 Style="{StaticResource PlainEditorStyle}"
+                 TextChanged="OnTextChanged"
+                 SelectionChanged="OnSelectionChanged"
+                 KeyDown="OnEditorKeyDown" />
 
         <!-- 状态栏：行列与字符数 -->
         <Border Grid.Row="2"

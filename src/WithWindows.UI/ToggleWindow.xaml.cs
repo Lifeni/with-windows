@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Reflection;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
@@ -14,8 +13,8 @@ using WithWindows.Interop;
 namespace WithWindows;
 
 /// <summary>
-/// 设置窗口：两栏布局——左（亮暗/屏幕切换卡片、自动亮暗、模式勾选、恢复默认、开机自启、关于），
-/// 右（三组快捷键 + AI 设置）。修改即自动保存并热重载。
+/// 设置窗口：左栏（切换投屏卡片、模式勾选、恢复默认、开机自启、关于），
+/// 右栏（快捷记事 / 切换投屏快捷键）。修改即自动保存并热重载。
 /// </summary>
 public sealed partial class ToggleWindow : Window
 {
@@ -25,9 +24,7 @@ public sealed partial class ToggleWindow : Window
     private readonly Action _onSaved;
     private readonly Logger _log;
     private readonly DisplayModeAction _display;
-    private readonly SpeedTest _speedTest = new();
     private readonly DispatcherQueueTimer _statusTimer;
-    private readonly DispatcherQueueTimer _autoSaveTimer;
     private bool _loading; // LoadConfig 期间屏蔽 AutoSave（避免回填触发保存）
     private bool _sized;
 
@@ -41,11 +38,6 @@ public sealed partial class ToggleWindow : Window
         _statusTimer = DispatcherQueue.CreateTimer();
         _statusTimer.Interval = TimeSpan.FromSeconds(3);
         _statusTimer.Tick += (_, _) => { _statusTimer.Stop(); StatusBar.IsOpen = false; };
-
-        // 文本输入防抖保存（避免每次击键触发热重载）
-        _autoSaveTimer = DispatcherQueue.CreateTimer();
-        _autoSaveTimer.Interval = TimeSpan.FromMilliseconds(600);
-        _autoSaveTimer.Tick += (_, _) => { _autoSaveTimer.Stop(); SaveConfig(notify: false); };
 
         InitializeComponent();
         SetupTitleBar();
@@ -71,7 +63,7 @@ public sealed partial class ToggleWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(840, 720));
+            AppWindow.Resize(new SizeInt32(760, 600));
             _sized = true;
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
@@ -89,12 +81,7 @@ public sealed partial class ToggleWindow : Window
             NotepadHotkeyText.Text = FormatHotkeyText(config.Bindings, "notepad");
             DisplayHotkeyText.Text = FormatHotkeyText(config.Bindings, "display_mode");
 
-            AutoThemeToggle.IsOn = config.Theme.Enabled;
             AutoStartToggle.IsOn = AutoStart.IsEnabled();
-
-            AiBaseUrl.Text = config.Ai.BaseUrl;
-            AiApiKey.Text = config.Ai.ApiKey;
-            AiModel.Text = config.Ai.Model;
 
             ModeInternal.IsChecked = config.DisplayMode.Modes.Contains("internal");
             ModeExtend.IsChecked = config.DisplayMode.Modes.Contains("extend");
@@ -113,7 +100,6 @@ public sealed partial class ToggleWindow : Window
     private static string FormatHotkeyText(Dictionary<string, string> bindings, string action)
         => string.IsNullOrWhiteSpace(bindings.GetValueOrDefault(action)) ? Unset : bindings[action];
 
-    /// <summary>刷新两张大卡片的当前状态文字。</summary>
     private void RefreshStatusTexts()
     {
         DisplayStatusText.Text = DisplayTopology.GetCurrentMode() switch
@@ -130,15 +116,9 @@ public sealed partial class ToggleWindow : Window
 
     private void OnToggleDisplay(object sender, RoutedEventArgs e)
     {
-        RunAction(() => _display.Execute("toggle"));
-        RefreshStatusTexts();
-    }
-
-    private void RunAction(Func<ActionResult> action)
-    {
         try
         {
-            var result = action();
+            var result = _display.Execute("toggle");
             ShowStatus(result.Message);
             _log.Info($"[toggle] {result.Message}");
         }
@@ -147,6 +127,7 @@ public sealed partial class ToggleWindow : Window
             ShowStatus($"切换失败：{ex.Message}");
             _log.Error($"[toggle] 切换失败: {ex}");
         }
+        RefreshStatusTexts();
     }
 
     // ---- 快捷键设置（弹窗录制） ----
@@ -155,7 +136,7 @@ public sealed partial class ToggleWindow : Window
         => await SetHotkey("notepad", "设置记事本快捷键", NotepadHotkeyText);
 
     private async void OnSetDisplayHotkey(object sender, RoutedEventArgs e)
-        => await SetHotkey("display_mode", "设置屏幕快捷键", DisplayHotkeyText);
+        => await SetHotkey("display_mode", "设置投屏快捷键", DisplayHotkeyText);
 
     private async Task SetHotkey(string action, string title, TextBlock display)
     {
@@ -192,10 +173,7 @@ public sealed partial class ToggleWindow : Window
 
     // ---- 自动保存 ----
 
-    private void OnAutoThemeToggled(object sender, RoutedEventArgs e)
-        => AutoSave(notify: true);
-
-    private void OnModeChanged(object sender, RoutedEventArgs e) => AutoSave(notify: true);
+    private void OnModeChanged(object sender, RoutedEventArgs e) => AutoSave();
 
     private void OnAutoStartToggled(object sender, RoutedEventArgs e)
     {
@@ -206,19 +184,12 @@ public sealed partial class ToggleWindow : Window
         _log.Info($"[toggle] 开机自启 {(AutoStartToggle.IsOn ? "已启用" : "已停用")}");
     }
 
-    private void AutoSave(bool notify)
+    private void AutoSave()
     {
         if (_loading) return;
-        SaveConfig(notify);
-    }
-
-    private void SaveConfig(bool notify)
-    {
         try
         {
             var config = _configStore.Load();
-
-            config.Theme.Enabled = AutoThemeToggle.IsOn;
 
             var modes = new List<string>();
             if (ModeInternal.IsChecked == true) modes.Add("internal");
@@ -230,58 +201,12 @@ public sealed partial class ToggleWindow : Window
             _configStore.Save(config);
             _onSaved(); // 热重载：热键立即生效
             _log.Info("[toggle] 已自动保存");
-            if (notify) ShowStatus("已自动保存");
+            ShowStatus("已自动保存");
         }
         catch (Exception ex)
         {
             _log.Error($"[toggle] 保存失败: {ex}");
             ShowStatus($"保存失败：{ex.Message}");
-        }
-    }
-
-    // ---- AI 设置 ----
-
-    private void OnSaveAiConfig(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var config = _configStore.Load();
-            config.Ai.BaseUrl = AiBaseUrl.Text.Trim();
-            config.Ai.ApiKey = AiApiKey.Text.Trim();
-            config.Ai.Model = AiModel.Text.Trim();
-            _configStore.Save(config);
-            _log.Info("[ai] 配置已保存");
-            ShowStatus("AI 配置已保存");
-        }
-        catch (Exception ex)
-        {
-            _log.Error($"[ai] 配置保存失败: {ex}");
-            ShowStatus($"保存失败：{ex.Message}");
-        }
-    }
-
-    // ---- 网络测速 ----
-
-    private async void OnSpeedTest(object sender, RoutedEventArgs e)
-    {
-        SpeedTestButton.IsEnabled = false;
-        try
-        {
-            SpeedResult.Text = "下载测速中…";
-            double down = await _speedTest.DownloadAsync();
-            SpeedResult.Text = $"下载：{down:F1} Mbps\n上传测速中…";
-            double up = await _speedTest.UploadAsync();
-            SpeedResult.Text = $"下载：{down:F1} Mbps\n上传：{up:F1} Mbps";
-            _log.Info($"[speed] 下载 {down:F1} Mbps，上传 {up:F1} Mbps");
-        }
-        catch (Exception ex)
-        {
-            SpeedResult.Text = $"测速失败：{ex.Message}";
-            _log.Error($"[speed] 测速失败: {ex}");
-        }
-        finally
-        {
-            SpeedTestButton.IsEnabled = true;
         }
     }
 
@@ -293,7 +218,7 @@ public sealed partial class ToggleWindow : Window
         {
             XamlRoot = Content.XamlRoot,
             Title = "恢复默认",
-            Content = "将恢复默认热键（F13 / F14 / F15）与默认设置，当前修改会被覆盖。",
+            Content = "将恢复默认热键（F13 / F15）与默认设置，当前修改会被覆盖。",
             PrimaryButtonText = "恢复",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,

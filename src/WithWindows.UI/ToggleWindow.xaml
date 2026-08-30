@@ -27,24 +27,9 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 左栏：切换区域 -->
+                <!-- 左栏 -->
                 <StackPanel Spacing="0">
-                    <TextBlock Text="自动亮暗" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,12,0" />
-                    <ToggleSwitch x:Name="AutoThemeToggle"
-                                  Header="按日出日落自动切换系统主题"
-                                  OnContent="启用"
-                                  OffContent="关闭"
-                                  Toggled="OnAutoThemeToggled" />
-
-                    <TextBlock Text="网络测速" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,24,0,12" />
-                    <Button x:Name="SpeedTestButton" Content="开始测速" Click="OnSpeedTest"
-                            HorizontalAlignment="Left" />
-                    <TextBlock x:Name="SpeedResult" TextWrapping="Wrap" Margin="0,8,0,0"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="测试节点：Cloudflare 官方测速（直连）" FontSize="12" Margin="0,4,0,0"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-                    <TextBlock Text="切换屏幕" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,24,0,12" />
+                    <TextBlock Text="切换投屏" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
                     <Button x:Name="DisplayCard"
                             Height="64"
                             HorizontalAlignment="Stretch"
@@ -119,34 +104,27 @@
                 <Border Grid.Column="1"
                         Background="{ThemeResource CardStrokeColorDefaultBrush}" />
 
-                <!-- 右栏：快捷键 + AI 设置 -->
+                <!-- 右栏：快捷键分区 -->
                 <StackPanel Grid.Column="2" Spacing="0">
-                    <TextBlock Text="快捷键" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
-                        <TextBlock Text="记事本" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Grid ColumnSpacing="8" Margin="0,4,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="NotepadHotkeyText" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="设置" Click="OnSetNotepadHotkey" />
-                        </Grid>
-                        <TextBlock Text="切换屏幕" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Grid ColumnSpacing="8" Margin="0,4,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="DisplayHotkeyText" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="设置" Click="OnSetDisplayHotkey" />
-                        </Grid>
+                    <TextBlock Text="快捷记事" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="NotepadHotkeyText" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="设置" Click="OnSetNotepadHotkey" />
+                    </Grid>
 
-                        <TextBlock Text="AI 设置" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,28,0,12" />
-                        <TextBox x:Name="AiBaseUrl" Header="Base URL" PlaceholderText="http://127.0.0.1:11434/v1" />
-                        <TextBox x:Name="AiApiKey" Header="API Key" PlaceholderText="留空则不携带" Margin="0,8,0,0" />
-                        <TextBox x:Name="AiModel" Header="模型" PlaceholderText="如 qwen2.5" Margin="0,8,0,0" />
-                        <Button x:Name="SaveAiButton" Content="保存 AI 配置" Click="OnSaveAiConfig"
-                                HorizontalAlignment="Left" Margin="0,12,0,0" />
+                    <TextBlock Text="切换投屏" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,28,0,12" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="DisplayHotkeyText" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="设置" Click="OnSetDisplayHotkey" />
+                    </Grid>
                 </StackPanel>
             </Grid>
         </ScrollViewer>

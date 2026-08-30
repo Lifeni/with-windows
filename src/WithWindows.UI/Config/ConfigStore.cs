@@ -14,8 +14,6 @@ public sealed class AppConfig
     };
 
     public DisplayModeConfig DisplayMode { get; set; } = new();
-    public ThemeAutoConfig Theme { get; set; } = new();
-    public AiConfig Ai { get; set; } = new();
 }
 
 /// <summary>屏幕切换参数。</summary>
@@ -23,29 +21,6 @@ public sealed class DisplayModeConfig
 {
     /// <summary>toggle 循环的候选模式，默认 internal/extend。</summary>
     public List<string> Modes { get; set; } = new() { "internal", "extend" };
-}
-
-/// <summary>亮暗切换：日出日落自动切换参数（对应旧 auto_theme 条目）。</summary>
-public sealed class ThemeAutoConfig
-{
-    public bool Enabled { get; set; }
-    public double? Latitude { get; set; }
-    public double? Longitude { get; set; }
-
-    /// <summary>固定日落/日出时间 "HH:mm"（配置后不再按坐标计算）。</summary>
-    public string? Sunrise { get; set; }
-    public string? Sunset { get; set; }
-
-    /// <summary>切换点整体偏移（分钟，正数 = 延后）。</summary>
-    public int OffsetMinutes { get; set; }
-}
-
-/// <summary>AI 助手：OpenAI 兼容端口配置。</summary>
-public sealed class AiConfig
-{
-    public string BaseUrl { get; set; } = "";
-    public string ApiKey { get; set; } = "";
-    public string Model { get; set; } = "";
 }
 
 /// <summary>配置读写（v3）。首次启动自举默认值；旧 v2 数组格式自动迁移为 v3 对象格式。</summary>
@@ -60,17 +35,6 @@ public sealed class ConfigStore
           },
           "displayMode": {
             "modes": [ "internal", "extend" ]
-          },
-          "theme": {
-            "enabled": false,
-            "latitude": 36.6512,
-            "longitude": 117.1201,
-            "offsetMinutes": 0
-          },
-          "ai": {
-            "baseUrl": "",
-            "apiKey": "",
-            "model": ""
           }
         }
         """;
@@ -148,24 +112,6 @@ public sealed class ConfigStore
                     .Select(m => m.GetString() ?? "")
                     .Where(s => s.Length > 0)
                     .ToList();
-            }
-            else if (action == "auto_theme")
-            {
-                if (args.TryGetProperty("latitude", out var lat)
-                    && double.TryParse(lat.GetString(), System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture, out double latitude))
-                    config.Theme.Latitude = latitude;
-                if (args.TryGetProperty("longitude", out var lon)
-                    && double.TryParse(lon.GetString(), System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture, out double longitude))
-                    config.Theme.Longitude = longitude;
-                if (args.TryGetProperty("offset_minutes", out var off)
-                    && int.TryParse(off.GetString(), out int offset))
-                    config.Theme.OffsetMinutes = offset;
-                if (args.TryGetProperty("sunrise", out var rise))
-                    config.Theme.Sunrise = rise.GetString();
-                if (args.TryGetProperty("sunset", out var set))
-                    config.Theme.Sunset = set.GetString();
             }
         }
         return config;

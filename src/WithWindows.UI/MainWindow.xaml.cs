@@ -15,9 +15,7 @@ public sealed partial class MainWindow : Window
     private readonly NotepadHost _notepad;
     private readonly ConfigStore _configStore;
     private TrayIcon? _tray; // 防 GC：托盘图标必须保持引用，否则会被回收
-    private AutoThemeScheduler? _autoTheme;
     private ToggleWindow? _toggleWindow;
-    private ThemeAction _theme = null!;
     private DisplayModeAction _display = null!;
 
     /// <summary>冒烟模式统计：热键注册失败数。</summary>
@@ -35,11 +33,7 @@ public sealed partial class MainWindow : Window
         if (withTray)
             SetupTray();
         SetupHotkeys(config);
-        Closed += (_, _) =>
-        {
-            _hotkeys.Dispose();
-            _autoTheme?.Stop();
-        };
+        Closed += (_, _) => _hotkeys.Dispose();
     }
 
     private void SetupTray()
@@ -55,7 +49,7 @@ public sealed partial class MainWindow : Window
     {
         var menu = new MenuFlyout();
         menu.Items.Add(MenuItem("快捷记事", () => _notepad.Toggle()));
-        menu.Items.Add(MenuItem("切换屏幕", () => ExecuteAction("display_mode")));
+        menu.Items.Add(MenuItem("切换投屏", () => ExecuteAction("display_mode")));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("设置", ShowToggleWindow));
         menu.Items.Add(new MenuFlyoutSeparator());
@@ -89,44 +83,15 @@ public sealed partial class MainWindow : Window
 
     private void SetupHotkeys(AppConfig config)
     {
-        _theme = new ThemeAction();
         _display = new DisplayModeAction(config.DisplayMode.Modes.ToArray());
-        _autoTheme = new AutoThemeScheduler(
-            _theme,
-            AutoThemeSettings.FromConfig(config.Theme),
-            _log,
-            Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
-
         RegisterBindings(config);
-
-        // 自动亮暗：注册表标志或配置开关为真则恢复调度
-        if (AutoThemeScheduler.GetEnabledFlag() || config.Theme.Enabled)
-        {
-            string? error = _autoTheme.TryStart();
-            if (error is not null)
-                _log.Error($"自动亮暗切换启动失败: {error}");
-        }
     }
 
-    /// <summary>重新注册全部热键并重建自动亮暗调度（设置保存后热重载，立即生效）。</summary>
+    /// <summary>重新注册全部热键（设置保存后热重载，立即生效）。</summary>
     public void ReloadBindings(AppConfig config)
     {
         _hotkeys.UnregisterAll();
         RegisterBindings(config);
-
-        // 自动亮暗配置热重载：停旧调度器，按新配置重建
-        _autoTheme?.Stop();
-        _autoTheme = new AutoThemeScheduler(
-            _theme,
-            AutoThemeSettings.FromConfig(config.Theme),
-            _log,
-            Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
-        if (config.Theme.Enabled || AutoThemeScheduler.GetEnabledFlag())
-        {
-            string? error = _autoTheme.TryStart();
-            if (error is not null)
-                _log.Error($"自动亮暗切换启动失败: {error}");
-        }
     }
 
     private void RegisterBindings(AppConfig config)
