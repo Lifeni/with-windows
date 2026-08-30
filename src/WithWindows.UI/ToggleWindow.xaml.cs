@@ -59,7 +59,7 @@ public sealed partial class ToggleWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(560, 640));
+            AppWindow.Resize(new SizeInt32(520, 780)); // 与记事本窗口一致
             _sized = true;
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
@@ -174,27 +174,29 @@ public sealed partial class ToggleWindow : Window
         }
     }
 
-    // ---- 恢复默认 ----
+    // ---- 快捷键重置（恢复默认 F13 / F15） ----
 
-    private async void OnRestoreDefaults(object sender, RoutedEventArgs e)
+    private void OnResetNotepadHotkey(object sender, RoutedEventArgs e) => ResetHotkey("notepad", "F13", NotepadHotkeyText);
+
+    private void OnResetDisplayHotkey(object sender, RoutedEventArgs e) => ResetHotkey("display_mode", "F15", DisplayHotkeyText);
+
+    private void ResetHotkey(string action, string defaultHotkey, TextBlock display)
     {
-        var dialog = new ContentDialog
+        try
         {
-            XamlRoot = Content.XamlRoot,
-            Title = "恢复默认",
-            Content = "将恢复默认热键（F13 / F15）与默认设置，当前修改会被覆盖。",
-            PrimaryButtonText = "恢复",
-            CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Close,
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-
-        _configStore.Save(new AppConfig());
-        _onSaved();
-        LoadConfig();
-        ShowStatus("已恢复默认设置");
-        _log.Info("[toggle] 已恢复默认设置");
+            var config = _configStore.Load();
+            config.Bindings[action] = defaultHotkey;
+            _configStore.Save(config);
+            _onSaved();
+            display.Text = FormatHotkeyText(config.Bindings, action);
+            ShowStatus($"已恢复默认快捷键 {defaultHotkey}");
+            _log.Info($"[toggle] {action} 快捷键已重置为 {defaultHotkey}");
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"[toggle] 快捷键重置失败: {ex}");
+            ShowStatus($"重置失败：{ex.Message}");
+        }
     }
 
     private void ShowStatus(string message)
