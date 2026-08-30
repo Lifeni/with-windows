@@ -23,7 +23,6 @@ public sealed partial class ToggleWindow : Window
     private readonly Action _onSaved;
     private readonly Logger _log;
     private readonly DispatcherQueueTimer _statusTimer;
-    private readonly DispatcherQueueTimer _minSizeTimer;
     private IntPtr _hwnd;
     private bool _loading; // LoadConfig 期间屏蔽 AutoSave（避免回填触发保存）
     private bool _sized;
@@ -40,24 +39,6 @@ public sealed partial class ToggleWindow : Window
         InitializeComponent();
         SetupTitleBar();
         AppWindow.Title = "设置";
-        // 最小尺寸钳制（防抖）：窗口不可调，仅防系统拓扑变化（如切换投屏）把窗口意外缩到最小；
-        // 防抖避免拓扑切换瞬间与系统 Resize 竞争
-        _minSizeTimer = DispatcherQueue.CreateTimer();
-        _minSizeTimer.Interval = TimeSpan.FromMilliseconds(200);
-        _minSizeTimer.Tick += (_, _) =>
-        {
-            _minSizeTimer.Stop();
-            var size = AppWindow.Size;
-            const int minW = 520, minH = 780;
-            if (size.Width < minW || size.Height < minH)
-                AppWindow.Resize(new SizeInt32(Math.Max(size.Width, minW), Math.Max(size.Height, minH)));
-        };
-        AppWindow.Changed += (_, args) =>
-        {
-            if (!args.DidSizeChange) return;
-            _minSizeTimer.Stop();
-            _minSizeTimer.Start();
-        };
         Closed += (_, _) => SaveWindowState();
         LoadConfig();
     }
@@ -82,15 +63,16 @@ public sealed partial class ToggleWindow : Window
 
     public void ShowAndFocus()
     {
-        Activate();
-        if (!_sized)
-        {
-            LoadWindowState(); // 首次恢复记忆的尺寸/位置
-            _sized = true;
-        }
+        // 每次打开恢复记忆尺寸（窗口不可调；拓扑变化可能改系统尺寸，这里强制还原）
+        var ws = _configStore.Load().WindowState;
+        AppWindow.Resize(new SizeInt32((int)ws.SettingsWidth, (int)ws.SettingsHeight));
+        if (ws.SettingsX != 0 || ws.SettingsY != 0
+            && IsOnAnyDisplay((int)ws.SettingsX, (int)ws.SettingsY, (int)ws.SettingsWidth, (int)ws.SettingsHeight))
+            AppWindow.Move(new PointInt32((int)ws.SettingsX, (int)ws.SettingsY));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsResizable = false; // 固定尺寸
         EnsureWindowVisible(); // 防拓扑变化后窗口跑到屏幕外
+        Activate();
     }
 
     /// <summary>若窗口不在任何显示器内，移到主屏居中。</summary>
