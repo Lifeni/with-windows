@@ -53,6 +53,8 @@ public sealed partial class NotepadWindow : Window
         SetupTitleBar();
         _presenter = AppWindow.Presenter as OverlappedPresenter; // 置顶由状态栏按钮控制
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        // 最小尺寸（WM_GETMINMAXINFO）：拖动即限制，无回弹无闪烁；不限制最大
+        WindowSizeLimits.Apply(_hwnd, 520, 780);
         // 窗口类背景画刷 = 内容同色，显示瞬间即灰色无黑框
         NativeMethods.SetClassLongPtr(_hwnd, -10 /* GCLP_HBRBACKGROUND */,
             NativeMethods.CreateSolidBrush(0x00302B2B)); // RGB(0x2B, 0x2B, 0x30)
