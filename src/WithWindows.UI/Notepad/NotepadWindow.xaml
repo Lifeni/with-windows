@@ -60,10 +60,10 @@
                      SelectionChanged="OnSelectionChanged"
                      KeyDown="OnEditorKeyDown" />
 
-        <!-- 状态栏：行列与字符数 + 置顶开关 -->
+        <!-- 状态栏：行列与字符数 + 置顶开关（高度预留边框，按钮右下边距一致） -->
         <Border Grid.Row="2"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
-                Padding="12,2">
+                Padding="12,4">
             <Grid>
                 <TextBlock x:Name="StatusText"
                            VerticalAlignment="Center"
@@ -71,11 +71,13 @@
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <ToggleButton x:Name="PinButton"
                               HorizontalAlignment="Right"
-                              Padding="8,4"
+                              VerticalAlignment="Bottom"
+                              Padding="6,3"
+                              Margin="0,0,4,4"
                               ToolTipService.ToolTip="置顶"
                               Checked="OnPinToggle"
                               Unchecked="OnPinToggle">
-                    <FontIcon x:Name="PinIcon" Glyph="&#xE718;" FontSize="12" />
+                    <FontIcon x:Name="PinIcon" Glyph="&#xE718;" FontSize="10" />
                 </ToggleButton>
             </Grid>
         </Border>
