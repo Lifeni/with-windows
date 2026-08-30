@@ -32,6 +32,7 @@ public sealed partial class NotepadWindow : Window
     private const double MaxFontSize = 32;
     private const double DefaultFontSize = 14;
     private OverlappedPresenter? _presenter;
+    private bool _pinned; // 置顶状态持久化（窗口隐藏重开时 IsChecked 可能被视觉树重置）
     private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
@@ -90,8 +91,9 @@ public sealed partial class NotepadWindow : Window
             AppWindow.Resize(new SizeInt32(520, 780));
             _sized = true;
         }
-        // 重开窗口同步置顶状态视觉（延迟到视觉树就绪，隐藏期间样式会被重置）
-        DispatcherQueue.TryEnqueue(() => ApplyPinVisual());
+        // 重开窗口恢复置顶状态（IsChecked 与视觉树可能被重置，用字段兜底）
+        PinButton.IsChecked = _pinned;
+        ApplyPinVisual();
     }
 
     /// <summary>复制内容到剪贴板并隐藏（热键再次按下）。</summary>
@@ -195,20 +197,20 @@ public sealed partial class NotepadWindow : Window
 
     private void OnPinToggle(object sender, RoutedEventArgs e)
     {
+        _pinned = PinButton.IsChecked == true;
         if (_presenter is not null)
-            _presenter.IsAlwaysOnTop = PinButton.IsChecked == true;
+            _presenter.IsAlwaysOnTop = _pinned;
         ApplyPinVisual();
     }
 
     /// <summary>按置顶状态同步按钮视觉（初始/重开窗口时也需应用，避免灰色默认态）。</summary>
     private void ApplyPinVisual()
     {
-        bool pinned = PinButton.IsChecked == true;
         // 未选中：无边框无背景；选中：加背景与边框（图标不变）
-        PinButton.Background = pinned
+        PinButton.Background = _pinned
             ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
             : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        PinButton.BorderThickness = pinned ? new Thickness(1) : new Thickness(0);
+        PinButton.BorderThickness = _pinned ? new Thickness(1) : new Thickness(0);
     }
 
     // ---- 另存为（Ctrl+S） ----
