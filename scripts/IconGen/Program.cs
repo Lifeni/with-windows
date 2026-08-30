@@ -67,7 +67,7 @@ static byte[] ToDib(Bitmap bmp)
     var header = new byte[40];
     BitConverter.GetBytes(40).CopyTo(header, 0);
     BitConverter.GetBytes(w).CopyTo(header, 4);
-    BitConverter.GetBytes(h).CopyTo(header, 8); // 32bit 带 alpha，无需 AND 掩码（高度 x2 会导致加载错位）
+    BitConverter.GetBytes(h * 2).CopyTo(header, 8); // 高度 x2 = 像素行 + AND 掩码行（ico 标准格式）
     BitConverter.GetBytes((short)1).CopyTo(header, 12);
     BitConverter.GetBytes((short)32).CopyTo(header, 14);
     var data = new byte[w * h * 4];
@@ -78,7 +78,8 @@ static byte[] ToDib(Bitmap bmp)
             int i = (y * w + x) * 4;
             data[i] = c.B; data[i + 1] = c.G; data[i + 2] = c.R; data[i + 3] = c.A;
         }
-    return header.Concat(data).ToArray();
+    var andMask = new byte[(w + 7) / 8 * h]; // AND 掩码全 0（透明由 alpha 通道决定）
+    return header.Concat(data).Concat(andMask).ToArray();
 }
 
 // 组装 ICO(Vista+ 支持 PNG 条目)

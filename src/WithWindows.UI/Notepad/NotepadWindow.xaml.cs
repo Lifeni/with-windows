@@ -31,6 +31,7 @@ public sealed partial class NotepadWindow : Window
     private const double MinFontSize = 10;
     private const double MaxFontSize = 32;
     private const double DefaultFontSize = 14;
+    private OverlappedPresenter? _presenter;
     private bool _sized;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
@@ -44,8 +45,7 @@ public sealed partial class NotepadWindow : Window
         InitializeComponent();
 
         SetupTitleBar();
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
-            presenter.IsAlwaysOnTop = true; // 始终置顶：随时弹出记录
+        _presenter = AppWindow.Presenter as OverlappedPresenter; // 默认不置顶，状态栏按钮控制
 
         _saveTimer = DispatcherQueue.CreateTimer();
         _saveTimer.Interval = TimeSpan.FromMilliseconds(400);
@@ -60,7 +60,7 @@ public sealed partial class NotepadWindow : Window
         Editor.PointerWheelChanged += OnEditorWheel; // Ctrl+滚轮缩放字体
         // 行距加大：设置默认段落格式并写回，作用于已有与新内容
         var fmt = Editor.Document.GetDefaultParagraphFormat();
-        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.2f);
+        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.1f);
         Editor.Document.SetDefaultParagraphFormat(fmt);
         LoadSavedText();
         Closed += OnClosed;
@@ -112,10 +112,10 @@ public sealed partial class NotepadWindow : Window
         }
         // 对全部文本应用行距（加载后段落格式重置为默认）
         var fmt = Editor.Document.GetDefaultParagraphFormat();
-        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.2f);
+        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.1f);
         var selection = Editor.Document.Selection;
         selection.SetRange(0, int.MaxValue);
-        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.2f);
+        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.1f);
         selection.SetRange(0, 0);
         UpdateStatus();
     }
@@ -188,6 +188,16 @@ public sealed partial class NotepadWindow : Window
 
     private static bool IsCtrlDown()
         => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
+
+    // ---- 置顶开关 ----
+
+    private void OnPinToggle(object sender, RoutedEventArgs e)
+    {
+        bool pinned = PinButton.IsChecked == true;
+        if (_presenter is not null)
+            _presenter.IsAlwaysOnTop = pinned;
+        PinIcon.Glyph = pinned ? "\uE719" : "\uE718"; // 置顶/取消置顶图标
+    }
 
     // ---- 另存为（Ctrl+S） ----
 

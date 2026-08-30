@@ -119,7 +119,7 @@
                  Severity="Informational"
                  IsOpen="False"
                  IsClosable="False"
-                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                 Background="#FF3A3A40"
                  VerticalAlignment="Bottom"
                  Margin="12,0,12,12" />
     </Grid>
