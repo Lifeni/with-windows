@@ -54,8 +54,8 @@ public partial class App : Application
             return;
         }
 
-        // 3. 主窗口：托盘 + 热键注册 + 动作分发（含自动亮暗恢复）
-        _window = new MainWindow(config, log, configStore);
+        // 3. 主窗口：托盘 + 热键注册 + 动作分发（含自动亮暗恢复）；smoke 不创建托盘，避免快速退出竞态
+        _window = new MainWindow(config, log, configStore, withTray: !smoke);
 
         if (smoke)
         {

@@ -20,7 +20,7 @@
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Padding="24,16,24,24" Spacing="0" MaxWidth="720" HorizontalAlignment="Stretch">
+            <StackPanel Padding="24,16,24,24" Spacing="0">
 
                 <!-- 亮暗 -->
                 <TextBlock Text="切换亮暗" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
@@ -63,12 +63,12 @@
                             <Button Grid.Column="2" Content="设置快捷键" Click="OnSetThemeHotkey" />
                         </Grid>
                         <ToggleSwitch x:Name="AutoThemeToggle"
-                                      Header="日出日落自动切换"
+                                      Header="自动亮暗"
                                       OnContent="启用"
                                       OffContent="关闭"
                                       Toggled="OnAutoThemeToggled" />
                         <StackPanel x:Name="AutoThemeOptions" Spacing="8" Visibility="Collapsed">
-                            <TextBlock Text="坐标与固定时间二选一（不填坐标时使用内置默认坐标）"
+                            <TextBlock Text="打开开关时自动按系统时区填入默认坐标；坐标与固定时间二选一"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        TextWrapping="Wrap" />
                             <Grid ColumnSpacing="8">

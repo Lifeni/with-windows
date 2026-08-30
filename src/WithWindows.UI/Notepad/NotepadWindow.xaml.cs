@@ -5,6 +5,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 using WithWindows.Config;
 using WithWindows.Core;
 using WithWindows.Interop;
@@ -12,8 +14,9 @@ using WithWindows.Interop;
 namespace WithWindows.Notepad;
 
 /// <summary>
-/// 快捷记事本：独立置顶窗口，标题栏兼工具栏（粘贴剪贴板 / 问 AI / AI 设置）。
-/// 底部状态栏显示行列与字符数；AI 回复区常驻显示。隐藏/关闭时内容自动复制到剪贴板并保存。
+/// 快捷记事本：独立置顶窗口，标题栏兼工具栏（粘贴剪贴板 / 复制全部 / 另存为 / AI 助手）。
+/// AI 侧栏（左）：打开即自动提问，未配置时弹出设置；回复完成后自动收起。
+/// 底部状态栏显示行列与字符数；隐藏/关闭时内容自动复制到剪贴板并保存。
 /// </summary>
 public sealed partial class NotepadWindow : Window
 {
@@ -102,7 +105,7 @@ public sealed partial class NotepadWindow : Window
 
     private void OnSelectionChanged(object sender, RoutedEventArgs e) => UpdateStatus();
 
-    /// <summary>状态栏：光标行列 + 总字符数。</summary>
+    /// <summary>状态栏：光标行列 + 总字符数，并同步窗口标题。</summary>
     private void UpdateStatus()
     {
         string text = Editor.Text;
@@ -119,7 +122,7 @@ public sealed partial class NotepadWindow : Window
         AppWindow.Title = title; // 自绘标题栏下 Window.Title 不同步 Win32 文本，需显式设置
     }
 
-    // ---- 工具栏：粘贴剪贴板 ----
+    // ---- 工具栏 ----
 
     private async void OnClipboardPaste(object sender, RoutedEventArgs e)
     {
@@ -140,9 +143,103 @@ public sealed partial class NotepadWindow : Window
         }
     }
 
-    // ---- AI 助手 ----
+    private void OnCopyAll(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var data = new DataPackage();
+            data.SetText(Editor.Text);
+            Clipboard.SetContent(data);
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"复制失败: {ex}");
+        }
+    }
 
-    private async void OnOpenAiConfig(object sender, RoutedEventArgs e)
+    private async void OnSaveAs(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new FileSavePicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            picker.FileTypeChoices.Add("文本文件", new List<string> { ".txt" });
+            picker.SuggestedFileName = $"记事本-{DateTime.Now:yyyyMMdd-HHmmss}";
+
+            var file = await picker.PickSaveFileAsync();
+            if (file is null) return;
+            await FileIO.WriteTextAsync(file, Editor.Text);
+            _log.Info($"[notepad] 已另存为: {file.Path}");
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"另存为失败: {ex}");
+        }
+    }
+
+    // ---- AI 侧栏 ----
+
+    /// <summary>工具栏切换按钮：展开即自动提问，未配置则弹设置。</summary>
+    private async void OnAiPanelToggle(object sender, RoutedEventArgs e)
+    {
+        bool visible = AiPanelButton.IsChecked == true;
+        SetAiPanelVisible(visible);
+        if (!visible) return;
+
+        var config = _configStore.Load();
+        if (string.IsNullOrWhiteSpace(config.Ai.BaseUrl))
+            await ShowAiConfigDialog();
+        else
+            await AskAiCore();
+    }
+
+    private async void OnAskAi(object sender, RoutedEventArgs e) => await AskAiCore();
+
+    /// <summary>执行提问：校验 → 流式回复 → 完成后自动收起侧栏。</summary>
+    private async Task AskAiCore()
+    {
+        if (string.IsNullOrWhiteSpace(Editor.Text))
+        {
+            AiReply.Text = "请先在编辑区输入内容";
+            return;
+        }
+
+        var config = _configStore.Load();
+        if (string.IsNullOrWhiteSpace(config.Ai.BaseUrl))
+        {
+            AiReply.Text = "请先在 AI 设置中填写 Base URL";
+            await ShowAiConfigDialog();
+            return;
+        }
+
+        AiReply.Text = "";
+        AskAiButton.IsEnabled = false;
+        AiProgress.IsActive = true;
+
+        bool ok = await _ai.AskAsync(config.Ai, Editor.Text,
+            delta => DispatcherQueue.TryEnqueue(() => AiReply.Text += delta),
+            error => DispatcherQueue.TryEnqueue(() => AiReply.Text = error),
+            _aiCts.Token);
+
+        AiProgress.IsActive = false;
+        AskAiButton.IsEnabled = true;
+        _log.Info($"[ai] 请求完成: 成功={ok}");
+
+        // 回复完成后自动收起侧栏（内容保留，可再展开查看）
+        var closeTimer = DispatcherQueue.CreateTimer();
+        closeTimer.Interval = TimeSpan.FromSeconds(1);
+        closeTimer.Tick += (_, _) =>
+        {
+            closeTimer.Stop();
+            AiPanelButton.IsChecked = false; // 收起（触发 OnAiPanelToggle）
+        };
+        closeTimer.Start();
+    }
+
+    private async void OnOpenAiConfig(object sender, RoutedEventArgs e) => await ShowAiConfigDialog();
+
+    /// <summary>AI 设置弹窗；保存后若已配置且侧栏展开，自动提问。</summary>
+    private async Task ShowAiConfigDialog()
     {
         var config = _configStore.Load();
         var urlBox = new TextBox { Header = "Base URL", Text = config.Ai.BaseUrl, PlaceholderText = "http://127.0.0.1:11434/v1" };
@@ -174,6 +271,10 @@ public sealed partial class NotepadWindow : Window
             updated.Ai.Model = modelBox.Text.Trim();
             _configStore.Save(updated);
             _log.Info("[ai] 配置已保存");
+
+            // 保存后若侧栏展开，自动提问
+            if (AiPanelButton.IsChecked == true && !string.IsNullOrWhiteSpace(updated.Ai.BaseUrl))
+                await AskAiCore();
         }
         catch (Exception ex)
         {
@@ -181,60 +282,11 @@ public sealed partial class NotepadWindow : Window
         }
     }
 
-    private async void OnAskAi(object sender, RoutedEventArgs e)
-    {
-        if (string.IsNullOrWhiteSpace(Editor.Text))
-        {
-            AiReply.Text = "请先在编辑区输入内容";
-            return;
-        }
-
-        var config = _configStore.Load();
-        if (string.IsNullOrWhiteSpace(config.Ai.BaseUrl))
-        {
-            AiReply.Text = "请先在 AI 设置中填写 Base URL";
-            return;
-        }
-
-        AiReply.Text = "";
-        AiPanelButton.IsChecked = true; // 展开侧栏（触发 OnAiPanelToggle）
-        AskAiButton.IsEnabled = false;
-        AiProgress.IsActive = true;
-
-        bool ok = await _ai.AskAsync(config.Ai, Editor.Text,
-            delta => DispatcherQueue.TryEnqueue(() => AiReply.Text += delta),
-            error => DispatcherQueue.TryEnqueue(() => AiReply.Text = error),
-            _aiCts.Token);
-
-        AiProgress.IsActive = false;
-        AskAiButton.IsEnabled = true;
-        _log.Info($"[ai] 请求完成: 成功={ok}");
-
-        // 回复完成后自动收起侧栏（内容保留，可再展开查看）
-        var closeTimer = DispatcherQueue.CreateTimer();
-        closeTimer.Interval = TimeSpan.FromSeconds(1);
-        closeTimer.Tick += (_, _) =>
-        {
-            closeTimer.Stop();
-            AiPanelButton.IsChecked = false; // 收起侧栏（触发 OnAiPanelToggle）
-        };
-        closeTimer.Start();
-    }
-
-    /// <summary>侧栏按钮手动切换。</summary>
-    private void OnAiPanelToggle(object sender, RoutedEventArgs e)
-        => SetAiPanelVisible(AiPanelButton.IsChecked == true);
-
-    /// <summary>显示/隐藏 AI 回复侧栏（列宽随动）。IsChecked 由触发方维护，避免事件递归。</summary>
+    /// <summary>显示/隐藏 AI 侧栏（列宽随动）。IsChecked 由触发方维护，避免事件递归。</summary>
     private void SetAiPanelVisible(bool visible)
     {
         AiColumn.Width = visible ? new GridLength(300) : new GridLength(0);
         AiSidePanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void OnClearAi(object sender, RoutedEventArgs e)
-    {
-        AiReply.Text = "";
     }
 
     // ---- 保存与剪贴板 ----

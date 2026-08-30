@@ -23,7 +23,7 @@ public sealed partial class MainWindow : Window
     /// <summary>冒烟模式统计：热键注册失败数。</summary>
     public int RegisterFailures { get; private set; }
 
-    public MainWindow(AppConfig config, Logger log, ConfigStore configStore)
+    public MainWindow(AppConfig config, Logger log, ConfigStore configStore, bool withTray = true)
     {
         _log = log;
         _configStore = configStore;
@@ -32,7 +32,8 @@ public sealed partial class MainWindow : Window
         _notepad = new NotepadHost(dataRoot, log, configStore);
 
         InitializeComponent();
-        SetupTray();
+        if (withTray)
+            SetupTray();
         SetupHotkeys(config);
         Closed += (_, _) =>
         {

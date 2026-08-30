@@ -68,9 +68,11 @@ public sealed partial class ToggleWindow : Window
         Activate();
         if (!_sized)
         {
-            AppWindow.Resize(new SizeInt32(560, 640));
+            AppWindow.Resize(new SizeInt32(440, 760));
             _sized = true;
         }
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+            presenter.IsResizable = false; // 固定尺寸
         RefreshStatusTexts();
     }
 
@@ -200,6 +202,13 @@ public sealed partial class ToggleWindow : Window
     private void OnAutoThemeToggled(object sender, RoutedEventArgs e)
     {
         AutoThemeOptions.Visibility = AutoThemeToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+        if (AutoThemeToggle.IsOn && string.IsNullOrWhiteSpace(ThemeLatitude.Text))
+        {
+            // 按系统时区自动填入默认坐标，用户无需手动设置
+            ThemeLatitude.Text = AutoThemeSettings.DefaultLatitude.ToString(CultureInfo.InvariantCulture);
+            ThemeLongitude.Text = AutoThemeSettings.DefaultLongitude.ToString(CultureInfo.InvariantCulture);
+            ShowStatus($"已按系统时区（{TimeZoneInfo.Local.Id}）自动填入坐标");
+        }
         AutoSave(notify: true);
     }
 
