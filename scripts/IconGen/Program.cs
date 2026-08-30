@@ -8,7 +8,7 @@ using System.Drawing.Imaging;
 int[] sizes = { 16, 24, 32, 48, 64, 128, 256 };
 string output = args.Length > 0
     ? args[0]
-    : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "WithWindows", "Assets", "with-windows.ico");
+    : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "WithWindows.UI", "Assets", "with-windows.ico");
 
 // 基准 256x256 绘制
 using var canvas = new Bitmap(256, 256, PixelFormat.Format32bppArgb);
@@ -17,6 +17,7 @@ using (var g = Graphics.FromImage(canvas))
     g.SmoothingMode = SmoothingMode.AntiAlias;
 
     using var bgPath = RoundedRect(0, 0, 256, 256, 56);
+    // 深灰渐变背景 + 金色闪电（原配色）
     using var bgBrush = new LinearGradientBrush(
         new Rectangle(0, 0, 256, 256),
         Color.FromArgb(0xFF, 0x33, 0x37, 0x48),
@@ -38,8 +39,8 @@ using (var g = Graphics.FromImage(canvas))
     g.FillPolygon(boltBrush, bolt);
 }
 
-// 各尺寸 PNG
-var images = new List<(int Size, byte[] Png)>();
+// 各尺寸帧：小尺寸用 BMP(DIB，任务栏兼容性最好，避免小图标马赛克)，大尺寸用 PNG
+var images = new List<(int Size, byte[] Data, bool IsPng)>();
 foreach (int size in sizes)
 {
     using var bmp = new Bitmap(size, size, PixelFormat.Format32bppArgb);
@@ -49,9 +50,36 @@ foreach (int size in sizes)
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.DrawImage(canvas, 0, 0, size, size);
     }
-    using var ms = new MemoryStream();
-    bmp.Save(ms, ImageFormat.Png);
-    images.Add((size, ms.ToArray()));
+    if (size <= 48)
+        images.Add((size, ToDib(bmp), false));
+    else
+    {
+        using var ms = new MemoryStream();
+        bmp.Save(ms, ImageFormat.Png);
+        images.Add((size, ms.ToArray(), true));
+    }
+}
+
+/// <summary>32 位 BGRA 自下而上的 DIB 数据（含 BITMAPINFOHEADER，高度 x2 预留 AND 掩码）。</summary>
+static byte[] ToDib(Bitmap bmp)
+{
+    int w = bmp.Width, h = bmp.Height;
+    var header = new byte[40];
+    BitConverter.GetBytes(40).CopyTo(header, 0);
+    BitConverter.GetBytes(w).CopyTo(header, 4);
+    BitConverter.GetBytes(h * 2).CopyTo(header, 8); // 高度 x2 = 像素行 + AND 掩码行（ico 标准格式）
+    BitConverter.GetBytes((short)1).CopyTo(header, 12);
+    BitConverter.GetBytes((short)32).CopyTo(header, 14);
+    var data = new byte[w * h * 4];
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            var c = bmp.GetPixel(x, h - 1 - y);
+            int i = (y * w + x) * 4;
+            data[i] = c.B; data[i + 1] = c.G; data[i + 2] = c.R; data[i + 3] = c.A;
+        }
+    var andMask = new byte[(w + 7) / 8 * h]; // AND 掩码全 0（透明由 alpha 通道决定）
+    return header.Concat(data).Concat(andMask).ToArray();
 }
 
 // 组装 ICO(Vista+ 支持 PNG 条目)
@@ -63,7 +91,7 @@ using (var bw = new BinaryWriter(fs))
     bw.Write((ushort)1);                    // type: icon
     bw.Write((ushort)images.Count);
     int offset = 6 + 16 * images.Count;
-    foreach (var (size, png) in images)
+    foreach (var (size, data, _) in images)
     {
         bw.Write((byte)(size >= 256 ? 0 : size));  // width(256 记 0)
         bw.Write((byte)(size >= 256 ? 0 : size));  // height
@@ -71,12 +99,12 @@ using (var bw = new BinaryWriter(fs))
         bw.Write((byte)0);                         // reserved
         bw.Write((ushort)1);                       // planes
         bw.Write((ushort)32);                      // bitcount
-        bw.Write((uint)png.Length);
+        bw.Write((uint)data.Length);
         bw.Write((uint)offset);
-        offset += png.Length;
+        offset += data.Length;
     }
-    foreach (var (_, png) in images)
-        bw.Write(png);
+    foreach (var (_, data, _) in images)
+        bw.Write(data);
 }
 
 Console.WriteLine($"已生成 {output} ({images.Count} 个尺寸)");

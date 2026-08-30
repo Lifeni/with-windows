@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>WithWindows</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- WinUI 3 不支持裁剪/单文件 -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishSingleFile>false</PublishSingleFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Version>0.3.0</Version>
+    <AssemblyName>WithWindows</AssemblyName>
+    <ApplicationIcon>Assets\with-windows.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <PackageReference Include="WinUIEx" Version="2.9.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WithWindows.UI.Tests" />
+  </ItemGroup>
+
+  <!-- WindowsAppSDK publish 不复制应用 XBF/PRI（已知坑），显式补齐，否则 0xc000027b -->
+  <Target Name="CopyXamlResourcesToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <XbfAll Include="$(TargetDir)**\*.xbf" />
+      <PriApp Include="$(TargetDir)WithWindows.pri" />
+    </ItemGroup>
+    <Copy SourceFiles="@(XbfAll)" DestinationFolder="$(PublishDir)%(RecursiveDir)" />
+    <Copy SourceFiles="@(PriApp)" DestinationFolder="$(PublishDir)" />
+  </Target>
+
+</Project>
