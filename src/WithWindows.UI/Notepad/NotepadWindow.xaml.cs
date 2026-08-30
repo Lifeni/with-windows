@@ -29,7 +29,6 @@ public sealed partial class NotepadWindow : Window
     private readonly ConfigStore _configStore;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _saveTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _clockTimer;
-    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _minSizeTimer;
     private const string PinRegistryPath = @"HKEY_CURRENT_USER\Software\WithWindows\Notepad";
     private const string PinRegistryValue = "Pinned";
     private const double MinFontSize = 10;
@@ -52,7 +51,6 @@ public sealed partial class NotepadWindow : Window
         SetupTitleBar();
         _presenter = AppWindow.Presenter as OverlappedPresenter; // 置顶由状态栏按钮控制
         _pinned = Registry.GetValue(PinRegistryPath, PinRegistryValue, 0) is int v && v != 0;
-        AppWindow.Changed += OnAppWindowChanged; // 最小尺寸钳制
 
         _saveTimer = DispatcherQueue.CreateTimer();
         _saveTimer.Interval = TimeSpan.FromMilliseconds(400);
@@ -65,18 +63,6 @@ public sealed partial class NotepadWindow : Window
         _clockTimer.Start();
 
         Editor.PointerWheelChanged += OnEditorWheel; // Ctrl+滚轮缩放字体
-        // 最小尺寸防抖：拖动停止后再钳制，避免拖动中反复 Resize 闪烁
-        _minSizeTimer = DispatcherQueue.CreateTimer();
-        _minSizeTimer.Interval = TimeSpan.FromMilliseconds(200);
-        _minSizeTimer.Tick += (_, _) =>
-        {
-            _minSizeTimer.Stop();
-            var size = AppWindow.Size;
-            const int minW = 520, minH = 780;
-            if (size.Width < minW || size.Height < minH)
-                AppWindow.Resize(new SizeInt32(Math.Max(size.Width, minW), Math.Max(size.Height, minH)));
-        };
-
         // 行距加大：设置默认段落格式并写回，作用于已有与新内容
         var fmt = Editor.Document.GetDefaultParagraphFormat();
         fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.05f);
@@ -114,13 +100,6 @@ public sealed partial class NotepadWindow : Window
         ApplyPinVisual();
     }
 
-    /// <summary>尺寸变化进入防抖（拖动停止 200ms 后才钳制最小尺寸，避免闪烁）。</summary>
-    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
-    {
-        if (!args.DidSizeChange) return;
-        _minSizeTimer.Stop();
-        _minSizeTimer.Start();
-    }
 
     /// <summary>恢复记忆的窗口尺寸/位置与字体大小。</summary>
     private void LoadWindowState()
@@ -335,11 +314,20 @@ public sealed partial class NotepadWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
-        _clockTimer.Stop();
-        _saveTimer.Stop();
-        _minSizeTimer.Stop();
+        // 应用退出：允许关闭；用户点 X：拦截为最小化到托盘（窗口常驻）
+        if (App.IsExiting)
+        {
+            _clockTimer.Stop();
+            _saveTimer.Stop();
+            Save();
+            CopyToClipboard();
+            SaveWindowState();
+            return;
+        }
+        args.Handled = true;
         Save();
         CopyToClipboard();
         SaveWindowState();
+        AppWindow.Hide();
     }
 }

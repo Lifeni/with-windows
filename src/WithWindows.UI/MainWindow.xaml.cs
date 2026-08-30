@@ -53,7 +53,11 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("设置", ShowToggleWindow));
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(MenuItem("退出", () => Application.Current.Exit()));
+        menu.Items.Add(MenuItem("退出", () =>
+        {
+            App.IsExiting = true;
+            Application.Current.Exit();
+        }));
         return menu;
     }
 

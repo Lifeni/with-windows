@@ -7,6 +7,9 @@ namespace WithWindows;
 
 public partial class App : Application
 {
+    /// <summary>应用正在退出（托盘退出前置位；记事本 OnClosed 据此放行关闭，否则拦截为最小化到托盘）。</summary>
+    public static bool IsExiting { get; set; }
+
     private Window? _window;
     private Logger? _log; // 生命周期 = 应用：热键回调跨 OnLaunched 使用，不能用 using 局部释放
 
@@ -67,6 +70,7 @@ public partial class App : Application
         {
             var window = (MainWindow)_window;
             log.Info($"smoke: 绑定 {config.Bindings.Count}，注册失败 {window.RegisterFailures}");
+            IsExiting = true; // 放行窗口关闭，避免预创建记事本的拦截导致退出挂起
             Exit();
         }
         // 常驻：不显示主窗口（仅托盘），由托盘/热键唤出

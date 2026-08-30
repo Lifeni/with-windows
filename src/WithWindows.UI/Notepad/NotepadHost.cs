@@ -9,45 +9,28 @@ namespace WithWindows.Notepad;
 /// </summary>
 public sealed class NotepadHost
 {
-    private readonly string _dataRoot;
     private readonly Logger _log;
-    private readonly ConfigStore _configStore;
-    private NotepadWindow? _window;
+    private readonly NotepadWindow _window;
 
+    /// <summary>预创建记事本窗口（隐藏），首次打开无创建黑框；关闭 = 最小化到托盘，窗口常驻。</summary>
     public NotepadHost(string dataRoot, Logger log, ConfigStore configStore)
     {
-        _dataRoot = dataRoot;
         _log = log;
-        _configStore = configStore;
+        _window = new NotepadWindow(Path.Combine(dataRoot, "notepad.txt"), log, configStore);
     }
 
     /// <summary>打开并聚焦记事本（托盘左键；已打开则不重复操作）。</summary>
-    public void ShowOrFocus()
-    {
-        if (_window is null)
-        {
-            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore);
-            window.Closed += (_, _) => _window = null;
-            _window = window;
-        }
-        _window.ShowAndFocus();
-    }
+    public void ShowOrFocus() => _window.ShowAndFocus();
 
     public ActionResult Toggle()
     {
-        if (_window is not null && _window.Visible)
+        if (_window.Visible)
         {
             _window.CopyAndHide();
             _log.Info("[notepad] 已复制内容并关闭记事本");
             return new ActionResult(true, "已复制内容并关闭记事本", Notify: false);
         }
 
-        if (_window is null)
-        {
-            var window = new NotepadWindow(Path.Combine(_dataRoot, "notepad.txt"), _log, _configStore);
-            window.Closed += (_, _) => _window = null; // 用户关闭窗口后下次重建（热键隐藏不触发 Closed）
-            _window = window;
-        }
         _window.ShowAndFocus();
         _log.Info("[notepad] 已打开记事本");
         return new ActionResult(true, "已打开记事本", Notify: false);
