@@ -56,8 +56,14 @@ public sealed partial class MainWindow : Window
         var notepad = new MenuFlyoutItem { Text = "快捷记事" };
         notepad.Click += (_, _) => _notepad.Toggle();
 
-        var toggle = new MenuFlyoutItem { Text = "一键切换" };
-        toggle.Click += (_, _) => ShowToggleWindow();
+        var display = new MenuFlyoutItem { Text = "切换屏幕" };
+        display.Click += (_, _) => ExecuteAction("display_mode");
+
+        var theme = new MenuFlyoutItem { Text = "切换亮暗" };
+        theme.Click += (_, _) => ExecuteAction("theme");
+
+        var settings = new MenuFlyoutItem { Text = "设置" };
+        settings.Click += (_, _) => ShowToggleWindow();
 
         var autoStart = new ToggleMenuFlyoutItem
         {
@@ -71,9 +77,12 @@ public sealed partial class MainWindow : Window
 
         var menu = new MenuFlyout();
         menu.Items.Add(notepad);
-        menu.Items.Add(toggle);
+        menu.Items.Add(display);
+        menu.Items.Add(theme);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(autoStart);
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(settings);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(exit);
         return menu;

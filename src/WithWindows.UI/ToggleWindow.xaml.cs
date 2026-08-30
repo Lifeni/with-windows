@@ -12,7 +12,7 @@ using WithWindows.Interop;
 namespace WithWindows;
 
 /// <summary>
-/// 一键切换配置窗口：大卡片点击即切换（亮暗 / 屏幕），快捷键弹窗录制，更多选项折叠。
+/// 设置窗口：大卡片点击即切换（亮暗 / 屏幕），快捷键弹窗录制，更多选项折叠，含记事本快捷键。
 /// 修改即自动保存并热重载；"恢复默认"一键还原。内容随窗口宽度自适应。
 /// </summary>
 public sealed partial class ToggleWindow : Window
@@ -47,6 +47,7 @@ public sealed partial class ToggleWindow : Window
 
         InitializeComponent();
         SetupTitleBar();
+        AppWindow.Title = "设置";
         LoadConfig();
     }
 
@@ -85,6 +86,7 @@ public sealed partial class ToggleWindow : Window
 
             ThemeHotkeyText.Text = FormatHotkeyText(config.Bindings, "theme");
             DisplayHotkeyText.Text = FormatHotkeyText(config.Bindings, "display_mode");
+            NotepadHotkeyText.Text = FormatHotkeyText(config.Bindings, "notepad");
 
             AutoThemeToggle.IsOn = config.Theme.Enabled;
             ThemeLatitude.Text = config.Theme.Latitude?.ToString(CultureInfo.InvariantCulture) ?? "";
@@ -163,6 +165,9 @@ public sealed partial class ToggleWindow : Window
 
     private async void OnSetDisplayHotkey(object sender, RoutedEventArgs e)
         => await SetHotkey("display_mode", "设置屏幕快捷键", DisplayHotkeyText);
+
+    private async void OnSetNotepadHotkey(object sender, RoutedEventArgs e)
+        => await SetHotkey("notepad", "设置记事本快捷键", NotepadHotkeyText);
 
     private async Task SetHotkey(string action, string title, TextBlock display)
     {

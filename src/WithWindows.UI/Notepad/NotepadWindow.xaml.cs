@@ -15,7 +15,7 @@ namespace WithWindows.Notepad;
 
 /// <summary>
 /// 快捷记事本：独立置顶窗口，标题栏兼工具栏（粘贴剪贴板 / 复制全部 / 另存为 / AI 助手）。
-/// AI 侧栏（左）：打开即自动提问，未配置时弹出设置；回复完成后自动收起。
+/// AI 侧栏（左）：打开即自动提问，未配置时弹出设置；回复完成后保持展开。
 /// 底部状态栏显示行列与字符数；隐藏/关闭时内容自动复制到剪贴板并保存。
 /// </summary>
 public sealed partial class NotepadWindow : Window
@@ -224,16 +224,7 @@ public sealed partial class NotepadWindow : Window
         AiProgress.IsActive = false;
         AskAiButton.IsEnabled = true;
         _log.Info($"[ai] 请求完成: 成功={ok}");
-
-        // 回复完成后自动收起侧栏（内容保留，可再展开查看）
-        var closeTimer = DispatcherQueue.CreateTimer();
-        closeTimer.Interval = TimeSpan.FromSeconds(1);
-        closeTimer.Tick += (_, _) =>
-        {
-            closeTimer.Stop();
-            AiPanelButton.IsChecked = false; // 收起（触发 OnAiPanelToggle）
-        };
-        closeTimer.Start();
+        // 回复完成后侧栏保持展开，由用户手动收起
     }
 
     private async void OnOpenAiConfig(object sender, RoutedEventArgs e) => await ShowAiConfigDialog();
