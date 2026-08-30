@@ -17,11 +17,11 @@ using (var g = Graphics.FromImage(canvas))
     g.SmoothingMode = SmoothingMode.AntiAlias;
 
     using var bgPath = RoundedRect(0, 0, 256, 256, 56);
-    // 亮蓝渐变背景 + 白色闪电：深浅任务栏下均高对比、清晰
+    // 深灰渐变背景 + 金色闪电（原配色）
     using var bgBrush = new LinearGradientBrush(
         new Rectangle(0, 0, 256, 256),
-        Color.FromArgb(0xFF, 0x1E, 0x88, 0xE5),
-        Color.FromArgb(0xFF, 0x0F, 0x54, 0xA0),
+        Color.FromArgb(0xFF, 0x33, 0x37, 0x48),
+        Color.FromArgb(0xFF, 0x17, 0x19, 0x21),
         45f);
     g.FillPath(bgBrush, bgPath);
 
@@ -35,7 +35,7 @@ using (var g = Graphics.FromImage(canvas))
         new(192, 102),
         new(134, 102),
     };
-    using var boltBrush = new SolidBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
+    using var boltBrush = new SolidBrush(Color.FromArgb(0xFF, 0xFF, 0xC9, 0x3C));
     g.FillPolygon(boltBrush, bolt);
 }
 

@@ -196,7 +196,11 @@ public sealed partial class NotepadWindow : Window
         bool pinned = PinButton.IsChecked == true;
         if (_presenter is not null)
             _presenter.IsAlwaysOnTop = pinned;
-        PinIcon.Glyph = pinned ? "\uE719" : "\uE718"; // 置顶/取消置顶图标
+        // 未选中：无边框无背景；选中：加背景与边框（图标不变）
+        PinButton.Background = pinned
+            ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
+            : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        PinButton.BorderThickness = pinned ? new Thickness(1) : new Thickness(0);
     }
 
     // ---- 另存为（Ctrl+S） ----
