@@ -23,6 +23,7 @@ public sealed partial class ToggleWindow : Window
     private readonly Action _onSaved;
     private readonly Logger _log;
     private readonly DispatcherQueueTimer _statusTimer;
+    private IntPtr _hwnd;
     private bool _loading; // LoadConfig 期间屏蔽 AutoSave（避免回填触发保存）
     private bool _sized;
 
@@ -48,12 +49,10 @@ public sealed partial class ToggleWindow : Window
         SetTitleBar(TitleBarElement);
         AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+        _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         // 窗口类背景画刷 = 内容同色，显示瞬间即灰色无黑框
-        NativeMethods.SetClassLongPtr(WinRT.Interop.WindowNative.GetWindowHandle(this), -10 /* GCLP_HBRBACKGROUND */,
+        NativeMethods.SetClassLongPtr(_hwnd, -10 /* GCLP_HBRBACKGROUND */,
             NativeMethods.CreateSolidBrush(0x00302B2B)); // RGB(0x2B, 0x2B, 0x30)
-        // 恢复 Win11 窗口过渡动画（WinUI 3 可能默认禁用）
-        int enabled = 0;
-        NativeMethods.DwmSetWindowAttribute(WinRT.Interop.WindowNative.GetWindowHandle(this), 3 /* DWMWA_TRANSITIONS_FORCEDISABLED */, ref enabled, sizeof(int));
 
         string icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
         // 显式 32x32 帧：避免系统默认尺寸取帧不一致导致拉伸/模糊
@@ -72,6 +71,11 @@ public sealed partial class ToggleWindow : Window
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsResizable = false; // 固定尺寸
+        // 恢复 Win11 窗口过渡动画（WinUI 3 可能默认禁用过渡）
+        int enabled = 0;
+        NativeMethods.DwmSetWindowAttribute(_hwnd, 3 /* DWMWA_TRANSITIONS_FORCEDISABLED */, ref enabled, sizeof(int));
+        int uncloak = 0;
+        NativeMethods.DwmSetWindowAttribute(_hwnd, 13 /* DWMWA_CLOAK */, ref uncloak, sizeof(int));
     }
 
     /// <summary>恢复记忆的窗口尺寸/位置。</summary>

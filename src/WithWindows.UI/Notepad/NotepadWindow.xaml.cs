@@ -35,6 +35,7 @@ public sealed partial class NotepadWindow : Window
     private const double MaxFontSize = 32;
     private const double DefaultFontSize = 14;
     private OverlappedPresenter? _presenter;
+    private IntPtr _hwnd;
     private bool _pinned; // 置顶状态（持久化注册表，窗口销毁重建也能恢复）
     private bool _sized;
 
@@ -50,12 +51,10 @@ public sealed partial class NotepadWindow : Window
 
         SetupTitleBar();
         _presenter = AppWindow.Presenter as OverlappedPresenter; // 置顶由状态栏按钮控制
+        _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         // 窗口类背景画刷 = 内容同色，显示瞬间即灰色无黑框
-        NativeMethods.SetClassLongPtr(WinRT.Interop.WindowNative.GetWindowHandle(this), -10 /* GCLP_HBRBACKGROUND */,
+        NativeMethods.SetClassLongPtr(_hwnd, -10 /* GCLP_HBRBACKGROUND */,
             NativeMethods.CreateSolidBrush(0x00302B2B)); // RGB(0x2B, 0x2B, 0x30)
-        // 恢复 Win11 窗口过渡动画（WinUI 3 可能默认禁用）
-        int enabled = 0;
-        NativeMethods.DwmSetWindowAttribute(WinRT.Interop.WindowNative.GetWindowHandle(this), 3 /* DWMWA_TRANSITIONS_FORCEDISABLED */, ref enabled, sizeof(int));
         _pinned = Registry.GetValue(PinRegistryPath, PinRegistryValue, 0) is int v && v != 0;
 
         _saveTimer = DispatcherQueue.CreateTimer();
@@ -100,11 +99,27 @@ public sealed partial class NotepadWindow : Window
             LoadWindowState(); // 先设尺寸/位置/字体再显示，避免闪跳
             _sized = true;
         }
-        AppWindow.Show(); // 先显示（恢复渲染），再聚焦，减少合成延迟黑帧
+        SetCloak(false); // 从 DWM 合成层解除隐藏：内容已在合成层，立即显示无黑屏
+        SetTransitions(true); // 恢复 Win11 窗口过渡动画
+        AppWindow.Show();
         Activate();
         // 重开窗口恢复置顶状态（IsChecked 与视觉树可能被重置，用字段兜底）
         PinButton.IsChecked = _pinned;
         ApplyPinVisual();
+    }
+
+    /// <summary>DWM Cloak：窗口在合成层隐藏/显示（无黑帧残留，uncloak 即见内容）。</summary>
+    private void SetCloak(bool cloak)
+    {
+        int value = cloak ? 1 : 0;
+        NativeMethods.DwmSetWindowAttribute(_hwnd, 13 /* DWMWA_CLOAK */, ref value, sizeof(int));
+    }
+
+    /// <summary>窗口过渡动画开关（隐藏期间禁用避免残留，显示时恢复）。</summary>
+    private void SetTransitions(bool enabled)
+    {
+        int value = enabled ? 0 : 1; // DWMWA_TRANSITIONS_FORCEDISABLED：1 = 禁用
+        NativeMethods.DwmSetWindowAttribute(_hwnd, 3, ref value, sizeof(int));
     }
 
 
@@ -151,6 +166,8 @@ public sealed partial class NotepadWindow : Window
     {
         CopyToClipboard();
         SaveWindowState();
+        SetTransitions(false); // 隐藏期间禁用过渡，避免残留动画帧
+        SetCloak(true);        // 从合成层移除：无黑帧
         AppWindow.Hide();
     }
 
@@ -334,6 +351,8 @@ public sealed partial class NotepadWindow : Window
         Save();
         CopyToClipboard();
         SaveWindowState();
+        SetTransitions(false);
+        SetCloak(true);
         AppWindow.Hide();
     }
 }
