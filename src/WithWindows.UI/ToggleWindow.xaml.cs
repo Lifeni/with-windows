@@ -71,11 +71,6 @@ public sealed partial class ToggleWindow : Window
         }
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsResizable = false; // 固定尺寸
-        // 恢复 Win11 窗口过渡动画（WinUI 3 可能默认禁用过渡）
-        int enabled = 0;
-        NativeMethods.DwmSetWindowAttribute(_hwnd, 3 /* DWMWA_TRANSITIONS_FORCEDISABLED */, ref enabled, sizeof(int));
-        int uncloak = 0;
-        NativeMethods.DwmSetWindowAttribute(_hwnd, 13 /* DWMWA_CLOAK */, ref uncloak, sizeof(int));
     }
 
     /// <summary>恢复记忆的窗口尺寸/位置。</summary>

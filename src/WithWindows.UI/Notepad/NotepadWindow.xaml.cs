@@ -29,6 +29,7 @@ public sealed partial class NotepadWindow : Window
     private readonly ConfigStore _configStore;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _saveTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _clockTimer;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _showTimer;
     private const string PinRegistryPath = @"HKEY_CURRENT_USER\Software\WithWindows\Notepad";
     private const string PinRegistryValue = "Pinned";
     private const double MinFontSize = 10;
@@ -68,6 +69,18 @@ public sealed partial class NotepadWindow : Window
         _clockTimer.Start();
 
         Editor.PointerWheelChanged += OnEditorWheel; // Ctrl+滚轮缩放字体
+        // 打开延迟显示：先渲染就绪再显示，避免首帧闪屏
+        _showTimer = DispatcherQueue.CreateTimer();
+        _showTimer.Interval = TimeSpan.FromMilliseconds(120);
+        _showTimer.Tick += (_, _) =>
+        {
+            _showTimer.Stop();
+            AppWindow.Show();
+            Activate();
+            PinButton.IsChecked = _pinned;
+            ApplyPinVisual();
+        };
+
         // 行距加大：设置默认段落格式并写回，作用于已有与新内容
         var fmt = Editor.Document.GetDefaultParagraphFormat();
         fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.05f);
@@ -99,27 +112,9 @@ public sealed partial class NotepadWindow : Window
             LoadWindowState(); // 先设尺寸/位置/字体再显示，避免闪跳
             _sized = true;
         }
-        SetCloak(false); // 从 DWM 合成层解除隐藏：内容已在合成层，立即显示无黑屏
-        SetTransitions(true); // 恢复 Win11 窗口过渡动画
-        AppWindow.Show();
-        Activate();
-        // 重开窗口恢复置顶状态（IsChecked 与视觉树可能被重置，用字段兜底）
-        PinButton.IsChecked = _pinned;
-        ApplyPinVisual();
-    }
-
-    /// <summary>DWM Cloak：窗口在合成层隐藏/显示（无黑帧残留，uncloak 即见内容）。</summary>
-    private void SetCloak(bool cloak)
-    {
-        int value = cloak ? 1 : 0;
-        NativeMethods.DwmSetWindowAttribute(_hwnd, 13 /* DWMWA_CLOAK */, ref value, sizeof(int));
-    }
-
-    /// <summary>窗口过渡动画开关（隐藏期间禁用避免残留，显示时恢复）。</summary>
-    private void SetTransitions(bool enabled)
-    {
-        int value = enabled ? 0 : 1; // DWMWA_TRANSITIONS_FORCEDISABLED：1 = 禁用
-        NativeMethods.DwmSetWindowAttribute(_hwnd, 3, ref value, sizeof(int));
+        // 延迟显示：先让渲染就绪，120ms 后再显示，避免首帧闪屏
+        _showTimer.Stop();
+        _showTimer.Start();
     }
 
 
@@ -166,7 +161,7 @@ public sealed partial class NotepadWindow : Window
     {
         CopyToClipboard();
         SaveWindowState();
-        SetCloak(true); // 保留合成内容供下次打开（防闪屏）
+        _showTimer.Stop();
         AppWindow.Hide();
     }
 
@@ -341,6 +336,7 @@ public sealed partial class NotepadWindow : Window
         {
             _clockTimer.Stop();
             _saveTimer.Stop();
+            _showTimer.Stop();
             Save();
             CopyToClipboard();
             SaveWindowState();
@@ -350,7 +346,7 @@ public sealed partial class NotepadWindow : Window
         Save();
         CopyToClipboard();
         SaveWindowState();
-        SetCloak(true);
+        _showTimer.Stop();
         AppWindow.Hide();
     }
 }
