@@ -75,7 +75,7 @@
                               HorizontalAlignment="Right"
                               VerticalAlignment="Center"
                               Padding="0"
-                              Margin="0,0,2,3"
+                              Margin="0,0,0,0"
                               ToolTipService.ToolTip="置顶"
                               Checked="OnPinToggle"
                               Unchecked="OnPinToggle">
