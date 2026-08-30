@@ -115,6 +115,7 @@
         </ScrollViewer>
 
         <InfoBar x:Name="StatusBar"
+                 Grid.Row="1"
                  Severity="Informational"
                  IsOpen="False"
                  IsClosable="False"

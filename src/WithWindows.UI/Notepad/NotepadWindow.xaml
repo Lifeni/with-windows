@@ -4,24 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Grid Background="#FF2B2B30">
-        <Grid.Resources>
-            <!-- 无边框无聚焦下划线的编辑器模板（默认模板聚焦时显示主题色下划线） -->
-            <Style x:Key="PlainEditorStyle" TargetType="TextBox">
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="TextBox">
-                            <ScrollViewer x:Name="ContentElement"
-                                          Margin="0"
-                                          Padding="{TemplateBinding Padding}"
-                                          IsTabStop="False"
-                                          HorizontalScrollBarVisibility="Auto"
-                                          VerticalScrollBarVisibility="Auto"
-                                          ZoomMode="Disabled" />
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -47,20 +29,19 @@
                         VerticalAlignment="Center" Margin="0,0,146,0" />
         </Grid>
 
-        <!-- 编辑器（Ctrl+C/V 原生复制粘贴，Ctrl+S 另存为） -->
-        <TextBox x:Name="Editor"
-                 Grid.Row="1"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 FontFamily="Consolas"
-                 FontSize="14"
-                 BorderThickness="0"
-                 Padding="12"
-                 VerticalAlignment="Stretch"
-                 Style="{StaticResource PlainEditorStyle}"
-                 TextChanged="OnTextChanged"
-                 SelectionChanged="OnSelectionChanged"
-                 KeyDown="OnEditorKeyDown" />
+        <!-- 编辑器（Ctrl+C/V 原生复制粘贴，Ctrl+S 另存为；RichEditBox 支持行距） -->
+        <RichEditBox x:Name="Editor"
+                     Grid.Row="1"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     FontFamily="Consolas"
+                     FontSize="14"
+                     BorderThickness="0"
+                     Padding="12"
+                     VerticalAlignment="Stretch"
+                     TextChanged="OnTextChanged"
+                     SelectionChanged="OnSelectionChanged"
+                     KeyDown="OnEditorKeyDown" />
 
         <!-- 状态栏：行列与字符数 -->
         <Border Grid.Row="2"

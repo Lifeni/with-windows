@@ -67,7 +67,7 @@ static byte[] ToDib(Bitmap bmp)
     var header = new byte[40];
     BitConverter.GetBytes(40).CopyTo(header, 0);
     BitConverter.GetBytes(w).CopyTo(header, 4);
-    BitConverter.GetBytes(h * 2).CopyTo(header, 8);
+    BitConverter.GetBytes(h).CopyTo(header, 8); // 32bit 带 alpha，无需 AND 掩码（高度 x2 会导致加载错位）
     BitConverter.GetBytes((short)1).CopyTo(header, 12);
     BitConverter.GetBytes((short)32).CopyTo(header, 14);
     var data = new byte[w * h * 4];

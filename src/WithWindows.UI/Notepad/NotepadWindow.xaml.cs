@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.Input;
 using Windows.Graphics;
+using Microsoft.UI.Text;
 using Windows.System;
 using Windows.UI.Core;
 using WithWindows.Config;
@@ -57,6 +58,10 @@ public sealed partial class NotepadWindow : Window
         _clockTimer.Start();
 
         Editor.PointerWheelChanged += OnEditorWheel; // Ctrl+滚轮缩放字体
+        // 行距加大：设置默认段落格式并写回，作用于已有与新内容
+        var fmt = Editor.Document.GetDefaultParagraphFormat();
+        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.35f);
+        Editor.Document.SetDefaultParagraphFormat(fmt);
         LoadSavedText();
         Closed += OnClosed;
     }
@@ -98,16 +103,23 @@ public sealed partial class NotepadWindow : Window
         try
         {
             if (File.Exists(_savePath))
-                Editor.Text = File.ReadAllText(_savePath);
+                Editor.Document.SetText(TextSetOptions.None, File.ReadAllText(_savePath));
         }
         catch (Exception ex)
         {
             _log.Error($"记事本读取失败: {ex}");
         }
+        // 对全部文本应用行距（加载后段落格式重置为默认）
+        var fmt = Editor.Document.GetDefaultParagraphFormat();
+        fmt.SetLineSpacing(LineSpacingRule.Multiple, 1.35f);
+        var selection = Editor.Document.Selection;
+        selection.SetRange(0, int.MaxValue);
+        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.35f);
+        selection.SetRange(0, 0);
         UpdateStatus();
     }
 
-    private void OnTextChanged(object sender, TextChangedEventArgs e)
+    private void OnTextChanged(object sender, RoutedEventArgs e)
     {
         UpdateStatus();
         _saveTimer.Stop();
@@ -119,8 +131,8 @@ public sealed partial class NotepadWindow : Window
     /// <summary>状态栏：光标行列 + 总字符数，并同步窗口标题。</summary>
     private void UpdateStatus()
     {
-        string text = Editor.Text;
-        int start = Math.Clamp(Editor.SelectionStart, 0, text.Length);
+        Editor.Document.GetText(TextGetOptions.None, out string text);
+        int start = Math.Clamp(Editor.Document.Selection.StartPosition, 0, text.Length);
         int line = 1, column = 1;
         for (int i = 0; i < start; i++)
         {
@@ -171,9 +183,7 @@ public sealed partial class NotepadWindow : Window
     }
 
     private void ZoomFont(double step)
-    {
-        Editor.FontSize = Math.Clamp(Editor.FontSize + step, MinFontSize, MaxFontSize);
-    }
+        => Editor.FontSize = Math.Clamp(Editor.FontSize + step, MinFontSize, MaxFontSize);
 
     private static bool IsCtrlDown()
         => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
@@ -192,7 +202,8 @@ public sealed partial class NotepadWindow : Window
 
             var file = await picker.PickSaveFileAsync();
             if (file is null) return;
-            await Windows.Storage.FileIO.WriteTextAsync(file, Editor.Text);
+            Editor.Document.GetText(TextGetOptions.None, out string text);
+            await Windows.Storage.FileIO.WriteTextAsync(file, text);
             _log.Info($"[notepad] 已另存为: {file.Path}");
         }
         catch (Exception ex)
@@ -207,7 +218,8 @@ public sealed partial class NotepadWindow : Window
     {
         try
         {
-            File.WriteAllText(_savePath, Editor.Text);
+            Editor.Document.GetText(TextGetOptions.None, out string text);
+            File.WriteAllText(_savePath, text);
         }
         catch (Exception ex)
         {
@@ -219,8 +231,9 @@ public sealed partial class NotepadWindow : Window
     {
         try
         {
+            Editor.Document.GetText(TextGetOptions.None, out string text);
             var data = new DataPackage();
-            data.SetText(Editor.Text);
+            data.SetText(text);
             Clipboard.SetContent(data);
         }
         catch (Exception ex)
