@@ -39,6 +39,15 @@ public sealed partial class ToggleWindow : Window
         InitializeComponent();
         SetupTitleBar();
         AppWindow.Title = "设置";
+        // 最小尺寸钳制：窗口不可调，仅防系统拓扑变化（如切换投屏）把窗口意外缩到最小
+        AppWindow.Changed += (_, args) =>
+        {
+            if (!args.DidSizeChange) return;
+            var size = AppWindow.Size;
+            const int minW = 520, minH = 780;
+            if (size.Width < minW || size.Height < minH)
+                AppWindow.Resize(new SizeInt32(Math.Max(size.Width, minW), Math.Max(size.Height, minH)));
+        };
         Closed += (_, _) => SaveWindowState();
         LoadConfig();
     }
