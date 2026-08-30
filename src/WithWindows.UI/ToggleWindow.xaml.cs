@@ -125,11 +125,20 @@ public sealed partial class ToggleWindow : Window
 
     /// <summary>窗口位置可见性：落在任一显示器工作区内才恢复，否则由 ShowAndFocus 移到主屏居中。</summary>
     private static bool IsOnAnyDisplay(int x, int y, int width, int height)
-        => DisplayArea.FindAll().Any(da =>
-            x < da.WorkArea.X + da.WorkArea.Width &&
-            x + width > da.WorkArea.X &&
-            y < da.WorkArea.Y + da.WorkArea.Height &&
-            y + height > da.WorkArea.Y);
+    {
+        try
+        {
+            return DisplayArea.FindAll().Any(da =>
+                x < da.WorkArea.X + da.WorkArea.Width &&
+                x + width > da.WorkArea.X &&
+                y < da.WorkArea.Y + da.WorkArea.Height &&
+                y + height > da.WorkArea.Y);
+        }
+        catch
+        {
+            return true; // 校验失败视为可见，不阻塞窗口打开
+        }
+    }
 
     /// <summary>保存窗口尺寸/位置（关闭时）。</summary>
     private void SaveWindowState()
