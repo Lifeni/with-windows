@@ -50,6 +50,9 @@ public sealed partial class NotepadWindow : Window
 
         SetupTitleBar();
         _presenter = AppWindow.Presenter as OverlappedPresenter; // 置顶由状态栏按钮控制
+        // 窗口类背景画刷 = 内容同色，显示瞬间即灰色无黑框
+        NativeMethods.SetClassLongPtr(WinRT.Interop.WindowNative.GetWindowHandle(this), -10 /* GCLP_HBRBACKGROUND */,
+            NativeMethods.CreateSolidBrush(0x00302B2B)); // RGB(0x2B, 0x2B, 0x30)
         _pinned = Registry.GetValue(PinRegistryPath, PinRegistryValue, 0) is int v && v != 0;
 
         _saveTimer = DispatcherQueue.CreateTimer();

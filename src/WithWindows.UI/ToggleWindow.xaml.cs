@@ -48,6 +48,9 @@ public sealed partial class ToggleWindow : Window
         SetTitleBar(TitleBarElement);
         AppWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+        // 窗口类背景画刷 = 内容同色，显示瞬间即灰色无黑框
+        NativeMethods.SetClassLongPtr(WinRT.Interop.WindowNative.GetWindowHandle(this), -10 /* GCLP_HBRBACKGROUND */,
+            NativeMethods.CreateSolidBrush(0x00302B2B)); // RGB(0x2B, 0x2B, 0x30)
 
         string icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
         // 显式 32x32 帧：避免系统默认尺寸取帧不一致导致拉伸/模糊
