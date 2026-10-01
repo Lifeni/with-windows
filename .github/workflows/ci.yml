@@ -16,3 +16,14 @@ jobs:
 
       - name: 测试
         run: dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -c Release -p:Platform=x64 --no-build
+
+      # 单文件发布容易在 SDK/WindowsAppSDK 升级后静默失效，这里每次都验一遍
+      - name: 校验单文件发布
+        run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-check -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+
+      - name: 校验单文件产物
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist-check/WithWindows.exe)) { Write-Error "未生成单文件 exe" }
+          $size = (Get-Item dist-check/WithWindows.exe).Length / 1MB
+          Write-Host "单文件 exe 大小: $([math]::Round($size, 1)) MB"

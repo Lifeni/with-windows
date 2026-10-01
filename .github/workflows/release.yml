@@ -16,12 +16,29 @@ jobs:
       - name: 测试
         run: dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -c Release -p:Platform=x64
 
-      - name: 发布产物
-        run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true
-
-      - name: 打包为 zip（自包含目录需整体分发才能运行）
+      - name: 校验 tag 与项目版本一致
         shell: pwsh
-        run: Compress-Archive -Path dist/* -DestinationPath with-windows.zip
+        run: |
+          $version = [regex]::Match((Get-Content src/WithWindows.UI/WithWindows.UI.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
+          if ("v$version" -ne $env:GITHUB_REF_NAME) {
+            Write-Error "tag $env:GITHUB_REF_NAME 与 csproj 版本 $version 不一致"
+          }
+
+      - name: 生成单文件（含运行库）
+        run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-selfcontained -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+
+      - name: 生成单文件（不含运行库）
+        run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-frameworkdependent -p:Platform=x64 -p:SelfContained=false -p:WindowsAppSDKSelfContained=false -p:PublishSingleFile=true
+
+      - name: 整理产物与校验和
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          Copy-Item dist-selfcontained/WithWindows.exe "WithWindows-$tag-x64-selfcontained.exe"
+          Copy-Item dist-frameworkdependent/WithWindows.exe "WithWindows-$tag-x64-frameworkdependent.exe"
+          Get-ChildItem *.exe | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content SHA256SUMS.txt -Encoding utf8
 
       - name: 提取更新日志为 Release 正文
         shell: pwsh
@@ -36,5 +53,8 @@ jobs:
       - name: 上传 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: with-windows.zip
+          files: |
+            WithWindows-*-x64-selfcontained.exe
+            WithWindows-*-x64-frameworkdependent.exe
+            SHA256SUMS.txt
           body_path: release_body.md
