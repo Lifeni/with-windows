@@ -70,7 +70,8 @@ Interop/             P/Invoke 集中地（RegisterHotKey、SetDisplayConfig/Quer
 - **单文件发布**：`-p:PublishSingleFile=true` 时 WASDK 强制要求 `EnableMsixTooling=true`（csproj 用条件属性自动处理）；产物里只有 exe 是必需的，`WithWindows.pri` 与 `.xbf` 已内嵌、可删
 - **运行库依赖模型**：WinUI 3 需要现代 .NET（不是 .NET Framework）加 Windows App SDK 运行库。微软自家应用走 MSIX 框架包依赖（系统用 CBS 预置 `Microsoft.WindowsAppRuntime.CBS.*`，应用清单声明 `TargetWASDKPackageName`）；未打包应用只能自包含或要求用户预装，故本项目同时发布两种产物
 - **发布产物清单**：`WithWindows-vX.Y.Z-x64-selfcontained.exe`（约 167 MB）、`-frameworkdependent.exe`（约 38 MB）、两者同名 zip（自包含 zip 约 64 MB）与 `SHA256SUMS.txt`
-- **发布触发规则**：版本号驱动——`release.yml` 在 push 到 main 时比较 csproj 的 `<Version>` 与已有 tag，只有不存在对应 `vX.Y.Z` tag 时才构建发布（并自动打 tag）；版本没变则整个发布任务跳过。发布前必须在 CHANGELOG 顶部加同名 `## [vX.Y.Z]` 章节，否则正文提取会失败
+- **发布触发规则**：版本号驱动——`release.yml` 在 push 到 main 时比较 csproj 的 `<Version>` 与已有 tag，只有不存在对应 `vX.Y.Z` tag 时才构建发布（并自动打 tag）；版本没变则只跑测试、不构建产物，手动 Run workflow 勾选 `force` 可强制重发。发布前必须在 CHANGELOG 顶部加同名 `## [vX.Y.Z]` 章节，否则正文提取会失败
+- **两个工作流分工不重叠**：`ci.yml` 只跑 `pull_request`（构建 + 测试 + 单文件校验），`release.yml` 只跑 `push` 到 main / tag（测试总是跑，发布按版本号判断）——避免同一次推送跑两遍测试与构建
 - **记事本常驻**：关闭（X 或热键）= 最小化到托盘（拦截 Closed 事件），窗口不销毁；内容/字体/尺寸/位置/置顶跨开窗保留
 - **窗口状态记忆**：尺寸/位置/字体持久化到 `config.json` 的 `windowState`；位置未保存时为 `null`（(0, 0) 是合法坐标，不能用 0 当哨兵）；恢复前校验可见性，超出屏幕自动移回主屏居中
 - **配置 v3 schema**：

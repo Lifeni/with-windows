@@ -1,9 +1,10 @@
-name: 构建与测试
+name: 构建与测试（PR）
 
+# 只负责"合并前校验"，避免与 release.yml 在 push 到 main 时重复跑一遍
+# main 上的回归由 release.yml 负责（它总是先跑测试，再决定是否发布）
 on:
-  push:
-    branches: [ main ]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:

@@ -145,9 +145,10 @@ with-windows/
 
 1. 改 `src/WithWindows.UI/WithWindows.UI.csproj` 里的 `<Version>`，并在 `CHANGELOG.md` 顶部加同版本号的 `## [vX.Y.Z] - 日期` 章节
 2. push 到 `main`：工作流发现该版本还没有对应的 `vX.Y.Z` tag，就自动跑测试 → 产出两个单文件 exe + 两个 zip + `SHA256SUMS.txt` → 打 tag 并发布 Release
-3. 版本号没变（tag 已存在）时，push 到 `main` 只跑 `ci.yml` 的构建与测试，**不会**重复构建发布
+3. 版本号没变（tag 已存在）时，push 到 `main` 只跑一遍测试，**不会**重复构建与发布；PR 由 `ci.yml` 负责构建 + 测试 + 单文件发布校验（两者触发条件不重叠，不会重复跑）
 
 也可以手动 `git tag vX.Y.Z && git push origin vX.Y.Z` 直接发布；工作流会校验 tag 与 csproj 版本一致，不一致直接失败。
+发布中途失败时，可在 Actions 里手动 Run workflow 并勾选 `force` 重新发布当前版本。
 
 ## 更新日志
 

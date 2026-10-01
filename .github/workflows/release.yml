@@ -7,6 +7,12 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '强制重新发布当前版本（即使 tag 已存在）'
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -30,18 +36,18 @@ jobs:
           }
 
           $tagExists = [bool](git tag -l $tag)
-          $needRelease = ($env:GITHUB_REF_TYPE -eq 'tag') -or (-not $tagExists)
+          $force = "${{ inputs.force }}" -eq 'true'
+          $needRelease = $force -or ($env:GITHUB_REF_TYPE -eq 'tag') -or (-not $tagExists)
 
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "need_release=$($needRelease.ToString().ToLower())" >> $env:GITHUB_OUTPUT
-          Write-Host "csproj 版本 $version，目标 tag $tag，tag 已存在 $tagExists，本次发布 $needRelease"
+          Write-Host "csproj 版本 $version，目标 tag $tag，tag 已存在 $tagExists，强制 $force，本次发布 $needRelease"
 
       - name: 版本未更新则跳过
         if: steps.version.outputs.need_release == 'false'
-        run: Write-Host "版本 ${{ steps.version.outputs.tag }} 已发布过，跳过构建与发布（改 <Version> 后 push 即自动发布）"
+        run: Write-Host "版本 ${{ steps.version.outputs.tag }} 已发布过：本次只跑测试，不构建发布产物（改 <Version> 后 push 即自动发布）"
 
       - name: 测试
-        if: steps.version.outputs.need_release == 'true'
         run: dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -c Release -p:Platform=x64
 
       - name: 生成单文件（含运行库）
