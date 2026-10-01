@@ -45,32 +45,35 @@ Controls/            HotkeyInputBox：录制式热键输入控件（聚焦后按
 Core/                热键解析/格式化/注册、单实例互斥体、动作框架
 Config/              ConfigStore（System.Text.Json）+ AppConfig 模型
 Actions/             投屏动作（DisplayModeAction）
-Interop/             P/Invoke 集中地（RegisterHotKey、SetDisplayConfig、WM_SETTINGCHANGE 等）
+Interop/             P/Invoke 集中地（RegisterHotKey、SetDisplayConfig/QueryDisplayConfig 等）
 ```
 
 ### 启动流程（App.xaml.cs）
 
 1. `--smoke` 参数：加载配置 + 注册热键后立即退出（不抢单实例互斥体，不创建托盘）
-2. 单实例守卫：`Local\WithWindows.SingleInstance` 命名 Mutex，重复启动直接退出
-3. 加载 `%APPDATA%\WithWindows\config.json`（首次自举默认值；旧 v2 数组格式自动迁移；解析失败弹框并退出）
+2. 单实例守卫：`Local\WithWindows.SingleInstance` 命名 Mutex，重复启动直接退出（互斥体由 App 字段持有到进程退出）
+3. 加载 `%APPDATA%\WithWindows\config.json`（首次自举默认值；旧 v2 数组格式自动迁移；主文件损坏回退 `.bak`；仍失败则弹框并退出进程）
 4. 创建 `MainWindow`：托盘图标、热键注册
 5. **常驻模式不显示主窗口**（仅托盘），由托盘菜单/热键唤出记事本与设置窗口
 
 ### 关键机制
 
-- **热键热重载**：`MainWindow.ReloadBindings(AppConfig)` 先注销全部热键再按新配置注册；设置窗口修改后调用
+- **单实例守卫**：互斥体必须由 App 持有到进程退出。禁止写成 `OnLaunched` 里的 `using var` 局部变量——方法返回即释放，常驻期间第二个实例照样能起
+- **热键热重载**：`MainWindow.ReloadBindings(AppConfig)` 同时刷新投屏候选模式、注销并重注册全部热键，返回失败说明；设置窗口保存后据此提示用户
 - **Logger 生命周期 = 应用**：App 持有实例字段，热键回调跨 OnLaunched 使用，禁止用局部 `using` 释放（曾致崩溃）
+- **配置写入**：`ConfigStore.Save` 原子替换（同目录临时文件 + `File.Replace`），旧内容留为 `config.json.bak`；`Load` 在 JSON 损坏时回退 `.bak` 并修复主文件
 - **记事本常驻**：关闭（X 或热键）= 最小化到托盘（拦截 Closed 事件），窗口不销毁；内容/字体/尺寸/位置/置顶跨开窗保留
-- **窗口状态记忆**：尺寸/位置/字体持久化到 `config.json` 的 `windowState`；恢复位置前校验可见性，超出屏幕自动移回主屏居中
+- **窗口状态记忆**：尺寸/位置/字体持久化到 `config.json` 的 `windowState`；位置未保存时为 `null`（(0, 0) 是合法坐标，不能用 0 当哨兵）；恢复前校验可见性，超出屏幕自动移回主屏居中
 - **配置 v3 schema**：
   ```json
   {
+    "version": 3,
     "bindings": { "notepad": "F13", "display_mode": "F14" },
     "displayMode": { "modes": ["internal", "extend"] },
-    "windowState": { "notepadFontSize": 14, "notepadWidth": 520, "notepadHeight": 780, "notepadX": 0, "notepadY": 0, "settingsWidth": 520, "settingsHeight": 780, "settingsX": 0, "settingsY": 0 }
+    "windowState": { "notepadFontSize": 14, "notepadWidth": 520, "notepadHeight": 780, "settingsWidth": 520, "settingsHeight": 780 }
   }
   ```
-  热键留空 = 不绑定；投屏默认热键 F14（注意：可能被系统程序占用，需在设置窗口改键）
+  热键留空 = 不绑定；字母/数字热键必须带修饰键（F1–F24 可单键）；投屏默认热键 F14（注意：可能被系统程序占用，需在设置窗口改键）
 - **窗口最小尺寸**：用 `OverlappedPresenter.PreferredMinimumWidth/Height` 官方 API（勿用 Win32 子类化，已两次验证致崩溃）
 - **记事本**：标题栏实时时钟（DispatcherQueueTimer 秒级）、Ctrl+滚轮/± 缩放字体（10-32px）、置顶开关（注册表持久化 `HKCU\Software\WithWindows\Notepad\Pinned`）、行距 1.05（RichEditBox 段落格式）
 
@@ -80,6 +83,8 @@ Interop/             P/Invoke 集中地（RegisterHotKey、SetDisplayConfig、WM
 - **DisplayArea.FindAll() 在窗口打开时可能抛 InvalidCastException**：调用处必须 try-catch（失败视为可见，不阻塞）
 - **AppWindow.PreferredMinimum* 属性不存在**（在 OverlappedPresenter 上）
 - **App.UnhandledException 只能兜底托管异常**，原生崩溃（XAML 层）不经过它，需靠事件日志排查
+- **热键注册失败不抛异常**：`RegisterHotKey` 返回 false + Win32 错误码（1409 = 已被占用），必须把失败原因回传设置窗口提示，否则用户只会觉得"按了没反应"
+- **发布/构建前必须停掉常驻实例**：运行中的 exe 会锁住输出文件，构建报 MSB3021/MSB3027（不是代码错误）
 
 ## 提交规范（硬性）
 

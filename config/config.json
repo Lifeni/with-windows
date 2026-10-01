@@ -1,4 +1,17 @@
-[
-  { "hotkey": "F13", "action": "display_mode", "args": { "mode": "toggle", "modes": ["internal", "extend"] } },
-  { "hotkey": "F14", "action": "theme", "args": { "mode": "toggle" } }
-]
+{
+  "version": 3,
+  "bindings": {
+    "notepad": "F13",
+    "display_mode": "F14"
+  },
+  "displayMode": {
+    "modes": [ "internal", "extend" ]
+  },
+  "windowState": {
+    "notepadFontSize": 14,
+    "notepadWidth": 520,
+    "notepadHeight": 780,
+    "settingsWidth": 520,
+    "settingsHeight": 780
+  }
+}

@@ -9,18 +9,19 @@
 
 Windows 常驻托盘的一键动作平台：全局热键 → 动作执行。无主界面，通过系统托盘管理，两个独立窗口：
 
-**快捷记事**：热键弹出置顶记事本，关闭时自动复制到剪贴板并保存。
-- 标题栏实时时钟（秒级刷新）；Ctrl+滚轮 / Ctrl+加减号缩放字体（10-32px，Ctrl+0 重置）
+**快捷记事**：热键弹出置顶记事本，关闭时保存并复制到剪贴板。
+- 标题栏实时时钟（秒级刷新，窗口隐藏时停表）；Ctrl+滚轮 / Ctrl+加减号缩放字体（10-32px，Ctrl+0 重置）
 - 行距舒适（1.05 倍）；Ctrl+S 另存为；Ctrl+C/V 原生复制粘贴
 - 状态栏显示行列/字符数 + **置顶开关**（右下角图钉按钮，状态持久化）
 - 窗口常驻：关闭 = 最小化到托盘，内容/字体/尺寸/位置跨开窗保留
-- 最小尺寸 520×780（官方 API 限制），可自由放大
+- 正文为空时不写剪贴板；从托盘退出应用不会覆盖剪贴板内容
+- 最小尺寸 520×780，可自由放大
 
 **设置**：右键菜单"设置"打开。
-- **切换投屏**：大卡片点击切换 + 勾选循环模式 + 快捷键设置/重置
+- **切换投屏**：勾选参与循环切换的模式 + 快捷键设置/重置
 - **快捷记事**：快捷键设置/重置
 - 开机自启开关、恢复默认快捷键、关于
-- 全部修改即时保存热重载
+- 全部修改即时保存热重载；热键被占用导致注册失败时，用警告条说明是哪个键、为什么失败
 
 **托盘菜单**：快捷记事 / 切换投屏 / 设置 / 退出（左键单击托盘图标打开记事本）。
 
@@ -49,8 +50,10 @@ powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 
 - .NET 8 + WinUI 3（Windows App SDK 2.4）：现代 Win11 原生 UI
 - WinUIEx：托盘图标（TrayIcon）、窗口管理
-- P/Invoke：`RegisterHotKey`、`SetDisplayConfig`、`QueryDisplayConfig`、`SendMessageTimeout`（WM_SETTINGCHANGE）；主题读写用 `Microsoft.Win32.Registry`
-- `System.Text.Json` 配置读写
+- Microsoft.Windows.SDK.BuildTools：构建期工具（不随产物分发）
+- P/Invoke：`RegisterHotKey`（隐藏消息窗口收 WM_HOTKEY）、`SetDisplayConfig` / `QueryDisplayConfig`（投屏）；注册表读写用 `Microsoft.Win32.Registry`（开机自启、置顶状态）
+- `System.Text.Json` 配置读写（原子替换 + `config.json.bak` 备份回退）
+- xunit + Microsoft.NET.Test.Sdk：单元测试
 - **发布为自包含目录**（含 .NET runtime + WindowsAppSDK，免装任何依赖，约 200 MB）
 
 ## 配置
@@ -58,20 +61,25 @@ powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 运行时数据位于 `%APPDATA%\WithWindows\`：
 
 - `config.json`——配置（首次启动自举默认值；旧 v2 数组格式自动迁移为 v3）
-- `log.txt`——运行日志
+- `config.json.bak`——上一次保存成功的配置，主文件损坏时自动回退
+- `log.txt`——运行日志（超过 1 MB 轮转为 `log.1.txt`）
 - `notepad.txt`——记事本内容
 
 ```json
 {
+  "version": 3,
   "bindings": { "notepad": "F13", "display_mode": "F14" },
   "displayMode": { "modes": ["internal", "extend"] },
-  "windowState": { "notepadFontSize": 14, "notepadWidth": 520, "notepadHeight": 780, "notepadX": 0, "notepadY": 0, "settingsWidth": 520, "settingsHeight": 780, "settingsX": 0, "settingsY": 0 }
+  "windowState": { "notepadFontSize": 14, "notepadWidth": 520, "notepadHeight": 780, "settingsWidth": 520, "settingsHeight": 780 }
 }
 ```
 
-- `bindings`：动作 → 热键，在设置窗口录制修改（保存即热重载）。热键留空 = 不绑定
-- `displayMode.modes`：投屏 toggle 循环的候选模式
-- `windowState`：窗口尺寸/位置/字体记忆（关闭重开自动恢复；位置超出屏幕自动移回主屏）
+- `version`：配置模型版本，当前为 3
+- `bindings`：动作 → 热键，在设置窗口录制修改（保存即热重载）。热键留空 = 不绑定；字母/数字必须配合修饰键（F1–F24 可单键）
+- `displayMode.modes`：投屏 toggle 循环的候选模式（修改后立即生效，无需重启）
+- `windowState`：窗口尺寸/位置/字体记忆（关闭重开自动恢复；位置超出屏幕自动移回主屏）。没有保存过位置的窗口不含 `notepadX` / `notepadY` / `settingsX` / `settingsY` 字段
+
+仓库内的 [config/config.json](config/config.json) 是同样结构的示例文件，仅作参考。
 
 ## 目录结构
 
@@ -81,8 +89,9 @@ with-windows/
 ├── CHANGELOG.md            # 更新日志（Release 正文来源）
 ├── LICENSE                 # MIT 开源协议
 ├── WithWindows.sln         # 解决方案文件
-├── .github/                # GitHub Actions 工作流（构建并发布 Release）
-├── docs/                   # 设计文档与素材
+├── .github/workflows/      # ci.yml（push/PR 构建测试）、release.yml（打 tag 发布 Release）
+├── config/                 # 配置示例（运行时配置在 %APPDATA%\WithWindows）
+├── docs/                   # 图标与截图素材
 ├── scripts/                # 开发脚本（dev.ps1、IconGen 图标生成）
 ├── src/WithWindows.UI/     # 主程序（WinUI 3）
 │   ├── App.xaml(.cs)       # 入口：单实例 → 配置 → 主窗口（托盘宿主）
