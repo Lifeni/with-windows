@@ -18,16 +18,18 @@ namespace WithWindows;
 public sealed partial class ToggleWindow : Window
 {
     private const string Unset = "未设置";
+    /// <summary>设计尺寸；小屏/高缩放下会按工作区收缩（内容由 ScrollViewer 滚动）。</summary>
+    private const int DesignWidth = 520;
+    private const int DesignHeight = 780;
 
     private readonly ConfigStore _configStore;
-    private readonly Action _onSaved;
+    private readonly Func<IReadOnlyList<string>> _onSaved;
     private readonly Logger _log;
     private readonly DispatcherQueueTimer _statusTimer;
     private IntPtr _hwnd;
     private bool _loading; // LoadConfig 期间屏蔽 AutoSave（避免回填触发保存）
-    private bool _sized;
 
-    public ToggleWindow(ConfigStore configStore, Action onSaved, Logger log)
+    public ToggleWindow(ConfigStore configStore, Func<IReadOnlyList<string>> onSaved, Logger log)
     {
         _configStore = configStore;
         _onSaved = onSaved;
@@ -64,15 +66,56 @@ public sealed partial class ToggleWindow : Window
     public void ShowAndFocus()
     {
         // 每次打开恢复记忆尺寸（窗口不可调；拓扑变化可能改系统尺寸，这里强制还原）
-        var ws = _configStore.Load().WindowState;
-        AppWindow.Resize(new SizeInt32((int)ws.SettingsWidth, (int)ws.SettingsHeight));
-        if (ws.SettingsX != 0 || ws.SettingsY != 0
-            && IsOnAnyDisplay((int)ws.SettingsX, (int)ws.SettingsY, (int)ws.SettingsWidth, (int)ws.SettingsHeight))
-            AppWindow.Move(new PointInt32((int)ws.SettingsX, (int)ws.SettingsY));
+        RestoreWindowState();
         if (AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsResizable = false; // 固定尺寸
         EnsureWindowVisible(); // 防拓扑变化后窗口跑到屏幕外
         Activate();
+    }
+
+    /// <summary>
+    /// 恢复记忆的尺寸/位置。尺寸按所在显示器工作区钳制：窗口不可缩放，
+    /// 1366×768 这类小屏（或高缩放）下 780 高会超出屏幕，底部设置项会被裁掉。
+    /// </summary>
+    private void RestoreWindowState()
+    {
+        try
+        {
+            var ws = _configStore.Load().WindowState;
+            int width = (int)ws.SettingsWidth;
+            int height = (int)ws.SettingsHeight;
+
+            if (WorkAreaFor(ws.SettingsX, ws.SettingsY) is { } work)
+            {
+                width = (int)Math.Clamp(width, Math.Min(DesignWidth, work.Width), Math.Max(1, work.Width));
+                height = (int)Math.Clamp(height, Math.Min(DesignHeight, work.Height), Math.Max(1, work.Height));
+            }
+
+            AppWindow.Resize(new SizeInt32(width, height));
+            if (ws.SettingsX is double x && ws.SettingsY is double y
+                && IsOnAnyDisplay((int)x, (int)y, width, height))
+                AppWindow.Move(new PointInt32((int)x, (int)y));
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"窗口状态恢复失败: {ex}");
+        }
+    }
+
+    /// <summary>位置所在显示器（或主屏）的工作区；查询失败返回 null，调用方不钳制尺寸。</summary>
+    private static RectInt32? WorkAreaFor(double? x, double? y)
+    {
+        try
+        {
+            var point = x is double px && y is double py
+                ? new PointInt32((int)px, (int)py)
+                : new PointInt32(0, 0);
+            return DisplayArea.GetFromPoint(point, DisplayAreaFallback.Primary).WorkArea;
+        }
+        catch
+        {
+            return null; // 校验失败不阻塞窗口打开
+        }
     }
 
     /// <summary>若窗口不在任何显示器内，移到主屏居中。</summary>
@@ -87,22 +130,6 @@ public sealed partial class ToggleWindow : Window
             primary.WorkArea.X + (primary.WorkArea.Width - size.Width) / 2,
             primary.WorkArea.Y + (primary.WorkArea.Height - size.Height) / 2));
         _log.Info("[toggle] 窗口位置超出屏幕，已移到主屏居中");
-    }
-
-    /// <summary>恢复记忆的窗口尺寸/位置。</summary>
-    private void LoadWindowState()
-    {
-        try
-        {
-            var ws = _configStore.Load().WindowState;
-            AppWindow.Resize(new SizeInt32((int)ws.SettingsWidth, (int)ws.SettingsHeight));
-            if (ws.SettingsX != 0 || ws.SettingsY != 0 && IsOnAnyDisplay((int)ws.SettingsX, (int)ws.SettingsY, (int)ws.SettingsWidth, (int)ws.SettingsHeight))
-                AppWindow.Move(new PointInt32((int)ws.SettingsX, (int)ws.SettingsY));
-        }
-        catch (Exception ex)
-        {
-            _log.Error($"窗口状态恢复失败: {ex}");
-        }
     }
 
     /// <summary>窗口位置可见性：落在任一显示器工作区内才恢复，否则由 ShowAndFocus 移到主屏居中。</summary>
@@ -200,15 +227,14 @@ public sealed partial class ToggleWindow : Window
             var config = _configStore.Load();
             config.Bindings[action] = box.HotkeyText.Trim();
             _configStore.Save(config);
-            _onSaved(); // 热重载
             display.Text = FormatHotkeyText(config.Bindings, action);
-            ShowStatus("快捷键已更新");
             _log.Info($"[toggle] {action} 快捷键已更新");
+            ReloadAndReport("快捷键已更新");
         }
         catch (Exception ex)
         {
             _log.Error($"[toggle] 快捷键保存失败: {ex}");
-            ShowStatus($"保存失败：{ex.Message}");
+            ShowStatus($"保存失败：{ex.Message}", InfoBarSeverity.Error);
         }
     }
 
@@ -240,14 +266,13 @@ public sealed partial class ToggleWindow : Window
             config.DisplayMode.Modes = modes.Count > 0 ? modes : new List<string> { "internal", "extend" };
 
             _configStore.Save(config);
-            _onSaved(); // 热重载：热键立即生效
             _log.Info("[toggle] 已自动保存");
-            ShowStatus("已自动保存");
+            ReloadAndReport("已自动保存");
         }
         catch (Exception ex)
         {
             _log.Error($"[toggle] 保存失败: {ex}");
-            ShowStatus($"保存失败：{ex.Message}");
+            ShowStatus($"保存失败：{ex.Message}", InfoBarSeverity.Error);
         }
     }
 
@@ -264,20 +289,37 @@ public sealed partial class ToggleWindow : Window
             var config = _configStore.Load();
             config.Bindings[action] = defaultHotkey;
             _configStore.Save(config);
-            _onSaved();
             display.Text = FormatHotkeyText(config.Bindings, action);
-            ShowStatus($"已恢复默认快捷键 {defaultHotkey}");
             _log.Info($"[toggle] {action} 快捷键已重置为 {defaultHotkey}");
+            ReloadAndReport($"已恢复默认快捷键 {defaultHotkey}");
         }
         catch (Exception ex)
         {
             _log.Error($"[toggle] 快捷键重置失败: {ex}");
-            ShowStatus($"重置失败：{ex.Message}");
+            ShowStatus($"重置失败：{ex.Message}", InfoBarSeverity.Error);
         }
     }
 
-    private void ShowStatus(string message)
+    /// <summary>
+    /// 保存后热重载；有热键解析/注册失败时用警告条说明具体是哪个键、为什么失败，
+    /// 否则用户只会看到"已保存"却按了没反应。
+    /// </summary>
+    private void ReloadAndReport(string savedMessage)
     {
+        IReadOnlyList<string> failures = _onSaved();
+        if (failures.Count == 0)
+        {
+            ShowStatus(savedMessage);
+            return;
+        }
+
+        _log.Error($"[toggle] 热键未生效（{failures.Count} 个）: {string.Join("；", failures)}");
+        ShowStatus($"{savedMessage}，但热键未生效：{string.Join("；", failures)}", InfoBarSeverity.Warning);
+    }
+
+    private void ShowStatus(string message, InfoBarSeverity severity = InfoBarSeverity.Informational)
+    {
+        StatusBar.Severity = severity;
         StatusBar.Message = message;
         StatusBar.IsOpen = true;
         _statusTimer.Stop();

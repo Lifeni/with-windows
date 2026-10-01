@@ -80,10 +80,8 @@ public sealed partial class MainWindow : Window
         _toggleWindow.ShowAndFocus();
     }
 
-    private void OnToggleSaved()
-    {
-        ReloadBindings(_configStore.Load());
-    }
+    /// <summary>设置窗口保存后的回调：热重载配置并返回热键注册失败说明。</summary>
+    private IReadOnlyList<string> OnToggleSaved() => ReloadBindings(_configStore.Load());
 
     private void SetupHotkeys(AppConfig config)
     {
@@ -91,23 +89,37 @@ public sealed partial class MainWindow : Window
         RegisterBindings(config);
     }
 
-    /// <summary>重新注册全部热键（设置保存后热重载，立即生效）。</summary>
-    public void ReloadBindings(AppConfig config)
+    /// <summary>
+    /// 重新注册全部热键（设置保存后热重载，立即生效），并同步投屏候选模式；
+    /// 返回注册/解析失败说明（空列表 = 全部成功），供设置窗口提示用户。
+    /// </summary>
+    public IReadOnlyList<string> ReloadBindings(AppConfig config)
     {
+        _display = new DisplayModeAction(config.DisplayMode.Modes.ToArray()); // 投屏模式热更新
         _hotkeys.UnregisterAll();
-        RegisterBindings(config);
+        return RegisterBindings(config);
     }
 
-    private void RegisterBindings(AppConfig config)
+    private IReadOnlyList<string> RegisterBindings(AppConfig config)
     {
+        var failures = new List<string>();
         RegisterFailures = 0;
         foreach (var (action, hotkeyText) in config.Bindings)
         {
             if (string.IsNullOrWhiteSpace(hotkeyText)) continue; // 未绑定（可空）
 
+            // 配置在运行期间被外部改动时的兜底：未知动作不注册，否则它会占住热键却什么都不做
+            if (!AppConfig.KnownActions.Contains(action))
+            {
+                _log.Error($"未知动作已跳过: {action}（可用动作：notepad、display_mode）");
+                failures.Add($"{action}（未知动作，可用：notepad、display_mode）");
+                continue;
+            }
+
             if (!HotkeyParser.TryParse(hotkeyText, out var hotkey, out var parseError))
             {
                 _log.Error($"热键解析失败: {action}（{hotkeyText}）: {parseError}");
+                failures.Add($"{ActionDisplayName(action)} {hotkeyText}（{parseError}）");
                 RegisterFailures++;
                 continue;
             }
@@ -115,21 +127,31 @@ public sealed partial class MainWindow : Window
             if (!_hotkeys.Register(hotkey, () => ExecuteAction(action), out var registerError))
             {
                 _log.Error($"热键注册失败: {action}: {registerError}");
+                failures.Add($"{ActionDisplayName(action)} {hotkeyText}（{registerError}）");
                 RegisterFailures++;
             }
         }
+        return failures;
     }
 
     private void ExecuteAction(string action)
     {
         try
         {
-            ActionResult result = action switch
+            ActionResult result;
+            switch (action)
             {
-                "display_mode" => _display.Execute("toggle"),
-                "notepad" => _notepad.Toggle(),
-                _ => new ActionResult(false, $"未知动作 {action}"),
-            };
+                case "display_mode":
+                    result = _display.Execute("toggle");
+                    break;
+                case "notepad":
+                    result = _notepad.Toggle();
+                    break;
+                default:
+                    // 未知动作必须留痕：以前这里返回 Changed=false，日志分支进不去，配置写错会完全无声
+                    _log.Error($"[{action}] 未知动作（可用动作：notepad、display_mode）");
+                    return;
+            }
             if (result.Changed)
                 _log.Info($"[{action}] {result.Message}");
         }
@@ -138,4 +160,12 @@ public sealed partial class MainWindow : Window
             _log.Error($"[{action}] 执行失败: {ex}");
         }
     }
+
+    /// <summary>动作名 → 用户可读名称（设置窗口提示用）。</summary>
+    private static string ActionDisplayName(string action) => action switch
+    {
+        "notepad" => "快捷记事",
+        "display_mode" => "切换投屏",
+        _ => action,
+    };
 }
