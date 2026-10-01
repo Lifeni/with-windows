@@ -11,6 +11,7 @@ Windows 常驻托盘的一键动作平台：配置驱动的全局热键 → 动�
 - 语言 C# `latest` + nullable + implicit usings；测试用 xunit
 - 第三方依赖仅限：WindowsAppSDK（按组件包引用）、WinUIEx
 - 注释与用户可见文案使用中文
+- **用户侧系统要求**：Windows 10 1809（17763）及以上 / Windows 11，x64；自包含版零依赖，框架依赖版需要 .NET 10 桌面运行时 + Windows App Runtime 2.4（Windows 11 25H2 起随系统自带）
 
 ## 文案规范（硬性）
 
@@ -67,6 +68,8 @@ Interop/             P/Invoke 集中地（RegisterHotKey、SetDisplayConfig/Quer
 - **配置写入**：`ConfigStore.Save` 原子替换（同目录临时文件 + `File.Replace`），旧内容留为 `config.json.bak`；`Load` 在 JSON 损坏时回退 `.bak` 并修复主文件
 - **Windows App SDK 组件包**：csproj 逐项引用 Base 2.0.4 / Foundation 2.3.9 / InteractiveExperiences 2.1.6 / WinUI 2.3.6 / DWrite 2.1.0 / Runtime 2.4.0（= 伞包 2.4.0 的依赖清单去掉 Widgets / AI / ML / Search）；升级 WASDK 时必须整体对齐版本，否则框架依赖模式会报组件版本不一致
 - **单文件发布**：`-p:PublishSingleFile=true` 时 WASDK 强制要求 `EnableMsixTooling=true`（csproj 用条件属性自动处理）；产物里只有 exe 是必需的，`WithWindows.pri` 与 `.xbf` 已内嵌、可删
+- **运行库依赖模型**：WinUI 3 需要现代 .NET（不是 .NET Framework）加 Windows App SDK 运行库。微软自家应用走 MSIX 框架包依赖（系统用 CBS 预置 `Microsoft.WindowsAppRuntime.CBS.*`，应用清单声明 `TargetWASDKPackageName`）；未打包应用只能自包含或要求用户预装，故本项目同时发布两种产物
+- **发布产物清单**：`WithWindows-vX.Y.Z-x64-selfcontained.exe`（约 167 MB）、`-frameworkdependent.exe`（约 38 MB）、两者同名 zip（自包含 zip 约 64 MB）与 `SHA256SUMS.txt`
 - **记事本常驻**：关闭（X 或热键）= 最小化到托盘（拦截 Closed 事件），窗口不销毁；内容/字体/尺寸/位置/置顶跨开窗保留
 - **窗口状态记忆**：尺寸/位置/字体持久化到 `config.json` 的 `windowState`；位置未保存时为 `null`（(0, 0) 是合法坐标，不能用 0 当哨兵）；恢复前校验可见性，超出屏幕自动移回主屏居中
 - **配置 v3 schema**：
@@ -90,6 +93,7 @@ Interop/             P/Invoke 集中地（RegisterHotKey、SetDisplayConfig/Quer
 - **App.UnhandledException 只能兜底托管异常**，原生崩溃（XAML 层）不经过它，需靠事件日志排查
 - **热键注册失败不抛异常**：`RegisterHotKey` 返回 false + Win32 错误码（1409 = 已被占用），必须把失败原因回传设置窗口提示，否则用户只会觉得"按了没反应"
 - **发布/构建前必须停掉常驻实例**：运行中的 exe 会锁住输出文件，构建报 MSB3021/MSB3027（不是代码错误）
+- **本机 .NET 8 运行时卸载不掉**：它们带 `SystemComponent=1` 且被 Visual Studio 作为组件安装（来自 `C:\ProgramData\Microsoft\VisualStudio\Packages\...`），MSI 日志写 `Disallowing uninstallation of component ... since another client exists`，winget/msiexec 都返回成功但实际不动。要清只能走 Visual Studio Installer，别强删目录（会破坏 MSI 数据库）
 
 ## 提交规范（硬性）
 

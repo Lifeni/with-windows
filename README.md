@@ -60,6 +60,24 @@ powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 
 两者都是单文件（XAML 资源与运行库已内嵌进 exe）；首次启动会把原生库解压到 `%TEMP%` 并复用，之后启动恢复正常。同时提供同名 `.zip`（自包含版约 66 MB），慢网络可以下 zip 再解压。`SHA256SUMS.txt` 提供校验和。
 
+## 系统要求
+
+- **Windows 10 1809（17763）及以上 / Windows 11，x64**（Windows App SDK 2.4 的 WinUI 程序集目标框架是 `net6.0-windows10.0.17763.0`，本项目使用 .NET 10）
+- 两个下载版本对运行库的要求不同：
+
+| 版本 | 需要系统预装 | 说明 |
+| --- | --- | --- |
+| `selfcontained` | 无 | 自带 .NET 10 与 Windows App SDK 运行库，双击即用 |
+| `frameworkdependent` | .NET 10 桌面运行时 + Windows App Runtime 2.4 | 体积约 1/4；Windows 11 25H2 及更新版本已随系统自带 Windows App Runtime |
+
+### 为什么提供两个版本
+
+WinUI 3 应用需要两样东西：**现代 .NET 运行时**（不是 Windows 自带的 .NET Framework 4.8.1）和 **Windows App SDK 运行库**。
+
+- 微软自家的系统组件（开始菜单/任务栏体验、文件资源管理器，以及记事本、画图、截图、照片等）走的是 MSIX 框架包依赖：系统镜像用 CBS 预置了 `Microsoft.WindowsAppRuntime.CBS.*`，应用清单里声明 `<TargetWASDKPackageName>` 即可，无需单独安装
+- 未打包（unpackaged）的第三方应用没有这层便利，只能二选一：**自包含**（把运行库打进产物，体积大但零依赖）或**框架依赖**（体积小，但要求用户预装运行库）
+- 本项目两种都提供，默认推荐自包含版
+
 ## 技术栈
 
 - .NET 10（LTS）+ WinUI 3（Windows App SDK 2.4）：现代 Win11 原生 UI
