@@ -27,12 +27,10 @@ public sealed class NotepadHost
         if (_window.Visible)
         {
             _window.CopyAndHide();
-            _log.Info("[notepad] 已复制内容并关闭记事本");
             return new ActionResult(true, "已复制内容并关闭记事本");
         }
 
         _window.ShowAndFocus();
-        _log.Info("[notepad] 已打开记事本");
         return new ActionResult(true, "已打开记事本");
     }
 }
