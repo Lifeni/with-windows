@@ -139,6 +139,16 @@ with-windows/
 └── tests/WithWindows.UI.Tests/  # 单元测试
 ```
 
+## 发布
+
+发布由**版本号驱动**，不需要手动打 tag：
+
+1. 改 `src/WithWindows.UI/WithWindows.UI.csproj` 里的 `<Version>`，并在 `CHANGELOG.md` 顶部加同版本号的 `## [vX.Y.Z] - 日期` 章节
+2. push 到 `main`：工作流发现该版本还没有对应的 `vX.Y.Z` tag，就自动跑测试 → 产出两个单文件 exe + 两个 zip + `SHA256SUMS.txt` → 打 tag 并发布 Release
+3. 版本号没变（tag 已存在）时，push 到 `main` 只跑 `ci.yml` 的构建与测试，**不会**重复构建发布
+
+也可以手动 `git tag vX.Y.Z && git push origin vX.Y.Z` 直接发布；工作流会校验 tag 与 csproj 版本一致，不一致直接失败。
+
 ## 更新日志
 
 见 [CHANGELOG.md](CHANGELOG.md)。

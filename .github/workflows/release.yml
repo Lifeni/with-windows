@@ -1,39 +1,62 @@
 name: 构建并发布 Release
 
+# 只在"版本更新"时构建发布：
+#   - push 到 main：csproj 的 <Version> 若还没有对应的 vX.Y.Z tag，则自动打 tag 并发布；已有 tag 直接跳过（不构建）
+#   - push v* tag：直接发布，并校验 tag 与 csproj 版本一致
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
+    tags: [ 'v*' ]
 
 jobs:
-  build:
+  release:
     runs-on: windows-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 需要读取已有 tag
 
-      - name: 测试
-        run: dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -c Release -p:Platform=x64
-
-      - name: 校验 tag 与项目版本一致
+      - name: 判断是否需要发布
+        id: version
         shell: pwsh
         run: |
           $version = [regex]::Match((Get-Content src/WithWindows.UI/WithWindows.UI.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
-          if ("v$version" -ne $env:GITHUB_REF_NAME) {
-            Write-Error "tag $env:GITHUB_REF_NAME 与 csproj 版本 $version 不一致"
+          $tag = "v$version"
+
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) {
+            Write-Error "tag $env:GITHUB_REF_NAME 与 csproj 版本 $tag 不一致"
           }
 
+          $tagExists = [bool](git tag -l $tag)
+          $needRelease = ($env:GITHUB_REF_TYPE -eq 'tag') -or (-not $tagExists)
+
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "need_release=$($needRelease.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Host "csproj 版本 $version，目标 tag $tag，tag 已存在 $tagExists，本次发布 $needRelease"
+
+      - name: 版本未更新则跳过
+        if: steps.version.outputs.need_release == 'false'
+        run: Write-Host "版本 ${{ steps.version.outputs.tag }} 已发布过，跳过构建与发布（改 <Version> 后 push 即自动发布）"
+
+      - name: 测试
+        if: steps.version.outputs.need_release == 'true'
+        run: dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -c Release -p:Platform=x64
+
       - name: 生成单文件（含运行库）
+        if: steps.version.outputs.need_release == 'true'
         run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-selfcontained -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
 
       - name: 生成单文件（不含运行库）
+        if: steps.version.outputs.need_release == 'true'
         run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-frameworkdependent -p:Platform=x64 -p:SelfContained=false -p:WindowsAppSDKSelfContained=false -p:PublishSingleFile=true
 
       - name: 整理产物、打包 zip 与校验和
+        if: steps.version.outputs.need_release == 'true'
         shell: pwsh
         run: |
-          $tag = $env:GITHUB_REF_NAME
+          $tag = "${{ steps.version.outputs.tag }}"
           Copy-Item dist-selfcontained/WithWindows.exe "WithWindows-$tag-x64-selfcontained.exe"
           Copy-Item dist-frameworkdependent/WithWindows.exe "WithWindows-$tag-x64-frameworkdependent.exe"
           # 单文件 exe 未压缩约 167 MB，再提供 zip 给慢网络（约 66 MB）
@@ -44,18 +67,21 @@ jobs:
           } | Set-Content SHA256SUMS.txt -Encoding utf8
 
       - name: 提取更新日志为 Release 正文
+        if: steps.version.outputs.need_release == 'true'
         shell: pwsh
         run: |
-          $tag = $env:GITHUB_REF_NAME
+          $tag = "${{ steps.version.outputs.tag }}"
           $content = Get-Content CHANGELOG.md -Raw
           $pat = "(?s)##\s*\[" + [regex]::Escape($tag) + "\].*?(?=\r?\n##\s|\z)"
           $m = [regex]::Match($content, $pat)
           if (-not $m.Success) { Write-Error "CHANGELOG.md 缺少 [$tag] 章节" }
           Set-Content -Path release_body.md -Value $m.Value -Encoding utf8
 
-      - name: 上传 GitHub Release
+      - name: 打 tag 并上传 GitHub Release
+        if: steps.version.outputs.need_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           files: |
             WithWindows-*-x64-selfcontained.exe
             WithWindows-*-x64-frameworkdependent.exe

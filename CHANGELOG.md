@@ -10,6 +10,7 @@
 ### 新增
 - CI 每次构建校验单文件发布是否还能产出 exe；Release 工作流改为产出两个单文件 exe 与 SHA256SUMS.txt，并校验 tag 与 csproj 版本一致
 - Release 同时提供两个 zip（单文件 exe 未压缩约 167 MB，zip 后约 66 MB，便于慢网络下载）
+- Release 改为版本驱动：push 到 main 时若 csproj 版本还没有对应 tag，自动打 tag 并发布；版本未变则跳过构建与发布（只跑 ci.yml 的构建与测试）
 
 ### 修复
 - 记事本开合会写两条完全相同的日志（NotepadHost 与 MainWindow 各记一次）
