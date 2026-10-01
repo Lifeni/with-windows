@@ -25,13 +25,7 @@ internal static class NativeMethods
     // QueryDisplayConfig flags
     public const uint QDC_DATABASE_CURRENT = 0x00000004;
 
-    // 主题切换广播（WM_SETTINGCHANGE）
-    public const uint WM_SETTINGCHANGE = 0x001A;
-    public const uint SMTO_ABORTIFHUNG = 0x0002;
-    public static readonly IntPtr HWND_BROADCAST = new(0xFFFF);
-
     public const uint ERROR_SUCCESS = 0;
-    public const uint ERROR_INSUFFICIENT_BUFFER = 122;
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern int SetDisplayConfig(
@@ -55,11 +49,6 @@ internal static class NativeMethods
         ref uint numModeInfoArrayElements,
         [In, Out] DisplayConfigModeInfo[]? modeInfoArray,
         out uint currentTopologyId);
-
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    public static extern IntPtr SendMessageTimeout(
-        IntPtr hWnd, uint msg, UIntPtr wParam, IntPtr lParam,
-        uint fuFlags, uint timeout, out UIntPtr result);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -92,21 +81,11 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-    public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-
     [DllImport("user32.dll", EntryPoint = "SetClassLongPtrW")]
     public static extern IntPtr SetClassLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
     [DllImport("gdi32.dll")]
     public static extern IntPtr CreateSolidBrush(uint color);
-
-    // 窗口过渡动画（Win11 打开动画）：DWMWA_TRANSITIONS_FORCEDISABLED = 3
-    [DllImport("dwmapi.dll")]
-    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-
-    [DllImport("user32.dll")]
-    public static extern IntPtr CallWindowProc(IntPtr prevWndProc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
