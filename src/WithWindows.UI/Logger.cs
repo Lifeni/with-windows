@@ -1,8 +1,11 @@
 namespace WithWindows;
 
-/// <summary>Append-only 日志，写入 exe 旁 data/log.txt。无 UI 常驻程序的可观测性来源。</summary>
+/// <summary>Append-only 日志，写入 %APPDATA%\WithWindows\log.txt。无 UI 常驻程序的可观测性来源。</summary>
 public sealed class Logger : IDisposable
 {
+    /// <summary>单个日志文件上限；超过后轮转为 log.1.txt（常驻应用日志不能无限增长）。</summary>
+    private const long MaxBytes = 1024 * 1024;
+
     private readonly StreamWriter _writer;
     private readonly object _lock = new();
 
@@ -11,7 +14,9 @@ public sealed class Logger : IDisposable
         try
         {
             Directory.CreateDirectory(dataDir);
-            var writer = new StreamWriter(Path.Combine(dataDir, "log.txt"), append: true) { AutoFlush = true };
+            string path = Path.Combine(dataDir, "log.txt");
+            Rotate(path);
+            var writer = new StreamWriter(path, append: true) { AutoFlush = true };
             return new Logger(writer);
         }
         catch (IOException)
@@ -41,4 +46,23 @@ public sealed class Logger : IDisposable
     }
 
     public void Dispose() => _writer.Dispose();
+
+    /// <summary>日志超过上限时改名保留为 log.1.txt（只留上一份，避免无限占盘）。</summary>
+    private static void Rotate(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length <= MaxBytes) return;
+
+            File.Move(path, Path.Combine(info.DirectoryName!, "log.1.txt"), overwrite: true);
+        }
+        catch (IOException)
+        {
+            // 轮转是尽力而为：文件被占用时继续往原文件追加，不阻断日志
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
 }
