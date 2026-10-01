@@ -12,6 +12,7 @@ public partial class App : Application
 
     private Window? _window;
     private Logger? _log; // 生命周期 = 应用：热键回调跨 OnLaunched 使用，不能用 using 局部释放
+    private SingleInstance? _singleInstance; // 生命周期 = 应用：互斥体必须持有到进程退出
 
     public App()
     {
@@ -29,11 +30,16 @@ public partial class App : Application
         bool smoke = Environment.GetCommandLineArgs().Contains("--smoke", StringComparer.OrdinalIgnoreCase);
 
         // 单实例守卫：常驻模式第二个实例直接退出；--smoke 不抢互斥体
-        using var singleInstance = new SingleInstance();
-        if (!smoke && !singleInstance.Owned)
+        // 注意：实例必须由 App 持有到进程退出。早期用 using 局部变量，OnLaunched 一返回就释放互斥体，
+        // 常驻期间第二个实例仍能启动（双托盘 + 双记事本 + 配置/日志互相覆盖），守卫形同虚设。
+        if (!smoke)
         {
-            Exit();
-            return;
+            _singleInstance = new SingleInstance();
+            if (!_singleInstance.Owned)
+            {
+                Exit();
+                return;
+            }
         }
 
         // 数据目录：%APPDATA%\WithWindows（配置 + 日志），exe 目录保持干净
@@ -57,9 +63,13 @@ public partial class App : Application
         {
             log.Error($"配置加载失败: {ex}");
             if (!smoke)
+            {
                 NativeMethods.MessageBoxW(IntPtr.Zero,
                     $"配置文件加载失败：\n{ex.Message}\n\n请检查 {configStore.Path}",
                     "With Windows", 0x10 /* MB_ICONERROR */);
+                // 没有创建任何窗口：必须显式退出，否则会留下无窗口无托盘的后台进程
+                Exit();
+            }
             return;
         }
 
