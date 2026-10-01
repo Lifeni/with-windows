@@ -4,12 +4,12 @@ Windows 常驻托盘的一键动作平台：配置驱动的全局热键 → 动�
 
 ## 硬性约束（不可破坏）
 
-- **.NET 8 + WinUI 3**（`net8.0-windows10.0.19041.0` + Windows App SDK 2.4）：Win11 现代原生 UI
+- **.NET 10 + WinUI 3**（`net10.0-windows10.0.19041.0` + Windows App SDK 2.4）：Win11 现代原生 UI
 - **构建必须指定 x64 平台**：`-p:Platform=x64`（WinUI 3 不支持 AnyCPU；RuntimeIdentifier 已固定 win-x64）
-- **发布为自包含目录**：免装 .NET runtime 与 WindowsAppSDK，输出 `dist/`（约 200 MB）；WinUI 3 不支持裁剪/单文件
+- **发布为单文件 exe**：自包含版免装 .NET runtime 与 WindowsAppSDK（约 167 MB）；另有框架依赖版（约 38 MB，需预装运行时）。WinUI 3 不支持裁剪；单文件必须同时开 `EnableMsixTooling`（csproj 已按条件设置）
 - **运行时数据全在 `%APPDATA%\WithWindows\`**：exe 目录保持干净（仅 Assets 资源）
 - 语言 C# `latest` + nullable + implicit usings；测试用 xunit
-- 第三方依赖仅限：WindowsAppSDK、WinUIEx
+- 第三方依赖仅限：WindowsAppSDK（按组件包引用）、WinUIEx
 - 注释与用户可见文案使用中文
 
 ## 文案规范（硬性）
@@ -27,12 +27,15 @@ Windows 常驻托盘的一键动作平台：配置驱动的全局热键 → 动�
 dotnet build src/WithWindows.UI/WithWindows.UI.csproj -p:Platform=x64
 dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -p:Platform=x64
 dotnet run --project src/WithWindows.UI -- --smoke     # 冒烟：不常驻，验证配置加载与热键注册
-dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true
+# 发布 Release：单文件（内置运行库，约 167 MB）
+dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+# 发布 Release：单文件（框架依赖，约 38 MB，需预装 .NET 10 桌面运行时 + Windows App Runtime）
+dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-fd -p:Platform=x64 -p:SelfContained=false -p:WindowsAppSDKSelfContained=false -p:PublishSingleFile=true
 # 开发辅助：一键构建并重启（PowerShell）
 powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 ```
 
-注意：常驻实例运行时会锁 exe，重新构建前先停掉它（任务管理器结束 WithWindows.exe）。构建产物在 `bin/x64/Debug/.../win-x64/` 子目录（RuntimeIdentifier 化的输出路径）。
+注意：常驻实例运行时会锁 exe，重新构建前先停掉它（任务管理器结束 WithWindows.exe）。构建产物在 `bin/x64/Debug/.../win-x64/` 子目录（RuntimeIdentifier 化的输出路径）。编译需要 .NET 10 SDK（9 的 SDK 不能编译 net10 目标框架）。
 
 ## 架构
 
@@ -62,6 +65,8 @@ Interop/             P/Invoke 集中地（RegisterHotKey、SetDisplayConfig/Quer
 - **热键热重载**：`MainWindow.ReloadBindings(AppConfig)` 同时刷新投屏候选模式、注销并重注册全部热键，返回失败说明；设置窗口保存后据此提示用户
 - **Logger 生命周期 = 应用**：App 持有实例字段，热键回调跨 OnLaunched 使用，禁止用局部 `using` 释放（曾致崩溃）
 - **配置写入**：`ConfigStore.Save` 原子替换（同目录临时文件 + `File.Replace`），旧内容留为 `config.json.bak`；`Load` 在 JSON 损坏时回退 `.bak` 并修复主文件
+- **Windows App SDK 组件包**：csproj 逐项引用 Base 2.0.4 / Foundation 2.3.9 / InteractiveExperiences 2.1.6 / WinUI 2.3.6 / DWrite 2.1.0 / Runtime 2.4.0（= 伞包 2.4.0 的依赖清单去掉 Widgets / AI / ML / Search）；升级 WASDK 时必须整体对齐版本，否则框架依赖模式会报组件版本不一致
+- **单文件发布**：`-p:PublishSingleFile=true` 时 WASDK 强制要求 `EnableMsixTooling=true`（csproj 用条件属性自动处理）；产物里只有 exe 是必需的，`WithWindows.pri` 与 `.xbf` 已内嵌、可删
 - **记事本常驻**：关闭（X 或热键）= 最小化到托盘（拦截 Closed 事件），窗口不销毁；内容/字体/尺寸/位置/置顶跨开窗保留
 - **窗口状态记忆**：尺寸/位置/字体持久化到 `config.json` 的 `windowState`；位置未保存时为 `null`（(0, 0) 是合法坐标，不能用 0 当哨兵）；恢复前校验可见性，超出屏幕自动移回主屏居中
 - **配置 v3 schema**：

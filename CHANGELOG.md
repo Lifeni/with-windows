@@ -1,5 +1,18 @@
 # 更新日志
 
+## [v0.4.0] - 2026-10-01
+
+### 变更
+- **升级到 .NET 10**（`net10.0-windows10.0.19041.0`，LTS）：.NET 8 的支持周期在 2026-11-10 结束，自包含产物不应继续携带 EOL 运行时
+- **发布产物改为单文件 exe**：`x64-selfcontained`（内置 .NET 10 与 Windows App SDK，约 167 MB，推荐）与 `x64-frameworkdependent`（约 38 MB，需预装 .NET 10 桌面运行时与 Windows App Runtime）；实测发布目录里只保留 exe 即可运行
+- **Windows App SDK 由伞包改为按组件引用**（Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime），不再打包用不到的 Widgets / AI / ML / Search：同口径下自包含目录 219.2 MB → 167.2 MB，少 64 个文件、51.9 MB（升级 .NET 10 后为 173.4 MB，运行时本身略大）
+
+### 新增
+- CI 每次构建校验单文件发布是否还能产出 exe；Release 工作流改为产出两个单文件 exe 与 SHA256SUMS.txt，并校验 tag 与 csproj 版本一致
+
+### 修复
+- 记事本开合会写两条完全相同的日志（NotepadHost 与 MainWindow 各记一次）
+
 ## [v0.3.1] - 2026-10-01
 
 ### 修复

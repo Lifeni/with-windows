@@ -28,7 +28,7 @@ Windows 常驻托盘的一键动作平台：全局热键 → 动作执行。无�
 ## 快速开始
 
 ```bash
-# 构建（WinUI 3 需要 x64 平台）
+# 构建（需要 .NET 10 SDK；WinUI 3 需要 x64 平台）
 dotnet build src/WithWindows.UI/WithWindows.UI.csproj -p:Platform=x64
 
 # 测试（必须全绿）
@@ -37,24 +37,39 @@ dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -p:Platform=x
 # 冒烟检查（不常驻，验证配置加载与热键注册）
 dotnet run --project src/WithWindows.UI -- --smoke
 
-# 发布 Release（自包含目录，免装 runtime，输出到 dist/）
-dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true
+# 发布：单文件（内置运行库，约 167 MB，免装任何运行库）
+dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+
+# 发布：单文件（框架依赖，约 38 MB，需预装 .NET 10 桌面运行时 + Windows App Runtime）
+dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-fd -p:Platform=x64 -p:SelfContained=false -p:WindowsAppSDKSelfContained=false -p:PublishSingleFile=true
 
 # 开发辅助：一键构建并重启（Windows PowerShell）
 powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 ```
 
-注意：常驻实例运行时会锁 exe，重新构建前先停掉它（托盘"退出"或任务管理器结束 WithWindows.exe）。
+注意：常驻实例运行时会锁 exe，重新构建前先停掉它（托盘"退出"或任务管理器结束 WithWindows.exe）；需要 .NET 10 SDK（9 的 SDK 编译不了 net10 目标框架）。
+
+## 下载
+
+每个 Release 提供两个 x64 单文件 exe，双击即可运行，无需安装：
+
+| 文件 | 大小 | 说明 |
+| --- | --- | --- |
+| `WithWindows-vX.Y.Z-x64-selfcontained.exe` | 约 167 MB | 内置 .NET 10 与 Windows App SDK 运行库，**推荐**，不依赖系统预装 |
+| `WithWindows-vX.Y.Z-x64-frameworkdependent.exe` | 约 38 MB | 需系统已装 .NET 10 桌面运行时与 Windows App Runtime 2.4 |
+
+两者都是单文件（XAML 资源与运行库已内嵌进 exe）；首次启动会把原生库解压到 `%TEMP%` 并复用，之后启动恢复正常。`SHA256SUMS.txt` 提供校验和。
 
 ## 技术栈
 
-- .NET 8 + WinUI 3（Windows App SDK 2.4）：现代 Win11 原生 UI
+- .NET 10（LTS）+ WinUI 3（Windows App SDK 2.4）：现代 Win11 原生 UI
 - WinUIEx：托盘图标（TrayIcon）、窗口管理
 - Microsoft.Windows.SDK.BuildTools：构建期工具（不随产物分发）
 - P/Invoke：`RegisterHotKey`（隐藏消息窗口收 WM_HOTKEY）、`SetDisplayConfig` / `QueryDisplayConfig`（投屏）；注册表读写用 `Microsoft.Win32.Registry`（开机自启、置顶状态）
 - `System.Text.Json` 配置读写（原子替换 + `config.json.bak` 备份回退）
 - xunit + Microsoft.NET.Test.Sdk：单元测试
-- **发布为自包含目录**（含 .NET runtime + WindowsAppSDK，免装任何依赖，约 200 MB）
+- Windows App SDK 按组件包引用（只引 Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime，不打包用不到的 Widgets / AI / ML / Search）
+- **发布为单文件 exe**：自包含约 167 MB；WinUI 3 不支持裁剪（`PublishTrimmed`），单文件依赖 `EnableMsixTooling`（已在 csproj 中按条件开启）
 
 ## 配置
 
@@ -89,7 +104,7 @@ with-windows/
 ├── CHANGELOG.md            # 更新日志（Release 正文来源）
 ├── LICENSE                 # MIT 开源协议
 ├── WithWindows.sln         # 解决方案文件
-├── .github/workflows/      # ci.yml（push/PR 构建测试）、release.yml（打 tag 发布 Release）
+├── .github/workflows/      # ci.yml（push/PR 构建测试 + 单文件校验）、release.yml（打 tag 出两个单文件 exe）
 ├── config/                 # 配置示例（运行时配置在 %APPDATA%\WithWindows）
 ├── docs/                   # 图标与截图素材
 ├── scripts/                # 开发脚本（dev.ps1、IconGen 图标生成）
