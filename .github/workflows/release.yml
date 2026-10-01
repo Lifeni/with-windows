@@ -30,13 +30,16 @@ jobs:
       - name: 生成单文件（不含运行库）
         run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-frameworkdependent -p:Platform=x64 -p:SelfContained=false -p:WindowsAppSDKSelfContained=false -p:PublishSingleFile=true
 
-      - name: 整理产物与校验和
+      - name: 整理产物、打包 zip 与校验和
         shell: pwsh
         run: |
           $tag = $env:GITHUB_REF_NAME
           Copy-Item dist-selfcontained/WithWindows.exe "WithWindows-$tag-x64-selfcontained.exe"
           Copy-Item dist-frameworkdependent/WithWindows.exe "WithWindows-$tag-x64-frameworkdependent.exe"
-          Get-ChildItem *.exe | ForEach-Object {
+          # 单文件 exe 未压缩约 167 MB，再提供 zip 给慢网络（约 66 MB）
+          Compress-Archive -Path "WithWindows-$tag-x64-selfcontained.exe" -DestinationPath "WithWindows-$tag-x64-selfcontained.zip"
+          Compress-Archive -Path "WithWindows-$tag-x64-frameworkdependent.exe" -DestinationPath "WithWindows-$tag-x64-frameworkdependent.zip"
+          Get-ChildItem *.exe, *.zip | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Set-Content SHA256SUMS.txt -Encoding utf8
 
@@ -56,5 +59,7 @@ jobs:
           files: |
             WithWindows-*-x64-selfcontained.exe
             WithWindows-*-x64-frameworkdependent.exe
+            WithWindows-*-x64-selfcontained.zip
+            WithWindows-*-x64-frameworkdependent.zip
             SHA256SUMS.txt
           body_path: release_body.md

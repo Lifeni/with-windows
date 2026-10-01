@@ -58,7 +58,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 | `WithWindows-vX.Y.Z-x64-selfcontained.exe` | 约 167 MB | 内置 .NET 10 与 Windows App SDK 运行库，**推荐**，不依赖系统预装 |
 | `WithWindows-vX.Y.Z-x64-frameworkdependent.exe` | 约 38 MB | 需系统已装 .NET 10 桌面运行时与 Windows App Runtime 2.4 |
 
-两者都是单文件（XAML 资源与运行库已内嵌进 exe）；首次启动会把原生库解压到 `%TEMP%` 并复用，之后启动恢复正常。`SHA256SUMS.txt` 提供校验和。
+两者都是单文件（XAML 资源与运行库已内嵌进 exe）；首次启动会把原生库解压到 `%TEMP%` 并复用，之后启动恢复正常。同时提供同名 `.zip`（自包含版约 66 MB），慢网络可以下 zip 再解压。`SHA256SUMS.txt` 提供校验和。
 
 ## 技术栈
 
