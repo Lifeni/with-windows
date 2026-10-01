@@ -19,15 +19,38 @@ public class HotkeyParserTests
     }
 
     [Theory]
-    [InlineData("a", 0x41)]
-    [InlineData("Z", 0x5A)]
-    [InlineData("0", 0x30)]
-    [InlineData("9", 0x39)]
-    public void Parse_SingleCharKeys_MapToUppercaseVk(string text, uint expectedVk)
+    [InlineData("Ctrl+a", 0x41)]
+    [InlineData("Alt+Z", 0x5A)]
+    [InlineData("Ctrl+Shift+0", 0x30)]
+    [InlineData("Win+9", 0x39)]
+    public void Parse_CharKeysWithModifier_MapToUppercaseVk(string text, uint expectedVk)
     {
         var hotkey = HotkeyParser.Parse(text);
 
         Assert.Equal(expectedVk, hotkey.VirtualKey);
+    }
+
+    [Theory]
+    [InlineData("a")]
+    [InlineData("Z")]
+    [InlineData("0")]
+    [InlineData("9")]
+    public void TryParse_BareLetterOrDigit_Fails(string text)
+    {
+        // 单个字母/数字无修饰键会全局独占该键，必须拒绝
+        bool ok = HotkeyParser.TryParse(text, out _, out string? error);
+
+        Assert.False(ok);
+        Assert.False(string.IsNullOrEmpty(error));
+    }
+
+    [Theory]
+    [InlineData("F1")]
+    [InlineData("F13")]
+    [InlineData("F24")]
+    public void TryParse_BareFunctionKey_IsAllowed(string text)
+    {
+        Assert.True(HotkeyParser.TryParse(text, out _, out _));
     }
 
     [Theory]

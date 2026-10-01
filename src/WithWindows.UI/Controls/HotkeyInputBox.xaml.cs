@@ -28,9 +28,6 @@ public sealed partial class HotkeyInputBox : UserControl
         set => SetValue(HotkeyTextProperty, value);
     }
 
-    /// <summary>HotkeyText 变化事件（含清空）。</summary>
-    public event EventHandler? HotkeyChanged;
-
     /// <summary>聚焦内部输入框进入录制模式（弹窗打开后调用）。</summary>
     public void FocusInput() => InputBox.Focus(FocusState.Programmatic);
 
@@ -76,7 +73,15 @@ public sealed partial class HotkeyInputBox : UserControl
         uint vk = (uint)e.Key;
         if (!IsSupportedKey(vk)) return;
 
-        HotkeyText = HotkeyFormatter.Format(new Hotkey(CurrentModifiers(), vk));
+        uint modifiers = CurrentModifiers();
+        // 单个字母/数字不带修饰键会全局独占该键（比如录到 A 之后全系统按 A 都触发动作），必须拦下
+        if (modifiers == 0 && !IsFunctionKey(vk))
+        {
+            InputBox.Text = "需配合 Ctrl / Alt / Shift / Win";
+            return; // 保持录制状态，等待用户重新按键
+        }
+
+        HotkeyText = HotkeyFormatter.Format(new Hotkey(modifiers, vk));
         InputBox.Focus(FocusState.Unfocused);
     }
 
@@ -87,6 +92,8 @@ public sealed partial class HotkeyInputBox : UserControl
         => (vk >= 0x70 && vk <= 0x87)   // F1–F24
         || (vk >= (uint)'A' && vk <= (uint)'Z')
         || (vk >= (uint)'0' && vk <= (uint)'9');
+
+    private static bool IsFunctionKey(uint vk) => vk is >= 0x70 and <= 0x87;
 
     private static uint CurrentModifiers()
     {

@@ -67,6 +67,13 @@ public static class HotkeyParser
             return false;
         }
 
+        // 单个字母/数字不带修饰键会全局独占该键，容易误配置（F1–F24 属专用功能键，允许单键）
+        if (modifiers == 0 && !IsFunctionKey(vk))
+        {
+            error = "需要至少一个修饰键（Ctrl / Alt / Shift / Win），或使用 F1–F24";
+            return false;
+        }
+
         // MOD_NOREPEAT：按住不重复触发，适合"切换类"动作。
         hotkey = new Hotkey(modifiers | NativeMethods.MOD_NOREPEAT, vk);
         return true;
@@ -76,6 +83,8 @@ public static class HotkeyParser
         => TryParse(text, out Hotkey hotkey, out string? error)
             ? hotkey
             : throw new FormatException(error);
+
+    private static bool IsFunctionKey(uint vk) => vk is >= 0x70 and <= 0x87;
 
     private static bool TryParseKey(string text, out uint vk)
     {
