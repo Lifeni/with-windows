@@ -1,0 +1,18 @@
+name: 构建与测试
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 构建（WinUI 3 需要 x64 平台）
+        run: dotnet build WithWindows.sln -c Release -p:Platform=x64
+
+      - name: 测试
+        run: dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -c Release -p:Platform=x64 --no-build
