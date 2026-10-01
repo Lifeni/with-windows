@@ -39,6 +39,8 @@ public sealed partial class NotepadWindow : Window
     private IntPtr _hwnd;
     private bool _pinned; // 置顶状态（持久化注册表，窗口销毁重建也能恢复）
     private bool _sized;
+    private string _statusText = ""; // 正文缓存：光标移动只重算行列，不重复取全文
+    private bool _statusTextDirty = true;
 
     /// <summary>窗口当前是否可见（热键切换判断）。</summary>
     public new bool Visible => AppWindow.IsVisible;
@@ -71,7 +73,7 @@ public sealed partial class NotepadWindow : Window
         // 标题栏时钟：每秒刷新
         _clockTimer = DispatcherQueue.CreateTimer();
         _clockTimer.Interval = TimeSpan.FromSeconds(1);
-        _clockTimer.Tick += (_, _) => TitleTimeText.Text = DateTime.Now.ToString("HH:mm:ss");
+        _clockTimer.Tick += (_, _) => UpdateClockText();
         _clockTimer.Start();
 
         Editor.PointerWheelChanged += OnEditorWheel; // Ctrl+滚轮缩放字体
@@ -84,8 +86,9 @@ public sealed partial class NotepadWindow : Window
             EnsureWindowVisible(); // 防拓扑变化后窗口跑到屏幕外
             AppWindow.Show();
             Activate();
-            PinButton.IsChecked = _pinned;
-            ApplyPinVisual();
+            ApplyPinState();
+            UpdateClockText(); // 隐藏期间时钟停表，显示时先补一次，避免旧时间停留最多 1 秒
+            _clockTimer.Start(); // 标题栏时钟只在窗口可见时走
         };
 
         // 行距加大：设置默认段落格式并写回，作用于已有与新内容
@@ -133,9 +136,10 @@ public sealed partial class NotepadWindow : Window
             var ws = _configStore.Load().WindowState;
             Editor.FontSize = Math.Clamp(ws.NotepadFontSize, MinFontSize, MaxFontSize);
             AppWindow.Resize(new SizeInt32((int)ws.NotepadWidth, (int)ws.NotepadHeight));
-            if (ws.NotepadX != 0 || ws.NotepadY != 0
-                && IsOnAnyDisplay((int)ws.NotepadX, (int)ws.NotepadY, (int)ws.NotepadWidth, (int)ws.NotepadHeight))
-                AppWindow.Move(new PointInt32((int)ws.NotepadX, (int)ws.NotepadY));
+            // 位置未保存时为 null（首次运行）；(0, 0) 是合法坐标，不能用 0 当哨兵
+            if (ws.NotepadX is double x && ws.NotepadY is double y
+                && IsOnAnyDisplay((int)x, (int)y, (int)ws.NotepadWidth, (int)ws.NotepadHeight))
+                AppWindow.Move(new PointInt32((int)x, (int)y));
         }
         catch (Exception ex)
         {
@@ -201,6 +205,7 @@ public sealed partial class NotepadWindow : Window
         CopyToClipboard();
         SaveWindowState();
         _showTimer.Stop();
+        _clockTimer.Stop();
         AppWindow.Hide();
     }
 
@@ -222,11 +227,13 @@ public sealed partial class NotepadWindow : Window
         selection.SetRange(0, int.MaxValue);
         selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.05f);
         selection.SetRange(0, 0);
+        _statusTextDirty = true;
         UpdateStatus();
     }
 
     private void OnTextChanged(object sender, RoutedEventArgs e)
     {
+        _statusTextDirty = true;
         UpdateStatus();
         _saveTimer.Stop();
         _saveTimer.Start(); // 防抖保存
@@ -234,10 +241,20 @@ public sealed partial class NotepadWindow : Window
 
     private void OnSelectionChanged(object sender, RoutedEventArgs e) => UpdateStatus();
 
+    /// <summary>标题栏时钟文案。</summary>
+    private void UpdateClockText() => TitleTimeText.Text = DateTime.Now.ToString("HH:mm:ss");
+
     /// <summary>状态栏：光标行列 + 总字符数，并同步窗口标题。</summary>
     private void UpdateStatus()
     {
-        Editor.Document.GetText(TextGetOptions.None, out string text);
+        if (_statusTextDirty)
+        {
+            Editor.Document.GetText(TextGetOptions.None, out string current);
+            _statusText = current;
+            _statusTextDirty = false;
+        }
+
+        string text = _statusText;
         int start = Math.Clamp(Editor.Document.Selection.StartPosition, 0, text.Length);
         int line = 1, column = 1;
         for (int i = 0; i < start; i++)
@@ -298,15 +315,22 @@ public sealed partial class NotepadWindow : Window
     private void OnPinToggle(object sender, RoutedEventArgs e)
     {
         _pinned = PinButton.IsChecked == true;
+        ApplyPinState();
+    }
+
+    /// <summary>
+    /// 按当前置顶状态同步窗口、注册表与按钮视觉。显式调用，不依赖"IsChecked 赋值触发 Checked 事件"
+    /// 这类隐式副作用（初值恢复时曾因事件不触发导致视觉与状态不一致）。
+    /// </summary>
+    private void ApplyPinState()
+    {
         if (_presenter is not null)
             _presenter.IsAlwaysOnTop = _pinned;
         Registry.SetValue(PinRegistryPath, PinRegistryValue, _pinned ? 1 : 0, RegistryValueKind.DWord);
-        ApplyPinVisual();
-    }
 
-    /// <summary>按置顶状态同步按钮视觉（初始/重开窗口时也需应用，避免灰色默认态）。</summary>
-    private void ApplyPinVisual()
-    {
+        if (PinButton.IsChecked != _pinned)
+            PinButton.IsChecked = _pinned;
+
         // 未选中：无边框无背景；选中：加背景与边框（图标不变）
         PinButton.Background = _pinned
             ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
@@ -358,6 +382,8 @@ public sealed partial class NotepadWindow : Window
         try
         {
             Editor.Document.GetText(TextGetOptions.None, out string text);
+            if (string.IsNullOrEmpty(text)) return; // 空内容不写剪贴板，避免清空用户原有内容
+
             var data = new DataPackage();
             data.SetText(text);
             Clipboard.SetContent(data);
@@ -377,15 +403,15 @@ public sealed partial class NotepadWindow : Window
             _saveTimer.Stop();
             _showTimer.Stop();
             Save();
-            CopyToClipboard();
             SaveWindowState();
-            return;
+            return; // 退出应用不是"关闭记事本"，不覆盖用户剪贴板
         }
         args.Handled = true;
         Save();
         CopyToClipboard();
         SaveWindowState();
         _showTimer.Stop();
+        _clockTimer.Stop();
         AppWindow.Hide();
     }
 }
