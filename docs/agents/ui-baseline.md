@@ -69,3 +69,26 @@ Window > TitleBar
 
 - 导航壳当前为深色主题（跟随系统）。浅色主题尚未单独截图验证，见 spec 第 12 节风险清单。
 - 窗口较宽时内容区偏空，属正常（页面尚无内容）。
+
+## 四、修订记录
+
+### 2026-10-09 标题栏修复（提交 73f12ce）
+
+**问题**：窗口同时出现两条标题栏——系统标题栏 + 自定义 `TitleBar` 控件，且自定义标题栏的图标渲染为透明棋盘格。
+
+**原因**：只放了 `TitleBar` 控件，但没在 code-behind 里把内容扩展到标题栏区域，因此系统 chrome 仍然存在。
+
+**修复**（`MainWindow.xaml.cs` 构造函数）：
+
+```csharp
+ExtendsContentIntoTitleBar = true;
+SetTitleBar(AppTitleBar);
+AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+AppWindow.SetIcon("Assets/with-windows.ico");
+```
+
+同时把 `TitleBar.IconSource` 从 `with-windows.png` 改为 `with-windows.ico`（PNG 在标题栏里会渲染成透明棋盘格）。
+
+**修复后基线**：`artifacts/ui/shell-titlebar-2026-10-09.png` —— 单条标题栏（汉堡按钮 + 应用图标 + 标题 + 窗口按钮），左栏导航正常，无重复标题。
+
+> 教训：使用 WinUI 3 的 `TitleBar` 控件时，**必须同时**在 code-behind 里设置 `ExtendsContentIntoTitleBar = true` 与 `SetTitleBar(...)`，否则会得到两条标题栏。这条已写入 `docs/agents/winui3-hard-rules.md` 的待补清单。

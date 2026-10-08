@@ -72,6 +72,18 @@ UWP 有 ASTA 重入保护，WinUI 3 用的是标准 STA，**没有**这层保护
 
 XAML 绑定路径错误是静默失败——界面空白且没有任何异常。改完绑定必须实际启动并观察，或直接用 `x:Bind`（编译期检查）。
 
+### 自定义标题栏必须同时设置三个东西
+
+只在 XAML 里放 `TitleBar` 控件是不够的，窗口会同时显示系统标题栏和自定义标题栏（两条栏）。必须在 code-behind 里补：
+
+```csharp
+ExtendsContentIntoTitleBar = true;
+SetTitleBar(AppTitleBar);
+AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+```
+
+另外 `TitleBar.IconSource` 用 `.ico` 而不是 `.png`——PNG 在标题栏里会渲染成透明棋盘格。
+
 ## 三、异步规则
 
 - 禁止 `ConfigureAwait(false)` 出现在 ViewModel：异常会在错误的同步上下文里被静默吞掉，表现为「数据不显示但没有任何错误」
