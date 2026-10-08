@@ -9,10 +9,45 @@
     </Window.SystemBackdrop>
 
     <Grid>
-        <TextBlock
-            AutomationProperties.AutomationId="ShellPlaceholder"
-            Text="With Windows"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TitleBar
+            x:Name="AppTitleBar"
+            Title="With Windows"
+            IsPaneToggleButtonVisible="True"
+            PaneToggleRequested="AppTitleBar_PaneToggleRequested" />
+
+        <NavigationView
+            x:Name="NavView"
+            Grid.Row="1"
+            AutomationProperties.AutomationId="MainNavView"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
+            IsSettingsVisible="True"
+            SelectionChanged="NavView_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem
+                    AutomationProperties.AutomationId="NavItemNotepad"
+                    Content="记事本"
+                    Tag="notepad">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE70B;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
+                    AutomationProperties.AutomationId="NavItemHotkeys"
+                    Content="快捷键"
+                    Tag="hotkeys">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE765;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <Frame x:Name="NavFrame" />
+        </NavigationView>
     </Grid>
 </Window>

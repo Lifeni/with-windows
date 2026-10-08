@@ -1,0 +1,12 @@
+<Page
+    x:Class="WithWindows.Views.NotepadPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Padding="24">
+        <TextBlock
+            AutomationProperties.AutomationId="NotepadPlaceholder"
+            Style="{StaticResource TitleTextBlockStyle}"
+            Text="记事本" />
+    </Grid>
+</Page>
