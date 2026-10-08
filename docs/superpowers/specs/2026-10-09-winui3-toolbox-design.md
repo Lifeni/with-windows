@@ -34,7 +34,7 @@
 | 目标框架 | `net10.0-windows10.0.22621.0` | 面向 Win11 21H2 及以上 |
 | **打包模型** | **MSIX 打包（packaged）** | 新建 WinUI 3 应用的官方默认 |
 | **运行时部署** | **框架依赖（framework-dependent）** | Windows App SDK 默认模式；打包应用会自动安装运行时 |
-| 分发方式 | 自签名证书旁加载起步，后续可上架 | 见第 10 节 |
+| 分发方式 | GitHub Releases + 自签名证书 + `.appinstaller` 自动更新 | 见 10.3 |
 | **默认热键** | **不预置任何默认值**，全部由用户录入 | 见 6.4 |
 | 工作隔离 | git worktree + 分支 `dev` | `.worktrees/dev`（仓库内，已忽略） |
 | 旧代码 | 结构重写，逻辑内核按清单迁移 | 见第 8 节 |
@@ -364,17 +364,32 @@ Windows App SDK 的**默认**模式，本项目沿用：
 
 自包含模式的收益是"版本可控、与其它应用隔离、可 xcopy 部署"，代价是必须自己承担运行时更新；对个人工具没有必要。
 
-### 10.3 分发渠道：自签名旁加载起步
+### 10.3 分发渠道：GitHub Releases + 自签名证书
 
-| 渠道 | 签名成本 | 说明 |
-|---|---|---|
-| 自签名证书旁加载 | 自己生成，0 元 | 本阶段采用；安装方需信任证书 |
-| 直接下载 + CA 证书 | 需购买；SmartScreen 信誉需累积 | 对外分发 |
-| Microsoft Store | **商店免费签名**，自动更新 | 若要给他人用，长期最省事 |
+目标形态：
 
-> 打包路线相对单文件 exe 的主要摩擦就在这里：把 MSIX 发给别人，对方要先信任证书。如果要做到零摩擦，走商店。
+1. CI 构建并签名 x64 的 `.msix`，同时生成 `.appinstaller`。
+2. 两者作为资产上传到 GitHub Release。
+3. 用户下载 `.appinstaller` 双击安装；此后启动时自动检查更新。
 
-自签名流程由 `winapp cert generate` / `cert install` / `sign` 覆盖。
+**必须先说清的代价**：MSIX 的"下载即装"以证书受信任为前提。官方对自签名证书的定位是"仅开发测试，或企业有统一的证书信任管理"——**公开分发时它会直接阻止安装**，用户须先把证书装入「受信任人」。因此"任何人下载都能装"在自签名下**不成立**；成立只走两条路：商店（免费重签）或购买 CA 证书。
+
+| 方案 | 成本 | 下载方摩擦 | 自动更新 |
+|---|---|---|---|
+| **自签名 + GitHub（本方案）** | 0 | 需先信任证书（每台机器一次） | ✅ |
+| 未打包单文件 exe | 0 | SmartScreen 点「仍要运行」 | ❌ 需自建 |
+| OV 证书 + GitHub | $150–300/年 + 硬件令牌 | 可直接安装（首次仍可能有 SmartScreen） | ✅ |
+| Microsoft Store | 0 | 零摩擦 | ✅ |
+
+微软推荐的**非商店**签名服务是 Azure Artifact Signing（原 Trusted Signing，约 $9.99/月），但个人开发者目前**仅限美国和加拿大**，国内不可用。
+
+自签名流程由 `winapp cert generate` / `cert install` / `sign` 覆盖；证书与私钥不入库，CI 通过 Secret 注入。
+
+其他要点：
+
+- `ms-appinstaller` 协议自 2023-12 起默认禁用，浏览器一键安装已不可用；用户须下载 `.appinstaller` 后双击。
+- `.appinstaller` 内指向 MSIX 的地址用 GitHub 的 `releases/latest/download/...` 固定路径，避免每次发版改链接（相对路径解析需实测）。
+- 自动更新由 `.appinstaller` 的 `UpdateSettings` 控制（`OnLaunch` / `HoursBetweenUpdateChecks`）。
 
 ### 10.4 版本号同步
 
@@ -382,7 +397,7 @@ Windows App SDK 的**默认**模式，本项目沿用：
 
 ### 10.5 CI 调整
 
-`release.yml` 从"发布单文件 exe + zip + SHA256"改为"构建并签名 MSIX"，证书由仓库 Secret 提供。这是独立工作量，排在最后。
+`release.yml` 从"发布单文件 exe + zip + SHA256"改为"构建并签名 MSIX + 生成 `.appinstaller` + 上传到 Release"，证书由仓库 Secret 提供。这是独立工作量，排在最后。
 
 ### 10.6 注意事项
 
