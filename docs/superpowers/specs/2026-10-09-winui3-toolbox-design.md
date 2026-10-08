@@ -22,7 +22,7 @@
 
 - 主界面：导航壳 + 页面（工具列表可扩展）
 - 记事本：打开即编辑器，页面即编辑器（草稿自动保存为既有行为，继续保留）
-- 快捷键页：列表形式，每行「功能名 + 录制式热键框 + 启用开关」，首版仅「切换投屏」
+- 快捷键页：列表形式，每行「功能名 + 录制式热键框 + 启用开关 + 立即执行」，首版仅「切换投屏」；不预置默认热键
 - 分发：改为 **MSIX 打包**（原为非打包单文件 exe）
 - 配置：全新 schema，不与旧 `v3` 兼容
 
@@ -32,8 +32,10 @@
 |---|---|---|
 | 技术栈 | 继续 WinUI 3 + Windows App SDK | 不换框架 |
 | 目标框架 | `net10.0-windows10.0.22621.0` | 面向 Win11 21H2 及以上 |
-| **打包模型** | **MSIX 打包（packaged）** | 官方模板与文档的默认推荐路径 |
+| **打包模型** | **MSIX 打包（packaged）** | 新建 WinUI 3 应用的官方默认 |
+| **运行时部署** | **框架依赖（framework-dependent）** | Windows App SDK 默认模式；打包应用会自动安装运行时 |
 | 分发方式 | 自签名证书旁加载起步，后续可上架 | 见第 10 节 |
+| **默认热键** | **不预置任何默认值**，全部由用户录入 | 见 6.4 |
 | 工作隔离 | git worktree + 分支 `dev` | `.worktrees/dev`（仓库内，已忽略） |
 | 旧代码 | 结构重写，逻辑内核按清单迁移 | 见第 8 节 |
 | 旧配置 | 不兼容，全新 schema | 直接重建 |
@@ -133,6 +135,8 @@ tests/
 - 列表布局，每行：工具名 / 说明 + `HotkeyInputBox` + 启用开关。
 - 首版只有「切换投屏」一条；结构上由 `ToolRegistry` 生成，后续工具自动出现。
 - 注册失败（如 1409 已被占用）在该行显示错误，不静默失败。
+- **不预置默认热键**：首次运行时该行显示「未设置」，由用户点击录制框自行录入。
+- 每行带一个「立即执行」按钮：用户尚未录入热键时功能仍可用，也便于验证。
 
 ### 5.4 设置页
 
@@ -185,13 +189,15 @@ public interface ITool
 {
   "version": 1,
   "tools": [
-    { "id": "notepad", "enabled": true, "hotkey": "F13" },
-    { "id": "display_mode", "enabled": true, "hotkey": "F14" }
+    { "id": "notepad", "enabled": true, "hotkey": null },
+    { "id": "display_mode", "enabled": true, "hotkey": null }
   ],
   "displayMode": { "modes": ["internal", "extend"] },
   "windowState": { "width": 900, "height": 640, "x": null, "y": null, "notepadFontSize": 14 }
 }
 ```
+
+`hotkey` 为 `null` 或空字符串表示**不绑定**，此时不注册任何全局热键。
 
 保留旧实现的优秀模式：写入用「同目录临时文件 + `File.Replace`」原子替换、旧内容留 `.bak`、主文件损坏时回退 `.bak`。
 
@@ -207,9 +213,10 @@ public interface ITool
 ### 6.4 热键
 
 - 语法与校验规则保留：修饰键 `Ctrl/Alt/Shift/Win`、F1–F24、字母数字；字母数字必须带修饰键；`MOD_NOREPEAT`。
-- 默认键保留 `F13`（记事本）与 `F14`（切换投屏）——可编程键盘专用键，不与常见软件冲突。
+- **不设默认热键**：新装后不注册任何全局热键。理由：默认值必然与部分用户的既有快捷键冲突，而冲突表现为"按了没反应"，用户既不知道原因也不知道去哪儿改。首次运行由用户在快捷键页自行录入。
 - 注册与分发继续使用**独立隐藏消息窗口**（`RegisterClassEx` + `CreateWindowEx` + 自持 `WndProc` 委托），**不要**子类化 WinUI 窗口：已两次验证子类化会和 WinUI 3 消息泵冲突导致原生崩溃。
 - 句柄生命周期由 `HotkeyManager` 持有，`Dispose` 时显式注销；注册失败返回错误码而非抛异常（1409 = 已被占用）。
+- 工具被禁用或热键被清空时，必须先注销再刷新，避免残留绑定继续占用按键。
 
 ### 6.5 显示切换
 
@@ -333,29 +340,55 @@ dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates
 
 平台相关只做只读断言，禁止在测试中改变真实显示状态。
 
-## 10. 打包与发布（相对旧的重大变化）
+## 10. 打包与分发
 
-**打包**：`winapp pack`（或模板里的 PublishProfile）产出 `.msix`；多架构时用 `.msixbundle`。产物取代原先的两个单文件 exe。
+官方把这件事拆成三个**相互独立**的决策：打包模型、分发渠道、Windows App SDK 运行时部署方式。本项目三项均已选定。
 
-**签名**：MSIX 必须签名才能安装。三条路线：
+### 10.1 打包模型：MSIX 打包
 
-| 路线 | 说明 | 适用 |
+官方文档对新建应用的原话是 "Building a new WinUI 3 app? **You're already packaged by default**"，即打包是默认路径。收益：
+
+- **包身份**：通知、`startupTask`、文件类型关联、上下文菜单扩展等 Windows 扩展点都依赖它。
+- 干净的安装与卸载、可靠的更新、支持商店与企业管理（Intune / Configuration Manager）。
+
+代价：**MSIX 无法做成单文件 exe**（`PublishSingleFile` 只支持"非打包 + 自包含"组合），所以旧的两个单文件产物下线，改为 `.msix`（多架构时 `.msixbundle`）。
+
+对比另外两种模型：`packaging with external location`（稀疏包）是给"已有自己的安装器、只想补一个包身份"的应用用的；`unpackaged` 官方定位是"内部工具或开发者工具，构建部署最简单"。本项目选打包是因为需要 `startupTask` 且看重干净安装。
+
+### 10.2 运行时部署：框架依赖
+
+Windows App SDK 的**默认**模式，本项目沿用：
+
+- 体积最小，且**打包应用会自动安装所需的运行时与框架包**，用户侧无需手动安装。
+- 运行时随服务自动更新，不必随应用重新发布。
+
+自包含模式的收益是"版本可控、与其它应用隔离、可 xcopy 部署"，代价是必须自己承担运行时更新；对个人工具没有必要。
+
+### 10.3 分发渠道：自签名旁加载起步
+
+| 渠道 | 签名成本 | 说明 |
 |---|---|---|
-| 自签名证书 | 生成证书 → 装入「受信任人」→ 签名；用户首次需信任证书 | 个人分发起步 |
-| 代码签名证书 | 需购买，SmartScreen 信誉需累积 | 对外分发 |
-| 上架 Microsoft Store | 由商店签名，用户无需信任证书 | 长期 |
+| 自签名证书旁加载 | 自己生成，0 元 | 本阶段采用；安装方需信任证书 |
+| 直接下载 + CA 证书 | 需购买；SmartScreen 信誉需累积 | 对外分发 |
+| Microsoft Store | **商店免费签名**，自动更新 | 若要给他人用，长期最省事 |
 
-本阶段采用自签名证书，`winapp cert generate` / `cert install` / `sign` 已覆盖该流程。
+> 打包路线相对单文件 exe 的主要摩擦就在这里：把 MSIX 发给别人，对方要先信任证书。如果要做到零摩擦，走商店。
 
-**版本号同步**：`Package.appxmanifest` 的 `Identity/@Version` 必须是四段式（`1.0.0.0`），需与 `CHANGELOG.md` 的语义化版本建立映射（如 `0.5.0` → `0.5.0.0`）。发布流程必须同时更新两处。
+自签名流程由 `winapp cert generate` / `cert install` / `sign` 覆盖。
 
-**CI 调整**：`release.yml` 从"发布单文件 exe + zip + SHA256"改为"构建并签名 MSIX"，证书由仓库 Secret 提供。这是独立工作量，排在最后。
+### 10.4 版本号同步
 
-**注意事项**：
+`Package.appxmanifest` 的 `Identity/@Version` 必须是四段式（`1.0.0.0`），需与 `CHANGELOG.md` 的语义化版本建立映射（如 `0.5.0` → `0.5.0.0`）。发布流程必须同时更新两处。
+
+### 10.5 CI 调整
+
+`release.yml` 从"发布单文件 exe + zip + SHA256"改为"构建并签名 MSIX"，证书由仓库 Secret 提供。这是独立工作量，排在最后。
+
+### 10.6 注意事项
 
 - 调试与旁加载需要开启开发者模式。
 - 常驻实例同样会锁住输出文件，构建前先关闭应用。
-- 每次改动后复查 `README.md` 与 `CHANGELOG.md`；README 的系统要求、安装方式整段需要重写。
+- 每次改动后复查 `README.md` 与 `CHANGELOG.md`；README 的系统要求与安装说明整段需要重写。
 
 ## 11. 分阶段计划
 
@@ -366,7 +399,7 @@ dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates
 | P2 Core 迁移 | 按第 8 节迁移 Core 与互操作；CsWin32 生效；测试迁到 `Core.Tests` | Core 测试全绿且不拉起 WinUI |
 | P3 页面 | 记事本页、快捷键页、设置页 | 控件在无障碍树中可见；截图符合 Win11 风格 |
 | P4 工具抽象 | `ITool` + `ToolRegistry` + 配置 v1 落地 | 新增工具仅需注册，主窗口不改 |
-| P5 打磨与打包 | 深浅色、标题栏、自适应、图标；MSIX 打包与签名；CI 改为产出 MSIX；README 重写 | 产出的 MSIX 能在干净机器上安装并常驻 |
+| P5 打磨与打包 | 深浅色、标题栏、自适应、图标；框架依赖 MSIX 打包与签名；CI 改为产出 MSIX；README 重写 | 产出的 MSIX 能在干净机器上安装并常驻 |
 
 旧目录（`src/WithWindows.UI`、旧测试工程）在 `dev` 分支于 P2 完成后删除；主检出的 `main` 始终保留旧实现供查阅。
 
@@ -376,9 +409,10 @@ dotnet new install Microsoft.WindowsAppSDK.WinUI.CSharp.Templates
 2. **裁剪**：模板 Release 默认 `PublishTrimmed=true`，与旧结论冲突，需实测后固定取值。
 3. **签名与旁加载摩擦**：自签名证书要求用户信任证书，否则无法安装；这是打包路线相对单文件 exe 的主要代价。
 4. **startupTask 限制**：用户在任务管理器禁用后程序无法重新启用，设置页必须显示真实状态。
-5. **`winapp` CLI 处于公共预览**：命令语法可能变动，执行前用 `winapp --help` 核对。
-6. **托盘与主窗口隐藏**：关闭主窗口仅隐藏时，需验证热键与托盘仍工作，且再次唤出时焦点正常。
-7. **第三方示例数字**（如"装 skill 后 30 分钟完成""token 降 70%"）来自他人自述，不作为验收依据。
+5. **首次运行无热键**：不预置默认值意味着用户必须自己录入才能用上全局热键；快捷键页需要明确的空状态引导，并保留「立即执行」入口。
+6. **`winapp` CLI 处于公共预览**：命令语法可能变动，执行前用 `winapp --help` 核对。
+7. **托盘与主窗口隐藏**：关闭主窗口仅隐藏时，需验证热键与托盘仍工作，且再次唤出时焦点正常。
+8. **第三方示例数字**（如"装 skill 后 30 分钟完成""token 降 70%"）来自他人自述，不作为验收依据。
 
 ## 13. 完成定义（DoD）
 
