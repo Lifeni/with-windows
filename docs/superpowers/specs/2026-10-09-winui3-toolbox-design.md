@@ -391,6 +391,34 @@ Windows App SDK 的**默认**模式，本项目沿用：
 - `.appinstaller` 内指向 MSIX 的地址用 GitHub 的 `releases/latest/download/...` 固定路径，避免每次发版改链接（相对路径解析需实测）。
 - 自动更新由 `.appinstaller` 的 `UpdateSettings` 控制（`OnLaunch` / `HoursBetweenUpdateChecks`）。
 
+#### 10.3.1 用户侧安装步骤（README 需照此写）
+
+证书**内嵌在 MSIX 的签名块里**，Windows 不会自动信任它，必须由用户显式导入。三条路径，按推荐顺序：
+
+**方式一（推荐）：随包分发公钥证书，三步**
+
+1. 双击 `WithWindows.cer` → 安装证书 → 存储位置选**本地计算机**（需管理员提权）。
+2. 存储位置选**受信任人**（Trusted People）。
+3. 双击 `WithWindows.appinstaller` 完成安装。
+
+**方式二：从 MSIX 签名里就地安装（不额外下载证书）**
+
+右键 `WithWindows.msix` → 属性 → 数字签名 → 选中证书 → 详细信息 → 查看证书 → 安装证书 → **本地计算机**（需管理员提权）→ 受信任的根证书颁发机构。这是官方旁加载文档给出的步骤。
+
+**方式三：PowerShell 一步到位（管理员会话）**
+
+```powershell
+Import-Certificate -FilePath .\WithWindows.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+Add-AppxPackage .\WithWindows.msix
+```
+
+证书管理规则（硬性）：
+
+- **只分发公钥证书 `.cer`，绝不把带私钥的 `.pfx` 放进 Release**——私钥泄露等于别人可以冒充你签名。
+- 导入目标必须是**本地计算机**（不是当前用户）的**受信任人**存储；官方签名文档指定的就是 Trusted People。
+- `Package.appxmanifest` 的 `Identity/@Publisher` 必须**逐字等于**证书的 `Subject`，否则签名与清单对不上，安装后无法启动。
+- 证书有效期设长（自签名默认仅 1 年）并**始终复用同一张证书**：更换证书会让所有已安装用户重新信任一次。
+
 ### 10.4 版本号同步
 
 `Package.appxmanifest` 的 `Identity/@Version` 必须是四段式（`1.0.0.0`），需与 `CHANGELOG.md` 的语义化版本建立映射（如 `0.5.0` → `0.5.0.0`）。发布流程必须同时更新两处。
