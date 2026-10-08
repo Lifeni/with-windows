@@ -61,6 +61,7 @@ docs/superpowers/             设计文档与实现计划
 | 界面结构与视觉约定 | `docs/agents/ui-conventions.md` |
 | P/Invoke、托盘、注册表、显示拓扑 | `docs/agents/interop-and-platform.md` |
 | 遇到奇怪的失败 | `docs/agents/known-pitfalls.md` |
+| **新会话接进度**（无对话记忆时先读） | `docs/HANDOFF.md` |
 
 ## 提交规范
 
