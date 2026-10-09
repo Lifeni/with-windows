@@ -1,11 +1,141 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using WithWindows.Core.App;
+using WithWindows.Core.Config;
+using WithWindows.Core.Diagnostics;
+using WithWindows.Services;
 
 namespace WithWindows.Views;
 
+/// <summary>设置页：开机自启、投屏候选模式、关于。改动即时保存并对热键做热重载。</summary>
 public sealed partial class SettingsPage : Page
 {
     /// <summary>导航项 Tag 常量，供 MainWindow 路由表引用。</summary>
     public static string RouteTag => "settings";
 
-    public SettingsPage() => InitializeComponent();
+    /// <summary>候选模式的固定顺序与显示名。顺序即切换循环顺序。</summary>
+    private static readonly (string Mode, string Title)[] KnownModes =
+    {
+        ("internal", "仅当前屏幕"),
+        ("extend", "扩展模式"),
+        ("external", "仅外接屏幕"),
+        ("clone", "复制模式"),
+    };
+
+    /// <summary>初始化期间抑制写回，避免程序化赋值触发 Toggled/Checked。</summary>
+    private bool _initializing;
+
+    public SettingsPage()
+    {
+        InitializeComponent();
+        Loaded += OnLoaded;
+    }
+
+    private static AppHost? Host => App.Host;
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (Host is null)
+            return;
+
+        _initializing = true;
+        try
+        {
+            AutoStartToggle.IsOn = AutoStart.IsEnabled();
+            BuildModeCheckBoxes();
+            VersionText.Text = $"版本 {CurrentVersion()}";
+            ConfigPathBox.Text = AppPaths.ConfigPath;
+            LogPathBox.Text = AppPaths.LogPath;
+        }
+        finally
+        {
+            _initializing = false;
+        }
+    }
+
+    private void BuildModeCheckBoxes()
+    {
+        AppConfig config = Host!.Config;
+        foreach ((string mode, string title) in KnownModes)
+        {
+            var checkBox = new CheckBox
+            {
+                Content = title,
+                IsChecked = config.DisplayMode.Modes.Contains(mode, StringComparer.Ordinal),
+            };
+            AutomationProperties.SetAutomationId(checkBox, $"ModeCheckBox_{mode}");
+
+            string capturedMode = mode;
+            checkBox.Checked += (_, _) => OnModeToggled(capturedMode, isChecked: true, checkBox);
+            checkBox.Unchecked += (_, _) => OnModeToggled(capturedMode, isChecked: false, checkBox);
+            ModesHost.Children.Add(checkBox);
+        }
+    }
+
+    private void OnModeToggled(string mode, bool isChecked, CheckBox source)
+    {
+        if (_initializing || Host is null)
+            return;
+
+        AppConfig config = Host.Config;
+        if (isChecked)
+        {
+            if (!config.DisplayMode.Modes.Contains(mode, StringComparer.Ordinal))
+                config.DisplayMode.Modes.Add(mode);
+        }
+        else
+        {
+            // 至少保留一项：取消最后一项时回弹
+            if (config.DisplayMode.Modes.Count <= 1)
+            {
+                _initializing = true;
+                source.IsChecked = true;
+                _initializing = false;
+                return;
+            }
+
+            config.DisplayMode.Modes.RemoveAll(m => string.Equals(m, mode, StringComparison.Ordinal));
+        }
+
+        // 统一按固定顺序排列，保证切换循环顺序稳定
+        config.DisplayMode.Modes = KnownModes
+            .Select(m => m.Mode)
+            .Where(config.DisplayMode.Modes.Contains)
+            .ToList();
+
+        Host.SaveConfig();
+        Host.ReloadBindings();
+    }
+
+    private void OnAutoStartToggled(object sender, RoutedEventArgs e)
+    {
+        if (_initializing)
+            return;
+
+        try
+        {
+            if (AutoStartToggle.IsOn)
+                AutoStart.Enable();
+            else
+                AutoStart.Disable();
+
+            Host?.Log.Info($"开机自启已{(AutoStartToggle.IsOn ? "开启" : "关闭")}");
+        }
+        catch (Exception ex)
+        {
+            Host?.Log.Error($"开机自启设置失败：{ex.Message}");
+        }
+    }
+
+    private static string CurrentVersion()
+    {
+        // 不用 InformationalVersion：它带 SourceLink 的提交哈希（如 0.5.0+b106fe3f…），对用户是噪声
+        Version? version = typeof(SettingsPage).Assembly.GetName().Version;
+        return version is null ? "未知" : $"{version.Major}.{version.Minor}.{version.Build}";
+    }
 }

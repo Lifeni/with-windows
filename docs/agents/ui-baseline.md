@@ -153,3 +153,26 @@ HotkeyRunNow_notepad Button "立即执行"
 **全局热键分发实测**：给记事本录 `Ctrl+Alt+F13` → 切到设置页 → 注入该组合键 → 自动回到记事本页（`NotepadPlaceholder` 出现），证明 `WM_HOTKEY → AppHost.ToolInvoker → HotkeyRouter → ShowAndNavigate` 全链路打通。验证后已把两个热键清空，恢复「不绑定」。
 
 **踩坑**：`UserControl` 在 UIA 里**没有节点**——把 `AutomationProperties.AutomationId` 设在 `UserControl` 上等于没设，且无法被 `focus` / `send-keys --target` 定位。改为根元素使用 `Button`（可聚焦），并在 `Loaded` 时把页面传入的 AutomationId 转交给该按钮。
+
+### 2026-10-09 设置页（提交 `feat(设置页): 自启、投屏候选与关于`）
+
+**改动**：设置页三段——启动（开机自启）、投屏候选模式（四项复选，至少保留一项）、关于（版本 / 配置路径 / 日志路径）。
+
+**启动自检**（截图：`artifacts/ui/settings-page-2026-10-09.png`，1902×988，深色）：
+
+```text
+AutoStartToggle Button "开机自启 已开启" [on]
+ModeCheckBox_internal CheckBox "仅当前屏幕" [on]
+ModeCheckBox_extend CheckBox "扩展模式" [on]
+ModeCheckBox_external CheckBox "仅外接屏幕" [off]
+ModeCheckBox_clone CheckBox "复制模式" [off]
+AboutConfigPath Edit / AboutLogPath Edit
+```
+
+实测：
+
+- 取消「扩展模式」→ `displayMode.modes` 变为 `["internal"]`；重新勾选 → 恢复 `["internal", "extend"]`（取消最后一项会回弹）
+- 开机自启：开启 → `HKCU\...\Run` 出现本 exe 路径；关闭 → 值被删除
+- 关于：版本显示 `0.5.0`（不用带提交哈希的 InformationalVersion），配置与日志路径正确
+
+**说明**：验证前该机器 `Run\WithWindows` 已有值（指向已退役旧构建），测试后已按其**原始内容**写回，未擅自改动用户的启动配置。
