@@ -176,3 +176,24 @@ AboutConfigPath Edit / AboutLogPath Edit
 - 关于：版本显示 `0.5.0`（不用带提交哈希的 InformationalVersion），配置与日志路径正确
 
 **说明**：验证前该机器 `Run\WithWindows` 已有值（指向已退役旧构建），测试后已按其**原始内容**写回，未擅自改动用户的启动配置。
+
+### 2026-10-09 记事本页（提交 `feat(记事本页): 编辑、时钟、缩放与草稿`）
+
+**改动**：记事本页 = 标题 + 秒级时钟 + `A−`/`A+` + 置顶开关 + `RichEditBox`；草稿防抖 500 ms 写入 `%APPDATA%\WithWindows\notepad.txt`；字号写入 `windowState.notepadFontSize`。
+
+**启动自检**（截图：`artifacts/ui/notepad-page-2026-10-09.png`，1902×988，深色）：
+
+```text
+NotepadFontDecrease Button "缩小字体"
+NotepadFontIncrease Button "放大字体"
+NotepadPinToggle Button "置顶 关" [off]
+NotepadEditor Edit
+NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷新生效）
+```
+
+实测：`send-keys --target NotepadEditor --via send-input` 输入文本后 2 秒内草稿文件即更新（防抖写盘生效）；重启应用后 `get-value NotepadEditor` 读回同一内容（草稿恢复生效）。
+
+**踩坑**：
+
+- `ITextParagraphFormat.LineSpacing` 是**只读**的，必须用 `SetLineSpacing(LineSpacingRule.Multiple, 1.05f)`；且载入文本会重置段落格式，只设默认值对**已有内容**不生效，要对选区 `(0, int.MaxValue)` 再应用一次。
+- `DispatcherQueueTimer` 在 `Microsoft.UI.Dispatching` 与 `Windows.System` 下同名，同时 `using` 会报 CS0104，需明确别名。
