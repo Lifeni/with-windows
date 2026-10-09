@@ -72,7 +72,9 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.tag }}"
-          Copy-Item "dist-installer/WithWindows-$tag-x64-setup.exe" "WithWindows-$tag-x64-setup.exe"
+          # 安装器文件名用的是不带 v 的版本号（ISCC /DAppVersion=$ver），tag 才带 v 前缀
+          $ver = $tag.TrimStart('v')
+          Copy-Item "dist-installer/WithWindows-$ver-x64-setup.exe" "WithWindows-$tag-x64-setup.exe"
           Copy-Item dist/WithWindows.exe "WithWindows-$tag-x64-portable.exe"
           Get-ChildItem "WithWindows-$tag-x64-*.exe" | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"

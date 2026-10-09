@@ -25,4 +25,4 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 
 - 未签名：首次运行会看到 SmartScreen「未知发布者」，点「更多信息 → 仍要运行」即可；这是设计文档第 10.4 节的既定取舍。
 - 向导语言：Inno Setup 6 官方安装包**不含**中文语言文件，因此默认是英文向导。把 `ChineseSimplified.isl` 放到本目录后重新编译，脚本会通过 `#if FileExists` 自动切为中文（不预置该文件以免引入未经审阅的第三方内容）。
-- `Assets/` 会随安装包一起安装：单文件发布不会把 `Content` 复制到 publish 目录，csproj 里已显式加 `CopyToPublishDirectory="PreserveNewest"`（否则托盘图标与窗口图标会丢失）。
+- `Assets/` 会随安装包一起安装。注意：单文件发布**不会**把 `Content` 复制到 publish 目录，且**仅加 `CopyToPublishDirectory="PreserveNewest"` 无效**——真正生效的是 csproj 里的 `CopyAssetsToPublish` MSBuild 目标（`AfterTargets="Publish"`，实测把该目标去掉后 publish 目录就只剩 exe 与 pdb）。排查图标丢失时别把那个目标当冗余删掉。

@@ -143,7 +143,7 @@ Stop-Process -Id $p.Id -Force
 4. **后续工具**：新增工具 = `ToolCatalog` 加一条 + 一个页面；出现第 3、4 个工具时可考虑把 `ToolCatalog` 抽成 `ITool` 泛化
 5. **代码签名**（可选）：消除 SmartScreen「未知发布者」提示，设计文档第 10.4 节给了 SignPath 等路径
 
-**注意**：P5 的实现计划文档还没写。按流程应先补计划再实施（P0/P1、P2、P3/P4 的计划见 `docs/superpowers/plans/`）。
+P0–P5 的实现计划都已落地，见 `docs/superpowers/plans/`；后续新批次按同样流程**先补计划再实施**。
 
 **验证前置**：本机 `%APPDATA%` 与命名互斥体 `Local\WithWindows.SingleInstance` 是全局资源，验证前先确认没有陈旧 `WithWindows.exe` 常驻（否则新实例会静默退出、日志也写不进去），详见 `docs/agents/known-pitfalls.md`。
 
