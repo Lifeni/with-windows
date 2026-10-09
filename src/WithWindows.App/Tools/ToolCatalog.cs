@@ -3,8 +3,9 @@ using WithWindows.Views;
 namespace WithWindows.Tools;
 
 /// <summary>
-/// 工具目录项。导航项（以及托盘菜单）由 <see cref="ShowInNav"/> 的项生成；
-/// 新增工具只需在 <see cref="ToolCatalog.Tools"/> 加一条。
+/// 工具目录项。左栏导航由 <see cref="ShowInNav"/> 的项生成，新增工具只需在
+/// <see cref="ToolCatalog.Tools"/> 加一条；托盘菜单不在此列——它是固定的
+/// 「记事 / 切换投影 · 设置 · 退出」（见 TrayHost.BuildMenu），新增工具要进托盘得改那里。
 /// </summary>
 /// <param name="Id">工具标识，与配置 tools[].id 对应。</param>
 /// <param name="Title">界面显示名。</param>
