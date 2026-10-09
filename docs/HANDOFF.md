@@ -114,7 +114,7 @@ Start-Sleep -Seconds 7
 # 界面自检
 winapp ui list-windows -a WithWindows
 winapp ui inspect -a WithWindows -i
-winapp ui search NotepadPlaceholder -a WithWindows
+winapp ui search NotepadEditor -a WithWindows
 winapp ui screenshot -a WithWindows --json
 
 Stop-Process -Id $p.Id -Force

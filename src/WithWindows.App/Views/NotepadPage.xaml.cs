@@ -32,12 +32,25 @@ public sealed partial class NotepadPage : Page
     private DispatcherQueueTimer? _clock;
     private bool _loading;
 
+    /// <summary>
+    /// 载入完成后编辑器内的实际文本，用作「是否真的被编辑过」的基线。
+    /// RichEditBox 取回文本时会规范化行尾，若直接与文件内容比较会判定为「已编辑」，
+    /// 于是仅仅打开页面就把规范化结果写回用户草稿（空行逐次累积）。
+    /// </summary>
+    private string _editorBaseline = "";
+
     public NotepadPage()
     {
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
-        Editor.PointerWheelChanged += OnEditorPointerWheel;
+
+        // RichEditBox 的模板内部有 ScrollViewer，内容可滚动时可能把滚轮事件标记为已处理；
+        // 用 handledEventsToo 保证 Ctrl+滚轮 缩放始终收得到（与 HotkeyInputBox 的指针事件同源问题）。
+        Editor.AddHandler(
+            UIElement.PointerWheelChangedEvent,
+            new PointerEventHandler(OnEditorPointerWheel),
+            handledEventsToo: true);
     }
 
     private static AppConfig? Config => App.Host?.Config;
@@ -52,6 +65,10 @@ public sealed partial class NotepadPage : Page
                 Editor.Document.SetText(TextSetOptions.None, NotepadDraft.Load());
                 ApplyLineSpacing();
                 ApplyFontSize(Config?.WindowState.NotepadFontSize ?? 14);
+
+                // 取载入后的规范化文本作为基线，之后只有与它不同才认为用户真的改了内容
+                Editor.Document.GetText(TextGetOptions.None, out string baseline);
+                _editorBaseline = baseline;
             }
             finally
             {
@@ -60,6 +77,10 @@ public sealed partial class NotepadPage : Page
 
             _draft = new NotepadDraft(DispatcherQueue);
         }
+
+        // 切页会重建页面实例，需要按窗口实际状态回读，否则界面显示与实际置顶状态不一致
+        if (App.MainWindow?.AppWindow.Presenter is OverlappedPresenter presenter)
+            PinToggle.IsOn = presenter.IsAlwaysOnTop;
 
         StartClock();
     }
@@ -92,6 +113,12 @@ public sealed partial class NotepadPage : Page
             return;
 
         Editor.Document.GetText(TextGetOptions.None, out string text);
+
+        // 未真正编辑（只是富文本往返规范化了行尾）时不写回磁盘
+        if (string.Equals(text, _editorBaseline, StringComparison.Ordinal))
+            return;
+
+        _editorBaseline = text;
         _draft?.QueueSave(text);
     }
 

@@ -16,6 +16,12 @@
 
 **`UserControl` 没有自动化节点**：把 `AutomationProperties.AutomationId` 设在 `UserControl` 上等于没设——它在 UIA 树里不出现，既搜不到也无法被 `winapp ui focus` / `send-keys --target` 定位。自定义控件若要被自动化与读屏使用，根元素要用可聚焦控件（如 `Button`），或由控件把 ID 转交给内部可聚焦元素。
 
+**`Button` 会把 `PointerPressed` 标记为已处理**：XAML 上的 `PointerPressed="…"` 普通订阅**永远不会被调用**（与 `RichEditBox` 内部 `ScrollViewer` 吞滚轮同源）。要收到这类事件必须 `AddHandler(UIElement.PointerPressedEvent, handler, handledEventsToo: true)`。另外 WinUI 的 `RoutedEventArgs` **没有 `Handled`**（那是 WPF），想阻止冒泡只能在指针阶段拦（`PointerRoutedEventArgs.Handled`）。
+
+**指针点击会引起焦点抖动**：点击可聚焦控件时会先 `LosingFocus` 再 `GettingFocus`。若在 `LosingFocus` 里无条件清状态（如取消热键录制），按键恰好落在空档就会被丢弃，表现为「点了没反应」。判断焦点是否仍在控件内部（`VisualTreeHelper.GetParent` 向上走）再决定是否清状态。
+
+**验证不得污染用户数据**：`%APPDATA%\WithWindows\` 下的草稿、配置是用户的真实数据。用注入文本 / 改字号等方式验证后必须还原（先快照再写回，或按「新内容以原文为前缀」精确截断）；更稳妥的是不碰真实文件。
+
 ## 热键与配置
 
 **热键注册失败不抛异常**：`RegisterHotKey` 返回 `false` 并设置 Win32 错误码（`1409` = 已被占用）。必须把失败原因回传设置界面，否则用户只会觉得「按了没反应」。

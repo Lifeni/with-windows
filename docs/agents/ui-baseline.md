@@ -19,7 +19,7 @@ winapp ui list-windows -a WithWindows
 winapp ui inspect -a WithWindows -i
 
 # 4. 按 AutomationId 精确查找控件
-winapp ui search NotepadPlaceholder -a WithWindows
+winapp ui search NotepadEditor -a WithWindows
 
 # 5. 切换页面
 winapp ui invoke NavItemHotkeys -a WithWindows
@@ -255,3 +255,27 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 - 点「清除」：不再出现「请按下组合键…」，随后按键也不会被吞（配置保持为空）
 - 提示文本 ID 唯一：`HotkeyBox_display_modeHint`
 - 诊断代码已移除，构建 0 错误 0 警告，Core 测试 100/100
+
+### 2026-10-09 第三轮独立审查（`codex exec review --base 5f4bb33`）
+
+判定仍为「patch is correct」（无阻塞缺陷），给 3 条非阻塞项。逐条实测后的处置：
+
+| 级别 | 问题 | 实测结论与处置 |
+|---|---|---|
+| P2 | `Ctrl+滚轮` 缩放可能收不到滚轮事件（`RichEditBox` 内部 `ScrollViewer` 吞掉） | **短内容实测能收到**（注入滚轮后处理器记录到 delta ±120）；「内容可滚动时是否被吞」未能自动化验证（需要往编辑器灌长文本，会写进用户真实草稿），故仍按建议改为 `AddHandler(..., handledEventsToo: true)` 做防御 |
+| P3 | 置顶开关只写不读，切页返回后显示与实际不符 | 属实，已在 `OnLoaded` 按 `presenter.IsAlwaysOnTop` 回读；实测：开启置顶 → 切快捷键页 → 切回，开关仍显示「开」 |
+| P3 | 自检文档仍引用已删除的 `NotepadPlaceholder` | 属实，可复现流程里的命令已改为 `NotepadEditor`（`ui-baseline.md` 与 `HANDOFF.md` 各一处）；历史条目保留原标识，因为那是当时的真实记录 |
+
+**过程中的一次数据事故（已还原）**：为验证「可滚动内容是否吞掉滚轮」，我向记事本编辑器灌入 120 行长文本，结果有 13 个换行被写进你的真实草稿 `%APPDATA%\WithWindows\notepad.txt`。已按「原文是追加内容的前缀」精确还原（96 字符，含末尾 3 个 CR），内容与事故前一致。教训已记入 `known-pitfalls.md`：验证不得污染用户数据。
+
+### 2026-10-09 记事本「仅打开即改写草稿」修复
+
+排查上面那次数据事故时发现一个**真实缺陷**：只要打开记事本页（不做任何编辑），退出后草稿文件就会被改写，末尾空行每次 +2。原因是 `RichEditBox` 取回文本时会**规范化行尾**，而 `TextChanged` 是异步触发的——`_loading` 早已复位，于是规范化后的文本被当成「用户编辑」写回磁盘；反复开关会不断累积空行。
+
+**修复**：以「载入完成后编辑器内的实际文本」作为基线（`_editorBaseline`），`TextChanged` 里只有与该基线不同才认为用户真的改了内容。注意不能拿文件内容直接比较——文件与编辑器内的文本天然不同，那样等于没修。
+
+实测：
+
+- 仅打开 → 切页 → 退出：草稿长度保持 96 字符（修复前为 98，且会逐次增长）
+- 真正输入一个字符：草稿被写回（长度 98）
+- 验证后草稿已还原为原文 96 字符
