@@ -43,7 +43,9 @@ public sealed class HotkeyRow : UserControl
         VerticalAlignment = VerticalAlignment.Center,
     };
 
+    private readonly CardRow _card = new();
     private ToolBinding? _binding;
+    private string _runButtonText = "立即执行";
 
     public HotkeyRow()
     {
@@ -55,45 +57,61 @@ public sealed class HotkeyRow : UserControl
     public string ToolId { get; set; } = "";
 
     /// <summary>行标题。</summary>
-    public string Title { get; set; } = "";
+    public string Title
+    {
+        get => _card.Title;
+        set => _card.Title = value;
+    }
 
-    /// <summary>「立即执行」按钮的文案。</summary>
-    public string RunButtonText { get; set; } = "立即执行";
+    /// <summary>行说明。</summary>
+    public string Description
+    {
+        get => _card.Description;
+        set => _card.Description = value;
+    }
+
+    /// <summary>左侧图标字形。</summary>
+    public string Glyph
+    {
+        get => _card.Glyph;
+        set => _card.Glyph = value;
+    }
+
+    /// <summary>「立即执行」按钮的文案。构造后才由 XAML 赋值，因此必须即时写进控件。</summary>
+    public string RunButtonText
+    {
+        get => _runButtonText;
+        set
+        {
+            _runButtonText = value;
+            _run.Content = value;
+        }
+    }
+
+    /// <summary>「立即执行」完成后触发，供宿主刷新页面上的状态（如当前模式）。</summary>
+    public event EventHandler? Executed;
 
     private static AppHost? Host => App.Host;
 
     private void Build()
     {
-        var title = new TextBlock { Text = Title, VerticalAlignment = VerticalAlignment.Center };
-        _run.Content = RunButtonText;
+        _run.Content = _runButtonText;
 
-        var grid = new Grid { ColumnSpacing = 12 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(title, 0);
-        Grid.SetColumn(_box, 1);
-        Grid.SetColumn(_enabled, 2);
-        Grid.SetColumn(_run, 3);
-        grid.Children.Add(title);
-        grid.Children.Add(_box);
-        grid.Children.Add(_enabled);
-        grid.Children.Add(_run);
+        var trailing = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        trailing.Children.Add(_box);
+        trailing.Children.Add(_enabled);
+        trailing.Children.Add(_run);
+        _card.Trailing = trailing;
 
         var content = new StackPanel { Spacing = 8 };
-        content.Children.Add(grid);
+        content.Children.Add(_card);
         content.Children.Add(_info);
-
-        Content = new Border
-        {
-            Padding = new Thickness(16),
-            CornerRadius = new CornerRadius(6),
-            Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
-            BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
-            BorderThickness = new Thickness(1),
-            Child = content,
-        };
+        Content = content;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -145,6 +163,7 @@ public sealed class HotkeyRow : UserControl
             _info.Severity = InfoBarSeverity.Success;
             _info.Title = result?.Message ?? $"已打开{Title}";
             _info.IsOpen = true;
+            Executed?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {

@@ -31,8 +31,8 @@ public static class ToolCatalog
     public static IReadOnlyList<ToolEntry> Tools { get; } = new[]
     {
         new ToolEntry(NotepadId, "记事", "\uE70B", typeof(NotepadPage), ShowInNav: true, HasHotkey: true),
-        new ToolEntry(DisplayPageId, "投屏", "\uE7F8", typeof(DisplayPage), ShowInNav: true, HasHotkey: false),
-        new ToolEntry(DisplayModeId, "切换投屏", "\uE7F8", PageType: null, ShowInNav: false, HasHotkey: true),
+        new ToolEntry(DisplayPageId, "投影", "\uE7F4", typeof(DisplayPage), ShowInNav: true, HasHotkey: false),
+        new ToolEntry(DisplayModeId, "切换投影", "\uE7F4", PageType: null, ShowInNav: false, HasHotkey: true),
     };
 
     /// <summary>导航项的可访问性标识：由工具 ID 生成（如 notepad → NavItemNotepad）。</summary>

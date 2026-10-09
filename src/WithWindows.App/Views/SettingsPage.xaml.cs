@@ -35,7 +35,7 @@ public sealed partial class SettingsPage : Page
         try
         {
             AutoStartToggle.IsOn = AutoStart.IsEnabled();
-            VersionText.Text = $"版本 {CurrentVersion()}";
+            VersionText.Text = $"With Windows {CurrentVersion()}";
             PathsText.Text = $"配置目录：{AppPaths.DataRoot}\n日志文件：{AppPaths.LogPath}";
         }
         finally

@@ -135,6 +135,7 @@
             <TextBlock
                 x:Name="StatusCaret"
                 Grid.Column="0"
+                VerticalAlignment="Center"
                 AutomationProperties.AutomationId="NotepadStatusCaret"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}" />
@@ -142,31 +143,42 @@
             <TextBlock
                 x:Name="StatusCount"
                 Grid.Column="1"
+                VerticalAlignment="Center"
                 AutomationProperties.AutomationId="NotepadStatusCount"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}" />
 
-            <!-- 自动换行：状态栏里的文字样式开关 -->
+            <!-- 自动换行：状态栏里的文字开关，勾选时前面显示对勾 -->
             <ToggleButton
                 x:Name="WrapToggle"
                 Grid.Column="2"
                 Margin="16,0,0,0"
-                Padding="8,2"
+                Padding="6,2"
                 HorizontalAlignment="Left"
+                VerticalAlignment="Center"
                 AutomationProperties.AutomationId="NotepadWrap"
                 AutomationProperties.Name="自动换行"
                 Background="Transparent"
                 BorderThickness="0"
                 Checked="OnWrapToggled"
-                Content="自动换行"
                 FontSize="12"
                 IsChecked="True"
-                Unchecked="OnWrapToggled" />
+                Unchecked="OnWrapToggled">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <FontIcon
+                        x:Name="WrapCheck"
+                        FontSize="12"
+                        Glyph="&#xE73E;"
+                        VerticalAlignment="Center" />
+                    <TextBlock Text="自动换行" VerticalAlignment="Center" />
+                </StackPanel>
+            </ToggleButton>
 
             <TextBlock
                 x:Name="StatusZoom"
                 Grid.Column="3"
                 HorizontalAlignment="Right"
+                VerticalAlignment="Center"
                 AutomationProperties.AutomationId="NotepadStatusZoom"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}" />

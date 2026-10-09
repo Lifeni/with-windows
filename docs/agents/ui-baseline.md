@@ -426,6 +426,32 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 
 **修掉一个次序坑**：`HotkeyRow` 在自己的 `Loaded` 里才给子控件赋 `AutomationId`，而子控件的 `Loaded` 已经先跑过，导致录制框在可访问性树里没有 ID。改为在 `HotkeyInputBox` 里用 `RegisterPropertyChangedCallback` 监听 `AutomationId` 变化并即时转交给内部按钮，任何赋值顺序都成立。
 
+### 2026-10-09 卡片化改版（投影页 / 设置页 / 记事状态栏）
+
+**参考**：用户提供的系统记事本设置页截图（左图标 + 标题 + 说明 + 右侧控件，内容区限宽，卡片分行）。
+
+**改动**：
+
+1. **记事状态栏**：文本与开关统一 `VerticalAlignment="Center"`；「自动换行」前加对勾图标（开启显示、关闭隐藏）。
+2. **最小窗口**：480×360 DIP（原 640×480）。
+3. **设置页**：内容 `MaxWidth=760` 左对齐；分「启动 / 快捷键 / 关于」三组卡片；开机自启与呼出主窗口用卡片行；关于卡片含版本 + 两个路径按钮 + 路径说明。
+4. **投影页**（原投屏页）：导航与标题改名「投影」，图标换成显示器样式；新增「启用投影功能」开关卡片；「切换模式」改为 **2×2 大卡片**（图标 + 名称 + 说明 + 选中对勾，选中态高亮）；快捷键行用同一卡片风格。
+5. 抽出 `Controls/CardRow`（图标 + 标题 + 说明 + 右侧控件）统一卡片行；`HotkeyRow` 改为基于它实现。
+
+实测（截图 `artifacts/ui/projection-page-2026-10-09.png`、`settings-cards-2026-10-09.png`）：
+
+```text
+投影页：DisplayEnabledToggle [on] / HotkeyBox_display_mode / ModeCard_internal [on] / ModeCard_extend [on] / ModeCard_external [off] / ModeCard_clone [off]
+设置页：AutoStartToggle [off] / HotkeyBox_notepad / HotkeyRunNow_notepad "打开主窗口" / OpenConfigFolder / OpenLogFile
+记事页：NotepadWrap "自动换行" [on] 113x30（含对勾）
+```
+
+**顺带修掉审查发现的三处**：
+
+- `HotkeyRow.RunButtonText` 在构造函数里被读取，XAML 赋值晚于它 → 按钮文案退回「立即执行」：改为 setter 即时写入；
+- 投影页「立即执行」切换后「当前模式」不刷新：`HotkeyRow` 暴露 `Executed` 事件，页面收到后重读；
+- 记事页每次移动光标都整篇取文：拆成「字符数只在文本变化时算」，光标移动只取前缀算行列。
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。

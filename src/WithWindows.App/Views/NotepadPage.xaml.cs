@@ -144,7 +144,8 @@ public sealed partial class NotepadPage : Page
             return;
 
         Editor.Document.GetText(TextGetOptions.None, out string text);
-        UpdateStatus();
+        UpdateCount(text);
+        UpdateCaret();
 
         // 未真正编辑（只是富文本往返规范化了行尾）时不写回磁盘
         if (string.Equals(text, _editorBaseline, StringComparison.Ordinal))
@@ -154,16 +155,33 @@ public sealed partial class NotepadPage : Page
         _draft?.QueueSave(text);
     }
 
-    private void OnEditorSelectionChanged(object sender, RoutedEventArgs e) => UpdateStatus();
+    private void OnEditorSelectionChanged(object sender, RoutedEventArgs e) => UpdateCaret();
 
-    /// <summary>刷新状态栏：光标行列、字符数、缩放比例。</summary>
+    /// <summary>刷新状态栏全部字段（仅在载入完成时用一次）。</summary>
     private void UpdateStatus()
     {
         Editor.Document.GetText(TextGetOptions.None, out string text);
+        UpdateCount(text);
+        UpdateCaret();
+        UpdateZoom();
+    }
+
+    /// <summary>字符数：只在文本变化时计算，避免每次移动光标都整篇取文。</summary>
+    private void UpdateCount(string text)
+    {
         string content = text.TrimEnd('\r');   // 富文本末尾总有一个段落标记，不计入字符数
         StatusCount.Text = $"{content.Length} 个字符";
-        StatusZoom.Text = $"缩放 {Math.Round(Editor.FontSize / DefaultFontSize * 100)}%";
+    }
 
+    /// <summary>缩放比例。</summary>
+    private void UpdateZoom()
+    {
+        StatusZoom.Text = $"缩放 {Math.Round(Editor.FontSize / DefaultFontSize * 100)}%";
+    }
+
+    /// <summary>光标行列：只取光标前的前缀（移动光标时不再整篇取文）。</summary>
+    private void UpdateCaret()
+    {
         int start = Editor.Document.Selection.StartPosition;
         Editor.Document.GetRange(0, start).GetText(TextGetOptions.None, out string before);
         int line = before.Count(c => c == '\r') + 1;
@@ -235,6 +253,10 @@ public sealed partial class NotepadPage : Page
             return;
 
         Editor.TextWrapping = WrapToggle.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
+
+        // 未开启时不显示对勾（控件本身在解析期就会被调用，此时 WrapCheck 可能尚未构造）
+        if (WrapCheck is not null)
+            WrapCheck.Visibility = WrapToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private string ReadAllText()
@@ -260,6 +282,7 @@ public sealed partial class NotepadPage : Page
     {
         double clamped = Math.Clamp(size, MinFontSize, MaxFontSize);
         Editor.FontSize = clamped;
+        UpdateZoom();
 
         if (!persist || Config is null)
             return;

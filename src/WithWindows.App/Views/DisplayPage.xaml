@@ -6,30 +6,68 @@
 
     <ScrollViewer Padding="24">
         <StackPanel Spacing="16">
-            <TextBlock
-                AutomationProperties.AutomationId="DisplayTitle"
-                Style="{StaticResource TitleTextBlockStyle}"
-                Text="投屏" />
+            <StackPanel MaxWidth="820" HorizontalAlignment="Left" Spacing="8">
+                <TextBlock
+                    Margin="0,0,0,8"
+                    AutomationProperties.AutomationId="DisplayTitle"
+                    Style="{StaticResource TitleTextBlockStyle}"
+                    Text="投影" />
 
-            <TextBlock
-                x:Name="CurrentModeText"
-                AutomationProperties.AutomationId="DisplayCurrentMode"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyTextBlockStyle}" />
+                <TextBlock
+                    x:Name="CurrentModeText"
+                    Margin="0,0,0,8"
+                    AutomationProperties.AutomationId="DisplayCurrentMode"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyTextBlockStyle}" />
 
-            <!-- 投屏快捷键 -->
-            <controls:HotkeyRow
-                x:Name="DisplayHotkeyRow"
-                RunButtonText="立即执行"
-                Title="投屏快捷键"
-                ToolId="display_mode" />
+                <controls:CardRow
+                    AutomationProperties.AutomationId="DisplayEnabledCard"
+                    Description="关闭后不注册投影热键，也不能「立即执行」"
+                    Glyph="&#xE7E8;"
+                    Title="启用投影功能">
+                    <controls:CardRow.Trailing>
+                        <ToggleSwitch
+                            x:Name="EnabledToggle"
+                            AutomationProperties.AutomationId="DisplayEnabledToggle"
+                            OffContent="关"
+                            OnContent="开"
+                            Toggled="OnEnabledToggled" />
+                    </controls:CardRow.Trailing>
+                </controls:CardRow>
 
-            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="候选模式" />
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Text="「立即执行」在这些模式之间循环；至少保留一项。"
-                TextWrapping="Wrap" />
-            <StackPanel x:Name="ModesHost" Spacing="4" />
+                <controls:HotkeyRow
+                    x:Name="DisplayHotkeyRow"
+                    Description="按下组合键在下面的候选模式之间循环"
+                    Glyph="&#xE765;"
+                    RunButtonText="立即执行"
+                    Title="投影快捷键"
+                    ToolId="display_mode" />
+
+                <TextBlock
+                    Margin="0,8,0,0"
+                    Style="{StaticResource SubtitleTextBlockStyle}"
+                    Text="切换模式" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="点选参与循环的模式，至少保留一项。"
+                    TextWrapping="Wrap" />
+
+                <Grid ColumnSpacing="12" RowSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel x:Name="ModesHost" Grid.Row="0" Grid.Column="0" Spacing="12" />
+                    <StackPanel x:Name="ModesHost2" Grid.Row="0" Grid.Column="1" Spacing="12" />
+                    <StackPanel x:Name="ModesHost3" Grid.Row="1" Grid.Column="0" Spacing="12" />
+                    <StackPanel x:Name="ModesHost4" Grid.Row="1" Grid.Column="1" Spacing="12" />
+                </Grid>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>

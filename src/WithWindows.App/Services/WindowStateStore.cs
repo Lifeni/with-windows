@@ -14,8 +14,8 @@ namespace WithWindows.Services;
 /// </summary>
 public sealed class WindowStateStore : IDisposable
 {
-    private const int MinWidth = 640;
-    private const int MinHeight = 480;
+    private const int MinWidth = 480;
+    private const int MinHeight = 360;
     private static readonly TimeSpan PersistDebounce = TimeSpan.FromMilliseconds(500);
 
     private readonly Window _window;
