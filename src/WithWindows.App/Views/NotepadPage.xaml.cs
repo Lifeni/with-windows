@@ -203,13 +203,99 @@ public sealed partial class NotepadPage : Page
         StatusCaret.Text = $"行 {line}，列 {column}";
     }
 
-    private void OnFontIncreaseClick(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize + 1, persist: true);
+    // ---- Markdown 格式（作用于当前选区；无选区时作用于随后输入的内容）----
 
-    private void OnFontDecreaseClick(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize - 1, persist: true);
+    private void OnBoldClick(object sender, RoutedEventArgs e)
+        => Editor.Document.Selection.CharacterFormat.Bold = FormatEffect.Toggle;
 
-    private void OnLineSpacingNormalClick(object sender, RoutedEventArgs e) => ApplyLineSpacing(1.05f);
+    private void OnItalicClick(object sender, RoutedEventArgs e)
+        => Editor.Document.Selection.CharacterFormat.Italic = FormatEffect.Toggle;
 
-    private void OnLineSpacingWideClick(object sender, RoutedEventArgs e) => ApplyLineSpacing(1.5f);
+    private void OnStrikethroughClick(object sender, RoutedEventArgs e)
+        => Editor.Document.Selection.CharacterFormat.Strikethrough = FormatEffect.Toggle;
+
+    private void OnHeadingBodyClick(object sender, RoutedEventArgs e) => ApplyHeading(DefaultFontSize, bold: false);
+
+    private void OnHeading1Click(object sender, RoutedEventArgs e) => ApplyHeading(28, bold: true);
+
+    private void OnHeading2Click(object sender, RoutedEventArgs e) => ApplyHeading(24, bold: true);
+
+    private void OnHeading3Click(object sender, RoutedEventArgs e) => ApplyHeading(20, bold: true);
+
+    /// <summary>标题：设置段落的字号与粗细（RichEditBox 无内置标题样式，用字号 + 粗体表达）。</summary>
+    private void ApplyHeading(double size, bool bold)
+    {
+        ITextCharacterFormat format = Editor.Document.Selection.CharacterFormat;
+        format.Size = (float)size;
+        format.Bold = bold ? FormatEffect.On : FormatEffect.Off;
+    }
+
+    private void OnListNoneClick(object sender, RoutedEventArgs e) => ApplyList(MarkerType.None);
+
+    private void OnListBulletedClick(object sender, RoutedEventArgs e) => ApplyList(MarkerType.Bullet);
+
+    private void OnListNumberedClick(object sender, RoutedEventArgs e) => ApplyList(MarkerType.Arabic);
+
+    private void ApplyList(MarkerType markerType)
+    {
+        ITextParagraphFormat format = Editor.Document.Selection.ParagraphFormat;
+        format.ListType = markerType;
+        Editor.Document.Selection.ParagraphFormat = format;
+    }
+
+    /// <summary>插入链接：给选区设置链接地址；未选中内容时先提示（RichEditBox 需要选中文本才能加链接）。</summary>
+    private async void OnLinkClick(object sender, RoutedEventArgs e)
+    {
+        Editor.Document.Selection.GetText(TextGetOptions.None, out string selected);
+        if (string.IsNullOrEmpty(selected.TrimEnd('\r')))
+        {
+            StatusCount.Text = "请先选中要加链接的文字";
+            return;
+        }
+
+        var urlBox = new TextBox { Header = "链接地址", PlaceholderText = "https://" };
+        AutomationProperties.SetAutomationId(urlBox, "LinkUrlBox");
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "插入链接",
+            Content = urlBox,
+            PrimaryButtonText = "确定",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        string url = urlBox.Text.Trim();
+        if (url.Length == 0)
+            return;
+
+        var selection = Editor.Document.Selection;
+        selection.Link = url;
+    }
+
+    /// <summary>清除格式：把选区的字符格式与段落格式恢复默认。</summary>
+    private void OnClearFormatClick(object sender, RoutedEventArgs e)
+    {
+        var selection = Editor.Document.Selection;
+
+        ITextCharacterFormat character = selection.CharacterFormat;
+        character.Bold = FormatEffect.Off;
+        character.Italic = FormatEffect.Off;
+        character.Strikethrough = FormatEffect.Off;
+        character.Underline = UnderlineType.None;
+        character.Size = (float)DefaultFontSize;
+        selection.CharacterFormat = character;
+
+        ITextParagraphFormat paragraph = selection.ParagraphFormat;
+        paragraph.ListType = MarkerType.None;
+        selection.ParagraphFormat = paragraph;
+
+        selection.Link = "";
+    }
 
     private void OnFindAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -223,7 +309,141 @@ public sealed partial class NotepadPage : Page
         OnSaveAsClick(this, new RoutedEventArgs());
     }
 
-    private async void OnFindClick(object sender, RoutedEventArgs e) => await ShowFindReplaceAsync();
+    private void OnFindClick(object sender, RoutedEventArgs e) => ShowFindPanel(focusReplace: false);
+
+    private void ShowFindPanel(bool focusReplace)
+    {
+        FindPanel.Visibility = Visibility.Visible;
+        FindPanel.Opacity = 1;
+
+        if (focusReplace)
+            ReplaceBox.Focus(FocusState.Programmatic);
+        else
+            FindBox.Focus(FocusState.Programmatic);
+    }
+
+    private void OnFindCloseClick(object sender, RoutedEventArgs e)
+    {
+        FindPanel.Visibility = Visibility.Collapsed;
+        Editor.Focus(FocusState.Programmatic);
+    }
+
+    private void OnFindBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter)
+            return;
+
+        e.Handled = true;
+        FindNext(forward: true);
+    }
+
+    private void OnReplaceBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter)
+            return;
+
+        e.Handled = true;
+        ReplaceCurrent();
+    }
+
+    private void OnFindNextClick(object sender, RoutedEventArgs e) => FindNext(forward: true);
+
+    private void OnFindPrevClick(object sender, RoutedEventArgs e) => FindNext(forward: false);
+
+    private bool MatchCase => FindMatchCase.IsChecked == true;
+
+    private StringComparison Comparison => MatchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+    /// <summary>查找：向后从光标处找、向前从光标前找，都会回绕。</summary>
+    private void FindNext(bool forward)
+    {
+        string needle = FindBox.Text;
+        if (string.IsNullOrEmpty(needle))
+        {
+            FindStatus.Text = "请输入查找内容";
+            return;
+        }
+
+        string text = ReadAllText();
+        int caretStart = Math.Clamp(Editor.Document.Selection.StartPosition, 0, text.Length);
+        int caretEnd = Math.Clamp(Editor.Document.Selection.EndPosition, 0, text.Length);
+
+        int index = forward
+            ? text.IndexOf(needle, caretEnd, Comparison)
+            : text.LastIndexOf(needle, Math.Max(0, caretStart - 1), Comparison);
+
+        if (index < 0)
+        {
+            index = forward
+                ? text.IndexOf(needle, 0, Comparison)
+                : text.LastIndexOf(needle, text.Length - 1, Comparison);
+        }
+
+        if (index < 0)
+        {
+            FindStatus.Text = "没有找到匹配内容";
+            return;
+        }
+
+        Editor.Document.Selection.SetRange(index, index + needle.Length);
+        FindStatus.Text = $"已选中第 {index + 1} 个字符处";
+    }
+
+    private void OnReplaceClick(object sender, RoutedEventArgs e) => ReplaceCurrent();
+
+    /// <summary>替换当前选中的匹配项；没选中就当作「查找下一个」。</summary>
+    private void ReplaceCurrent()
+    {
+        string needle = FindBox.Text;
+        if (string.IsNullOrEmpty(needle))
+        {
+            FindStatus.Text = "请输入查找内容";
+            return;
+        }
+
+        Editor.Document.Selection.GetText(TextGetOptions.None, out string selected);
+        if (string.Equals(selected.TrimEnd('\r'), needle, Comparison))
+        {
+            Editor.Document.Selection.SetText(TextSetOptions.None, ReplaceBox.Text);
+            FindStatus.Text = "已替换";
+        }
+        else
+        {
+            FindStatus.Text = "当前未选中匹配内容，已为你查找下一个";
+        }
+
+        FindNext(forward: true);
+    }
+
+    private void OnReplaceAllClick(object sender, RoutedEventArgs e)
+    {
+        string needle = FindBox.Text;
+        if (string.IsNullOrEmpty(needle))
+        {
+            FindStatus.Text = "请输入查找内容";
+            return;
+        }
+
+        string text = ReadAllText();
+        string replacement = ReplaceBox.Text;
+        var builder = new System.Text.StringBuilder();
+        int count = 0;
+        int cursor = 0;
+        int index = text.IndexOf(needle, 0, Comparison);
+        while (index >= 0)
+        {
+            builder.Append(text, cursor, index - cursor);
+            builder.Append(replacement);
+            cursor = index + needle.Length;
+            count++;
+            index = text.IndexOf(needle, cursor, Comparison);
+        }
+        builder.Append(text, cursor, text.Length - cursor);
+
+        Editor.Document.SetText(TextSetOptions.None, builder.ToString());
+        UpdateStatus();
+        FindStatus.Text = $"已替换 {count} 处";
+    }
 
     /// <summary>查找替换对话框：纯文本查找，支持逐个替换与全部替换。</summary>
     private async Task ShowFindReplaceAsync()

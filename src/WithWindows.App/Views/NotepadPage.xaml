@@ -78,46 +78,134 @@
                 Spacing="2"
                 VerticalAlignment="Center">
 
-                <!-- 样式（字号 / 行距）：对应系统记事本的「文本格式」入口 -->
+                <!-- Markdown 格式：标题 / 列表下拉 + 粗体 / 斜体 / 删除线 / 链接 / 清除格式（对齐系统记事本） -->
+                <Button
+                    Height="32"
+                    Padding="10,0"
+                    AutomationProperties.AutomationId="NotepadHeading"
+                    AutomationProperties.Name="标题"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    ToolTipService.ToolTip="标题">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="H1" FontWeight="SemiBold" />
+                        <FontIcon FontSize="10" Glyph="&#xE70D;" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button.Flyout>
+                        <MenuFlyout Placement="Bottom">
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="HeadingBody"
+                                Click="OnHeadingBodyClick"
+                                Text="正文" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="Heading1"
+                                Click="OnHeading1Click"
+                                Text="标题 1" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="Heading2"
+                                Click="OnHeading2Click"
+                                Text="标题 2" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="Heading3"
+                                Click="OnHeading3Click"
+                                Text="标题 3" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+
+                <Button
+                    Height="32"
+                    Padding="10,0"
+                    AutomationProperties.AutomationId="NotepadList"
+                    AutomationProperties.Name="列表"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    ToolTipService.ToolTip="列表">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon FontSize="16" Glyph="&#xE8FD;" />
+                        <FontIcon FontSize="10" Glyph="&#xE70D;" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button.Flyout>
+                        <MenuFlyout Placement="Bottom">
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="ListNone"
+                                Click="OnListNoneClick"
+                                Text="无列表" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="ListBulleted"
+                                Click="OnListBulletedClick"
+                                Text="项目符号" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="ListNumbered"
+                                Click="OnListNumberedClick"
+                                Text="编号" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+
                 <Button
                     Width="36"
                     Height="32"
                     Padding="0"
-                    AutomationProperties.AutomationId="NotepadStyle"
-                    AutomationProperties.Name="样式"
+                    AutomationProperties.AutomationId="NotepadBold"
+                    AutomationProperties.Name="粗体"
                     Background="Transparent"
                     BorderThickness="0"
-                    ToolTipService.ToolTip="样式">
-                    <FontIcon FontSize="16" Glyph="&#xE8D2;" />
-                    <Button.Flyout>
-                        <MenuFlyout Placement="Bottom">
-                            <MenuFlyoutItem
-                                AutomationProperties.AutomationId="NotepadFontIncrease"
-                                Click="OnFontIncreaseClick"
-                                Text="增大字号">
-                                <MenuFlyoutItem.Icon>
-                                    <FontIcon Glyph="&#xE8E9;" />
-                                </MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                            <MenuFlyoutItem
-                                AutomationProperties.AutomationId="NotepadFontDecrease"
-                                Click="OnFontDecreaseClick"
-                                Text="减小字号">
-                                <MenuFlyoutItem.Icon>
-                                    <FontIcon Glyph="&#xE8E9;" />
-                                </MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                            <MenuFlyoutSeparator />
-                            <MenuFlyoutItem
-                                AutomationProperties.AutomationId="NotepadLineSpacingNormal"
-                                Click="OnLineSpacingNormalClick"
-                                Text="行距 1.05（默认）" />
-                            <MenuFlyoutItem
-                                AutomationProperties.AutomationId="NotepadLineSpacingWide"
-                                Click="OnLineSpacingWideClick"
-                                Text="行距 1.5" />
-                        </MenuFlyout>
-                    </Button.Flyout>
+                    Click="OnBoldClick"
+                    ToolTipService.ToolTip="粗体（Ctrl+B）">
+                    <FontIcon FontSize="16" Glyph="&#xE8DD;" />
+                </Button>
+
+                <Button
+                    Width="36"
+                    Height="32"
+                    Padding="0"
+                    AutomationProperties.AutomationId="NotepadItalic"
+                    AutomationProperties.Name="斜体"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnItalicClick"
+                    ToolTipService.ToolTip="斜体（Ctrl+I）">
+                    <FontIcon FontSize="16" Glyph="&#xE8DB;" />
+                </Button>
+
+                <Button
+                    Width="36"
+                    Height="32"
+                    Padding="0"
+                    AutomationProperties.AutomationId="NotepadStrikethrough"
+                    AutomationProperties.Name="删除线"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnStrikethroughClick"
+                    ToolTipService.ToolTip="删除线">
+                    <FontIcon FontSize="16" Glyph="&#xEDE0;" />
+                </Button>
+
+                <Button
+                    Width="36"
+                    Height="32"
+                    Padding="0"
+                    AutomationProperties.AutomationId="NotepadLink"
+                    AutomationProperties.Name="插入链接"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnLinkClick"
+                    ToolTipService.ToolTip="插入链接">
+                    <FontIcon FontSize="16" Glyph="&#xE71B;" />
+                </Button>
+
+                <Button
+                    Width="36"
+                    Height="32"
+                    Padding="0"
+                    AutomationProperties.AutomationId="NotepadClearFormat"
+                    AutomationProperties.Name="清除格式"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnClearFormatClick"
+                    ToolTipService.ToolTip="清除格式">
+                    <FontIcon FontSize="16" Glyph="&#xEC34;" />
                 </Button>
 
                 <!-- 查找替换 -->
@@ -190,6 +278,102 @@
             TextChanged="OnEditorTextChanged"
             TextWrapping="Wrap"
             UseSystemFocusVisuals="False" />
+
+        <!-- 查找替换：浮动面板（模仿系统记事本：查找行 + 替换行） -->
+        <Border
+            x:Name="FindPanel"
+            Grid.Row="1"
+            Margin="0,12,0,0"
+            Padding="12"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            AutomationProperties.AutomationId="FindPanel"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="Collapsed">
+            <StackPanel Spacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox
+                        x:Name="FindBox"
+                        Width="280"
+                        AutomationProperties.AutomationId="FindBox"
+                        KeyDown="OnFindBoxKeyDown"
+                        PlaceholderText="查找" />
+
+                    <Button
+                        Width="36"
+                        Height="32"
+                        Padding="0"
+                        AutomationProperties.AutomationId="FindPrevButton"
+                        AutomationProperties.Name="上一个"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnFindPrevClick"
+                        ToolTipService.ToolTip="上一个">
+                        <FontIcon FontSize="14" Glyph="&#xE70E;" />
+                    </Button>
+
+                    <Button
+                        Width="36"
+                        Height="32"
+                        Padding="0"
+                        AutomationProperties.AutomationId="FindNextButton"
+                        AutomationProperties.Name="下一个"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnFindNextClick"
+                        ToolTipService.ToolTip="下一个">
+                        <FontIcon FontSize="14" Glyph="&#xE70D;" />
+                    </Button>
+
+                    <CheckBox
+                        x:Name="FindMatchCase"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="FindMatchCase"
+                        Content="区分大小写" />
+
+                    <Button
+                        Width="36"
+                        Height="32"
+                        Padding="0"
+                        AutomationProperties.AutomationId="FindCloseButton"
+                        AutomationProperties.Name="关闭查找"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnFindCloseClick"
+                        ToolTipService.ToolTip="关闭">
+                        <FontIcon FontSize="14" Glyph="&#xE711;" />
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox
+                        x:Name="ReplaceBox"
+                        Width="280"
+                        AutomationProperties.AutomationId="ReplaceBox"
+                        KeyDown="OnReplaceBoxKeyDown"
+                        PlaceholderText="替换" />
+
+                    <Button
+                        AutomationProperties.AutomationId="ReplaceButton"
+                        Click="OnReplaceClick"
+                        Content="替换" />
+
+                    <Button
+                        AutomationProperties.AutomationId="ReplaceAllButton"
+                        Click="OnReplaceAllClick"
+                        Content="全部替换" />
+                </StackPanel>
+
+                <TextBlock
+                    x:Name="FindStatus"
+                    AutomationProperties.AutomationId="FindStatus"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}" />
+            </StackPanel>
+        </Border>
 
         <!-- 底部状态栏：行列 / 字符数 / 缩放 -->
         <Grid
