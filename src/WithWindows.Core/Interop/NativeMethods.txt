@@ -1,0 +1,12 @@
+CreateWindowEx
+DefWindowProc
+DestroyWindow
+GetDisplayConfigBufferSizes
+GetModuleHandle
+QueryDisplayConfig
+RegisterClassEx
+RegisterHotKey
+SetDisplayConfig
+UnregisterHotKey
+WNDCLASSEXW
+WNDPROC

@@ -16,6 +16,9 @@ public static class AppPaths
     /// <summary>日志文件路径。</summary>
     public static string LogPath { get; } = Path.Combine(DataRoot, "log.txt");
 
+    /// <summary>轮转后的历史日志路径（当前日志超过上限时改名到此）。</summary>
+    public static string LogRotatedPath { get; } = Path.Combine(DataRoot, "log.1.txt");
+
     /// <summary>记事本草稿路径。</summary>
     public static string NotepadDraftPath { get; } = Path.Combine(DataRoot, "notepad.txt");
 }
