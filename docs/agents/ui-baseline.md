@@ -317,6 +317,21 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 | P3 | `installer/README` 把 Assets 分发错误归因于 `CopyToPublishDirectory` | 已改述为「`CopyToPublishDirectory` 单独无效，真正生效的是 `CopyAssetsToPublish` 目标」 |
 | P3 | `HANDOFF` 仍写「P5 计划还没写」 | 已改为指向 P5 计划文件 |
 
+### 2026-10-09 导航栏改为紧凑图标栏（提交 `fix(界面): 导航栏改为紧凑图标栏`）
+
+**改动**：`NavigationView` 设 `PaneDisplayMode="LeftCompact"` 且 `IsPaneOpen="False"`——左栏默认只占约 60 px，图标常驻可见（悬停出工具名），点汉堡按钮才展开完整栏；内容区宽度相应变宽。
+
+实测（`winapp ui inspect`，截图 `artifacts/ui/nav-compact-2026-10-09.png`）：
+
+```text
+PART_PaneToggleButton Button "切换导航" (242,244 60x42)
+NavItemNotepad ListItem "记事本" (246,311 60x54)
+NavItemHotkeys ListItem "快捷键" (246,371 60x54)
+SettingsItem ListItem "设置" (246,1233 60x54)
+```
+
+导航项宽度 60（紧凑态），窗口 1100×720 DIP。
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。

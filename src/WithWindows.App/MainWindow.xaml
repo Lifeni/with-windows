@@ -30,7 +30,9 @@
             AutomationProperties.AutomationId="MainNavView"
             IsBackButtonVisible="Collapsed"
             IsPaneToggleButtonVisible="False"
+            IsPaneOpen="False"
             IsSettingsVisible="True"
+            PaneDisplayMode="LeftCompact"
             SelectionChanged="NavView_SelectionChanged">
             <Frame x:Name="NavFrame" />
         </NavigationView>

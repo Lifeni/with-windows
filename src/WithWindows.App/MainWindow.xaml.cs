@@ -36,8 +36,6 @@ public sealed partial class MainWindow : Window
 
         BuildNavigation();
         NavView.SelectedItem = NavView.MenuItems[0];
-        // 首启直接展开左栏（紧凑区间下 IsPaneOpen=false 只会剩一个汉堡按钮，看不到工具名）
-        NavView.IsPaneOpen = true;
 
         // 关闭（X 或热键）= 隐藏到托盘，不销毁窗口。
         // Window.Closed 在 WinUI 3 里不可取消，必须用 AppWindow.Closing（AppWindowClosingEventArgs.Cancel）。
