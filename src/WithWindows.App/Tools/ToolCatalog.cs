@@ -30,7 +30,7 @@ public static class ToolCatalog
     /// <summary>全部工具；顺序即导航与快捷键列表顺序。</summary>
     public static IReadOnlyList<ToolEntry> Tools { get; } = new[]
     {
-        new ToolEntry(NotepadId, "记事本", "\uE70B", typeof(NotepadPage), ShowInNav: true, HasHotkey: true),
+        new ToolEntry(NotepadId, "记事", "\uE70B", typeof(NotepadPage), ShowInNav: true, HasHotkey: true),
         new ToolEntry(HotkeysId, "快捷键", "\uE765", typeof(HotkeysPage), ShowInNav: true, HasHotkey: false),
         new ToolEntry(DisplayModeId, "切换投屏", "\uE7F8", PageType: null, ShowInNav: false, HasHotkey: true),
     };

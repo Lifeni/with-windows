@@ -3,63 +3,145 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid Padding="24" RowSpacing="12">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <!-- 顶部工具条：保存 / 复制 / 粘贴 + 自动换行 + 缩放（对齐系统记事本的视图类操作） -->
+        <CommandBar
+            x:Name="NotepadBar"
+            Grid.Row="0"
+            AutomationProperties.AutomationId="NotepadToolbar"
+            DefaultLabelPosition="Right"
+            IsDynamicOverflowEnabled="True">
 
-            <StackPanel Grid.Column="0" Spacing="2">
-                <TextBlock
-                    AutomationProperties.AutomationId="NotepadTitle"
-                    Style="{StaticResource TitleTextBlockStyle}"
-                    Text="记事本" />
-                <TextBlock
-                    x:Name="ClockText"
-                    AutomationProperties.AutomationId="NotepadClock"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}" />
-            </StackPanel>
+            <AppBarButton
+                AutomationProperties.AutomationId="NotepadSave"
+                AutomationProperties.Name="保存"
+                Click="OnSaveClick"
+                Label="保存">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Save" />
+                </AppBarButton.Icon>
+            </AppBarButton>
 
-            <Button
-                Grid.Column="1"
-                AutomationProperties.AutomationId="NotepadFontDecrease"
-                AutomationProperties.Name="缩小字体"
-                Click="OnFontDecrease"
-                Content="A−" />
+            <AppBarButton
+                AutomationProperties.AutomationId="NotepadCopy"
+                AutomationProperties.Name="复制"
+                Click="OnCopyClick"
+                Label="复制">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Copy" />
+                </AppBarButton.Icon>
+            </AppBarButton>
 
-            <Button
-                Grid.Column="2"
-                AutomationProperties.AutomationId="NotepadFontIncrease"
-                AutomationProperties.Name="放大字体"
-                Click="OnFontIncrease"
-                Content="A+" />
+            <AppBarButton
+                AutomationProperties.AutomationId="NotepadPaste"
+                AutomationProperties.Name="粘贴"
+                Click="OnPasteClick"
+                Label="粘贴">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Paste" />
+                </AppBarButton.Icon>
+            </AppBarButton>
 
-            <ToggleSwitch
-                x:Name="PinToggle"
-                Grid.Column="3"
-                AutomationProperties.AutomationId="NotepadPinToggle"
-                Header="置顶"
-                OffContent="关"
-                OnContent="开"
-                Toggled="OnPinToggled" />
-        </Grid>
+            <AppBarSeparator />
 
+            <AppBarToggleButton
+                x:Name="WrapToggle"
+                AutomationProperties.AutomationId="NotepadWrap"
+                AutomationProperties.Name="自动换行"
+                Checked="OnWrapToggled"
+                IsChecked="True"
+                Label="自动换行"
+                Unchecked="OnWrapToggled">
+                <AppBarToggleButton.Icon>
+                    <FontIcon Glyph="&#xE7C4;" />
+                </AppBarToggleButton.Icon>
+            </AppBarToggleButton>
+
+            <AppBarSeparator />
+
+            <AppBarButton
+                AutomationProperties.AutomationId="NotepadZoomOut"
+                AutomationProperties.Name="缩小"
+                Click="OnZoomOutClick"
+                Label="缩小">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="ZoomOut" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+
+            <AppBarButton
+                AutomationProperties.AutomationId="NotepadZoomIn"
+                AutomationProperties.Name="放大"
+                Click="OnZoomInClick"
+                Label="放大">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="ZoomIn" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+
+            <AppBarButton
+                AutomationProperties.AutomationId="NotepadZoomReset"
+                AutomationProperties.Name="重置缩放"
+                Click="OnZoomResetClick"
+                Label="重置缩放">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Refresh" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+        </CommandBar>
+
+        <!-- 编辑区占满整页 -->
         <RichEditBox
             x:Name="Editor"
             Grid.Row="1"
             AutomationProperties.AutomationId="NotepadEditor"
             AcceptsReturn="True"
             IsSpellCheckEnabled="False"
+            Padding="16,12"
             ScrollViewer.VerticalScrollBarVisibility="Auto"
-            TextChanged="OnEditorTextChanged" />
+            SelectionChanged="OnEditorSelectionChanged"
+            TextChanged="OnEditorTextChanged"
+            TextWrapping="Wrap" />
+
+        <!-- 底部状态栏：行列 / 字符数 / 缩放 -->
+        <Grid
+            Grid.Row="2"
+            Padding="16,6"
+            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock
+                x:Name="StatusCaret"
+                Grid.Column="0"
+                AutomationProperties.AutomationId="NotepadStatusCaret"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}" />
+
+            <TextBlock
+                x:Name="StatusCount"
+                Grid.Column="1"
+                AutomationProperties.AutomationId="NotepadStatusCount"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}" />
+
+            <TextBlock
+                x:Name="StatusZoom"
+                Grid.Column="2"
+                HorizontalAlignment="Right"
+                AutomationProperties.AutomationId="NotepadStatusZoom"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}" />
+        </Grid>
     </Grid>
 </Page>

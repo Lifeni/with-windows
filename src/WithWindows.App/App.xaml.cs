@@ -27,7 +27,17 @@ public partial class App : Application
     private Logger? _smokeLog;
     private HotkeyManager? _smokeHotkeys;
 
-    public App() => InitializeComponent();
+    public App()
+    {
+        InitializeComponent();
+
+        // 兜底记录托管异常（XAML 解析/绑定错误会经过这里），方便定位启动崩溃
+        UnhandledException += (_, e) =>
+        {
+            _host?.Log.Error($"未处理异常：{e.Exception}");
+            System.Diagnostics.Debug.WriteLine($"未处理异常：{e.Exception}");
+        };
+    }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {

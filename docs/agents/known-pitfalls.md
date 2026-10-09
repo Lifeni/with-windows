@@ -20,6 +20,12 @@
 
 **指针点击会引起焦点抖动**：点击可聚焦控件时会先 `LosingFocus` 再 `GettingFocus`。若在 `LosingFocus` 里无条件清状态（如取消热键录制），按键恰好落在空档就会被丢弃，表现为「点了没反应」。判断焦点是否仍在控件内部（`VisualTreeHelper.GetParent` 向上走）再决定是否清状态。
 
+**XAML 里的初值会立刻触发事件**：`ToggleButton` / `AppBarToggleButton` 写 `IsChecked="True"` 会在**解析期**就触发 `Checked`。若该处理器引用了同一 XAML 中**定义在其之后**的元素（此时还是 `null`），会抛 `NullReferenceException`，而 XAML 层把它包装成极具误导性的「`Failed to assign to property 'ToggleButton.IsChecked'`」并导致 `0xC000027B` 启动崩溃。事件处理器里务必对后定义元素做空值保护。
+
+**XAML 崩溃的定位办法**：`0xC000027B` 只有「应用已启动」一行日志时，给 `App` 挂 `UnhandledException` 把 `e.Exception` 写进日志，通常能拿到带行号的 `XamlParseException`（本次就是靠它定位的）。
+
+**注入工具对数字不可靠**：`winapp ui send-keys ... text=AB1CD` 实测可能丢字符（`AB1CD` → `AB`，`XYZ789` → `XYZ'7'8'9`）。用注入输入做验证时**避免用含数字的文本**，或改用字母/中文，否则会把工具问题误判成应用缺陷。
+
 **验证不得污染用户数据**：`%APPDATA%\WithWindows\` 下的草稿、配置是用户的真实数据。用注入文本 / 改字号等方式验证后必须还原（先快照再写回，或按「新内容以原文为前缀」精确截断）；更稳妥的是不碰真实文件。
 
 ## 热键与配置

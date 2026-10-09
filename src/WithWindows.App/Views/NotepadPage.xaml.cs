@@ -1,11 +1,13 @@
 using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Text;
-using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.Core;
 using WithWindows.Core.Config;
 using WithWindows.Services;
@@ -16,7 +18,8 @@ using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 namespace WithWindows.Views;
 
 /// <summary>
-/// 记事本页：打开即编辑器。草稿防抖写盘、页内实时时钟、字体缩放（Ctrl+滚轮 / A±）、主窗口置顶。
+/// 记事页：顶部工具条（保存 / 复制 / 粘贴 / 自动换行 / 缩放）+ 占满整页的编辑器 + 底部状态栏（行列 / 字符数 / 缩放）。
+/// 纯文本、不做格式化。草稿仍按防抖自动写盘，复制粘贴一律手动——**关闭程序不自动复制到剪贴板**。
 /// 字号持久化在 <see cref="WindowStateConfig.NotepadFontSize"/>。
 /// </summary>
 public sealed partial class NotepadPage : Page
@@ -28,8 +31,10 @@ public sealed partial class NotepadPage : Page
     private const double MinFontSize = 10;
     private const double MaxFontSize = 32;
 
+    /// <summary>重置缩放时回到的字号。</summary>
+    private const double DefaultFontSize = 14;
+
     private NotepadDraft? _draft;
-    private DispatcherQueueTimer? _clock;
     private bool _loading;
 
     /// <summary>
@@ -57,6 +62,18 @@ public sealed partial class NotepadPage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        try
+        {
+            LoadCore();
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"记事页加载失败：{ex}");
+        }
+    }
+
+    private void LoadCore()
+    {
         if (_draft is null)
         {
             _loading = true;
@@ -64,7 +81,7 @@ public sealed partial class NotepadPage : Page
             {
                 Editor.Document.SetText(TextSetOptions.None, NotepadDraft.Load());
                 ApplyLineSpacing();
-                ApplyFontSize(Config?.WindowState.NotepadFontSize ?? 14);
+                ApplyFontSize(Config?.WindowState.NotepadFontSize ?? DefaultFontSize);
 
                 // 取载入后的规范化文本作为基线，之后只有与它不同才认为用户真的改了内容
                 Editor.Document.GetText(TextGetOptions.None, out string baseline);
@@ -78,16 +95,12 @@ public sealed partial class NotepadPage : Page
             _draft = new NotepadDraft(DispatcherQueue);
         }
 
-        // 切页会重建页面实例，需要按窗口实际状态回读，否则界面显示与实际置顶状态不一致
-        if (App.MainWindow?.AppWindow.Presenter is OverlappedPresenter presenter)
-            PinToggle.IsOn = presenter.IsAlwaysOnTop;
-
-        StartClock();
+        Editor.TextWrapping = WrapToggle.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        UpdateStatus();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        _clock?.Stop();
         _draft?.Flush();
     }
 
@@ -113,6 +126,7 @@ public sealed partial class NotepadPage : Page
             return;
 
         Editor.Document.GetText(TextGetOptions.None, out string text);
+        UpdateStatus();
 
         // 未真正编辑（只是富文本往返规范化了行尾）时不写回磁盘
         if (string.Equals(text, _editorBaseline, StringComparison.Ordinal))
@@ -122,27 +136,90 @@ public sealed partial class NotepadPage : Page
         _draft?.QueueSave(text);
     }
 
-    private void StartClock()
+    private void OnEditorSelectionChanged(object sender, RoutedEventArgs e) => UpdateStatus();
+
+    /// <summary>刷新状态栏：光标行列、字符数、缩放比例。</summary>
+    private void UpdateStatus()
     {
-        _clock ??= CreateClock();
-        UpdateClock();
-        _clock.Start();
+        Editor.Document.GetText(TextGetOptions.None, out string text);
+        string content = text.TrimEnd('\r');   // 富文本末尾总有一个段落标记，不计入字符数
+        StatusCount.Text = $"{content.Length} 个字符";
+        StatusZoom.Text = $"缩放 {Math.Round(Editor.FontSize / DefaultFontSize * 100)}%";
+
+        int start = Editor.Document.Selection.StartPosition;
+        Editor.Document.GetRange(0, start).GetText(TextGetOptions.None, out string before);
+        int line = before.Count(c => c == '\r') + 1;
+        int lastBreak = before.LastIndexOf('\r');
+        int column = start - lastBreak;
+        StatusCaret.Text = $"行 {line}，列 {column}";
     }
 
-    private DispatcherQueueTimer CreateClock()
+    /// <summary>保存：把防抖中的草稿立即写盘（关闭程序不会自动复制到剪贴板，复制是显式操作）。</summary>
+    private void OnSaveClick(object sender, RoutedEventArgs e)
     {
-        var timer = DispatcherQueue.CreateTimer();
-        timer.Interval = TimeSpan.FromSeconds(1);
-        timer.IsRepeating = true;
-        timer.Tick += (_, _) => UpdateClock();
-        return timer;
+        Editor.Document.GetText(TextGetOptions.None, out string text);
+        _editorBaseline = text;
+        _draft?.QueueSave(text);
+        _draft?.Flush();
+        StatusCount.Text = $"{text.TrimEnd('\r').Length} 个字符（已保存）";
     }
 
-    private void UpdateClock() => ClockText.Text = DateTime.Now.ToString("HH:mm:ss");
+    /// <summary>复制：有选区就复制选区，否则复制全文。</summary>
+    private void OnCopyClick(object sender, RoutedEventArgs e)
+    {
+        Editor.Document.Selection.GetText(TextGetOptions.None, out string selected);
+        string payload = string.IsNullOrEmpty(selected)
+            ? ReadAllText()
+            : selected.TrimEnd('\r');
 
-    private void OnFontDecrease(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize - 1, persist: true);
+        var package = new DataPackage();
+        package.SetText(payload);
+        Clipboard.SetContent(package);
+    }
 
-    private void OnFontIncrease(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize + 1, persist: true);
+    /// <summary>粘贴：把剪贴板文本插入到光标处（替换当前选区）。</summary>
+    private async void OnPasteClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            DataPackageView view = Clipboard.GetContent();
+            if (!view.Contains(StandardDataFormats.Text))
+                return;
+
+            string pasted = await view.GetTextAsync();
+            Editor.Document.Selection.SetText(TextSetOptions.None, pasted);
+            Editor.Document.Selection.SetRange(
+                Editor.Document.Selection.EndPosition,
+                Editor.Document.Selection.EndPosition);
+            Editor.Focus(FocusState.Programmatic);
+        }
+        catch (Exception ex)
+        {
+            // 剪贴板被其他程序占用等情况：忽略即可，不打断编辑
+            System.Diagnostics.Debug.WriteLine($"粘贴失败：{ex.Message}");
+        }
+    }
+
+    private void OnWrapToggled(object sender, RoutedEventArgs e)
+    {
+        // XAML 里 IsChecked="True" 会在解析期就触发 Checked，此时后面的 Editor 还没构造出来
+        if (Editor is null)
+            return;
+
+        Editor.TextWrapping = WrapToggle.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
+    }
+
+    private void OnZoomOutClick(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize - 1, persist: true);
+
+    private void OnZoomInClick(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize + 1, persist: true);
+
+    private void OnZoomResetClick(object sender, RoutedEventArgs e) => ApplyFontSize(DefaultFontSize, persist: true);
+
+    private string ReadAllText()
+    {
+        Editor.Document.GetText(TextGetOptions.None, out string text);
+        return text.TrimEnd('\r');
+    }
 
     private void OnEditorPointerWheel(object sender, PointerRoutedEventArgs e)
     {
@@ -167,11 +244,5 @@ public sealed partial class NotepadPage : Page
 
         Config.WindowState.NotepadFontSize = clamped;
         App.Host?.SaveConfig();
-    }
-
-    private void OnPinToggled(object sender, RoutedEventArgs e)
-    {
-        if (App.MainWindow?.AppWindow.Presenter is OverlappedPresenter presenter)
-            presenter.IsAlwaysOnTop = PinToggle.IsOn;
     }
 }

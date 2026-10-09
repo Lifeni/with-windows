@@ -345,6 +345,43 @@ SettingsItem ListItem "设置" (246,1233 60x54)
 
 因此「剥掉 `dist\Assets` 只留 exe」时图标依然可用；publish 目录里那份 `Assets\` 主要给安装器与 CI 校验用。
 
+### 2026-10-09 记事页重构（方案 1：工具条 + 全页编辑器 + 状态栏）
+
+**改动**（提交 `feat(记事页): 改为工具条与状态栏布局`）：
+
+- 名称「记事本」→「**记事**」（`ToolCatalog` 标题；工具 `id` 仍是 `notepad`，配置不变）
+- 顶部 `CommandBar`：**保存、复制、粘贴** + 自动换行（默认开）+ 缩小 / 放大 / 重置缩放
+- 中间 `RichEditBox` 占满整页；底部状态栏：`行 x，列 y` / `n 个字符` / `缩放 n%`
+- **移除**页内标题、时钟、置顶开关、A−/A+ 按钮
+- **不做格式化**（纯文本）；**关闭程序不再自动复制到剪贴板**，复制粘贴一律手动
+
+实测（截图 `artifacts/ui/notepad-toolbar-2026-10-09.png`）：
+
+```text
+NotepadSave Button "保存" / NotepadCopy "复制" / NotepadPaste "粘贴"
+NotepadWrap Button "自动换行" [on] / NotepadZoomOut "缩小" / NotepadZoomIn "放大" / NotepadZoomReset "重置缩放"
+NotepadEditor Edit
+```
+
+- 状态栏随编辑更新：空文档 `行 1，列 1 / 0 个字符 / 缩放 100%`；输入后 `行 1，列 9 / 8 个字符`；点两次放大后 `缩放 114%`
+- 复制/粘贴自证：输入文本 → 点「复制」→ 点「粘贴」，内容原样插回（长度翻倍），说明两者都生效
+- 「保存」写盘有效（状态栏显示「（已保存）」，草稿文件同步更新）
+
+### 2026-10-09 启动即崩（0xC000027B）的根因与修复
+
+改完记事页后应用**启动即崩**，退出码 `0xC000027B`（XAML 层原生崩溃），日志只有「应用已启动」。
+
+定位手段有用：给 `App` 挂 `UnhandledException` 并把异常写进日志，拿到真实消息——
+
+```text
+Microsoft.UI.Xaml.Markup.XamlParseException:
+Failed to assign to property 'Microsoft.UI.Xaml.Controls.Primitives.ToggleButton.IsChecked'. [Line: 58 Position: 17]
+```
+
+**根因**：`AppBarToggleButton` 上写 `IsChecked="True"` 会在 **XAML 解析期立刻触发 `Checked` 事件**，而我的处理器引用了在同一 XAML 中**定义在其之后**的 `Editor`——此时它还是 `null`，处理器抛 `NullReferenceException`，XAML 层把它包装成「无法给 IsChecked 赋值」，看起来像属性赋值错误。
+
+**修法**：事件处理器里对后定义的元素做空值保护（`if (Editor is null) return;`）。教训已补进 `known-pitfalls.md`。
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。
