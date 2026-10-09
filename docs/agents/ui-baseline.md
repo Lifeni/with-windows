@@ -311,3 +311,19 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 修复后实测同一窗口宽度下：`HotkeyBox_notepad`、`HotkeyBox_notepadClear`、`HotkeyEnabled_notepad`、`HotkeyRunNow_notepad` 全部在可视区内；第二行工具位于垂直视口外（页面本身可滚动，属预期）。
 
 **注意**：窄窗口下 `NavigationView` 处于折叠态，菜单项不在 UIA 树里；自检脚本需先 `invoke PART_PaneToggleButton` 展开左栏再 `invoke NavItem*`。
+
+### 2026-10-09 Inno Setup 安装器（提交 `feat(打包): 新增 Inno Setup 安装器脚本`）
+
+**新增**：`installer/WithWindows.iss`（用户级安装、开始菜单项、可选桌面快捷方式与开机自启、卸载清理）与 `installer/README.md`（编译方法）。
+
+实测（本机 Inno Setup 6.7.3）：
+
+| 步骤 | 结果 |
+|---|---|
+| `dotnet publish -c Release -p:SelfContained=true -p:PublishSingleFile=true` | `dist\WithWindows.exe` 约 225 MB |
+| `ISCC.exe /DAppVersion=0.5.0` | 产出 `WithWindows-0.5.0-x64-setup.exe` 约 59.86 MB |
+| 静默安装到临时目录 | 退出码 0；目录含 `WithWindows.exe` 与 `Assets\with-windows.ico` |
+| 启动已安装的 exe | 窗口正常、记事本页可编辑、托盘图标注册在安装路径 |
+| 静默卸载 | 退出码 0；目录与开始菜单项均被清理 |
+
+**发现的打包缺陷（已修）**：单文件发布**不会**把 `Assets/` 复制到 publish 目录（只靠 `CopyToPublishDirectory` 无效，与旧项目记录的「WASDK publish 不复制 XBF/PRI」同类）。后果是安装后托盘图标与窗口图标丢失。修法：csproj 增加 `CopyAssetsToPublish` 目标，在 `Publish` 之后显式复制 `Assets\**`。

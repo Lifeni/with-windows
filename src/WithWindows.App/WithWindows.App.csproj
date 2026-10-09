@@ -32,6 +32,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- CopyToPublishDirectory 必须显式设置：单文件发布时 Content 不会被复制到 publish 目录，
+         缺了 Assets 会导致托盘图标与窗口图标丢失 -->
+    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- WindowsAppSDK 的应用内容在 publish 阶段不会随单文件一起复制（已知坑，与旧项目的 XBF/PRI 同类）。
+       仅靠上面的 CopyToPublishDirectory 不生效，这里显式补齐，否则安装后托盘与窗口图标会丢失。 -->
+  <Target Name="CopyAssetsToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <AssetsToPublish Include="Assets\**" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(AssetsToPublish)"
+      DestinationFolder="$(PublishDir)Assets\%(RecursiveDir)"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>
