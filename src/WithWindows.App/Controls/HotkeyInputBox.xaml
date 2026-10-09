@@ -13,7 +13,6 @@
             HorizontalContentAlignment="Stretch"
             Background="Transparent"
             BorderThickness="0"
-            Click="OnBoxClick"
             GettingFocus="OnGettingFocus"
             LosingFocus="OnLosingFocus">
             <Border
@@ -46,7 +45,6 @@
 
         <TextBlock
             x:Name="HintText"
-            AutomationProperties.AutomationId="HotkeyHint"
             Foreground="{ThemeResource SystemFillColorCriticalBrush}"
             Style="{StaticResource CaptionTextBlockStyle}"
             Text=""

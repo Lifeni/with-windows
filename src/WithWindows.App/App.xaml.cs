@@ -23,6 +23,10 @@ public partial class App : Application
     // 生命周期等于进程：必须以字段持有，禁止局部 using（否则第二个实例照样能起）
     private AppHost? _host;
 
+    // 冒烟路径同样由字段持有：AGENTS.md 硬性约束禁止用局部 using 持有 Logger / 热键管理器
+    private Logger? _smokeLog;
+    private HotkeyManager? _smokeHotkeys;
+
     public App() => InitializeComponent();
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -40,6 +44,10 @@ public partial class App : Application
             return;
         }
 
+        // 必须在创建窗口之前赋值：页面的 Loaded 会读 App.Host（默认页记事本会立即读配置字号）
+        _host = start.Host;
+        Host = _host;
+
         MainWindow = new MainWindow();
         MainWindow.Activate();
 
@@ -49,9 +57,8 @@ public partial class App : Application
             return;
         }
 
-        _host = start.Host;
-        Host = _host;
-        _host.ToolInvoker = toolId => new HotkeyRouter((MainWindow)MainWindow!, _host.Config).Invoke(toolId);
+        AppHost host = start.Host;
+        host.ToolInvoker = toolId => new HotkeyRouter((MainWindow)MainWindow!, host.Config).Invoke(toolId);
     }
 
     /// <summary>启动失败：在当前窗口上弹对话框后退出。</summary>
@@ -81,14 +88,16 @@ public partial class App : Application
     /// 冒烟检查：加载配置并按配置注册热键，返回结果后退出；不抢单实例、不创建窗口。
     /// WinExe 无控制台，结果写入日志文件。
     /// </summary>
-    private static void RunSmoke()
+    private void RunSmoke()
     {
-        using Logger log = Logger.Open(AppPaths.DataRoot);
+        _smokeLog = Logger.Open(AppPaths.DataRoot);
+        Logger log = _smokeLog;
         var store = new ConfigStore(AppPaths.ConfigPath);
         store.EnsureExists(log.Info);
 
         AppConfig config = store.Load();
-        using var hotkeys = new HotkeyManager();
+        _smokeHotkeys = new HotkeyManager();
+        HotkeyManager hotkeys = _smokeHotkeys;
 
         int bound = 0;
         foreach (ToolBinding tool in config.Tools)

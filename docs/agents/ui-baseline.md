@@ -230,3 +230,28 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 - 清除按钮 ID 已唯一：`HotkeyBox_notepadClear` / `HotkeyBox_display_modeClear`
 - 用**真实鼠标点击**（`winapp ui click`，而非 `--target` 聚焦，后者测不到这个 bug）连续两次录入同一个录制框：先 `Ctrl+Shift+F14`、再 `Ctrl+Alt+F13`，两次都写入成功
 - 验证后已把热键清空，恢复「不绑定」
+
+### 2026-10-09 第二轮独立审查（`codex exec review --base 5f4bb33`）发现与修复
+
+第二轮审查判定「patch is correct」（无阻塞缺陷），另给 4 条非阻塞项。**逐条实测后**的处理：
+
+| 级别 | 问题 | 实测结论与处置 |
+|---|---|---|
+| P2 | `App.Host` 在创建窗口之后赋值，页面可能在 `Loaded` 里读到 null | 实测**不复现**（配置字号 24 → UI 报 18pt = 24px，40 → 钳到 32 后报 24pt，说明配置确实被读到）；仍按建议把赋值移到建窗之前，消除时序依赖 |
+| P3 | 提示文本 `HotkeyHint` ID 在同页重复 | 属实，改为按实例派生（`HotkeyBox_display_modeHint`，已实测可见） |
+| P3 | 点「清除」会连带进入录制态并吞掉下一次按键 | 症状属实但机制与审查所述不同：WinUI 的 `RoutedEventArgs` **没有 `Handled`**，且 `Button` 会把 `PointerPressed` 标记为已处理，**XAML 上的普通订阅收不到**。最终方案见下方「稳定性修复」 |
+| P3 | `--smoke` 用局部 `using` 持有 `Logger`/`HotkeyManager`，违反 AGENTS 硬性约束 | 属实，改为由 `App` 实例字段持有 |
+
+### 2026-10-09 录制框稳定性修复（同一批次的收尾）
+
+第二轮修复把「点一下重新录制」从 `Click` 改到 `PointerPressed` 后，**连续三轮重录实测出现 2/3 失败**。加临时追踪日志定位到两个真实原因：
+
+1. **`Button` 会把 `PointerPressed` 标记为已处理**，XAML 上的普通 `PointerPressed="…"` 订阅**永远不会被调用**——重入入口是死代码。必须用 `AddHandler(UIElement.PointerPressedEvent, handler, handledEventsToo: true)`。
+2. **指针点击会引起控件内部的焦点抖动**（`LosingFocus` → `GettingFocus`）。`OnLosingFocus` 无条件把 `_capturing` 置 false，若按键正好落在这个空档就被丢弃，表现为「点了没反应」。改为仅在焦点真正离开本控件时才结束录制。
+
+修复后实测（截图：`artifacts/ui/fix-rerecord-2026-10-09.png`）：
+
+- 连续三轮点击同一录制框并录入：`Ctrl+Alt+F13` → `Ctrl+Shift+F14` → `Ctrl+Alt+F13`，三次都写入成功
+- 点「清除」：不再出现「请按下组合键…」，随后按键也不会被吞（配置保持为空）
+- 提示文本 ID 唯一：`HotkeyBox_display_modeHint`
+- 诊断代码已移除，构建 0 错误 0 警告，Core 测试 100/100

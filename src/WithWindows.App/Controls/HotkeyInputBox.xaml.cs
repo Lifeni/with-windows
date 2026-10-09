@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.System;
 using Windows.UI.Core;
 using WithWindows.Core.Hotkeys;
@@ -23,6 +24,13 @@ public sealed partial class HotkeyInputBox : UserControl
     {
         InitializeComponent();
 
+        // Button 会把 PointerPressed 标记为已处理，XAML 上的普通订阅收不到，
+        // 必须用 handledEventsToo 才能拿到（这是「点一下重新录制」的入口）。
+        BoxButton.AddHandler(
+            UIElement.PointerPressedEvent,
+            new PointerEventHandler(OnBoxPointerPressed),
+            handledEventsToo: true);
+
         // UserControl 自身没有自动化节点：把页面设置的 AutomationId 转交到可聚焦的 BoxButton，
         // 否则录制框在可访问性树里既定位不到、也无法被键盘聚焦。
         // 清除按钮的 ID 必须按实例派生——一页里有多个录制框，写死会出现重复 ID。
@@ -33,6 +41,7 @@ public sealed partial class HotkeyInputBox : UserControl
             {
                 AutomationProperties.SetAutomationId(BoxButton, id);
                 AutomationProperties.SetAutomationId(ClearButton, id + "Clear");
+                AutomationProperties.SetAutomationId(HintText, id + "Hint");
             }
         };
     }
@@ -62,8 +71,12 @@ public sealed partial class HotkeyInputBox : UserControl
     /// 点击录制框重新进入录制状态。必须有这个入口：完成一次录入后焦点仍在按钮上，
     /// 再点一次不会触发 GettingFocus，否则用户无法重新录入（只能先让焦点离开再回来）。
     /// </summary>
-    private void OnBoxClick(object sender, RoutedEventArgs e)
+    private void OnBoxPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        // 点「清除」时指针事件从 ClearButton 冒泡上来，此时不应进入录制态
+        if (IsWithin(e.OriginalSource as DependencyObject, ClearButton))
+            return;
+
         if (_capturing)
             return;
 
@@ -74,14 +87,32 @@ public sealed partial class HotkeyInputBox : UserControl
 
     private void OnLosingFocus(object sender, LosingFocusEventArgs e)
     {
+        // 指针点击会让焦点在控件内部抖动（LosingFocus → GettingFocus）。
+        // 只有焦点真正离开本控件时才结束录制，否则按键会落在空档里被丢掉（表现为「点了没反应」）。
+        if (IsWithin(e.NewFocusedElement as DependencyObject, this))
+            return;
+
         _capturing = false;
         RefreshDisplay();
+    }
+
+    /// <summary>判断 <paramref name="node"/> 是否位于 <paramref name="ancestor"/> 之内（含自身）。</summary>
+    private static bool IsWithin(DependencyObject? node, DependencyObject ancestor)
+    {
+        for (DependencyObject? current = node; current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (ReferenceEquals(current, ancestor))
+                return true;
+        }
+
+        return false;
     }
 
     private void OnClearClick(object sender, RoutedEventArgs e)
     {
         _capturing = false;
         _hotkeyText = null;
+        HideHint();
         RefreshDisplay();
         HotkeyChanged?.Invoke(this, null);
     }
