@@ -65,6 +65,8 @@ Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具�
 - **快捷键页**：`HotkeyInputBox` 录入 + 启用开关 + 立即执行，注册失败就地提示
 - **设置页**：开机自启、投屏候选模式（至少保留一项）、关于
 - **记事本页**：`RichEditBox` + 防抖草稿（`%APPDATA%\WithWindows\notepad.txt`）+ 秒级时钟 + 缩放 + 置顶
+
+> 上面三条是当时的形态。**2026-10-09 后续反馈已重构为**：记事页（工具条 + 全页编辑器 + 状态栏）、**投屏页**（原快捷键页改造，含投屏快捷键与候选模式）、设置页（开机自启 + 呼出主窗口 + 关于路径按钮）。详见 `docs/superpowers/plans/2026-10-09-ui-restructure.md` 与 `docs/agents/ui-baseline.md`。
 - Core 测试增至 **100**，全部通过
 
 **批次六 · P5 打磨与打包**（提交 `37a049a`… 见 `git log`）
