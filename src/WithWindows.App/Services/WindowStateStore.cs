@@ -44,8 +44,11 @@ public sealed class WindowStateStore : IDisposable
     {
         if (_window.AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            presenter.PreferredMinimumWidth = MinWidth;
-            presenter.PreferredMinimumHeight = MinHeight;
+            // PreferredMinimum* 与 AppWindow 一样是物理像素，必须按当前缩放换算，
+            // 否则高 DPI 下交互式缩放能缩到比 MinWidth/MinHeight 更小（150% 时只剩 427×320 DIP）
+            int scale = (int)Math.Round(Scale * 100);
+            presenter.PreferredMinimumWidth = MinWidth * scale / 100;
+            presenter.PreferredMinimumHeight = MinHeight * scale / 100;
         }
     }
 
@@ -60,36 +63,45 @@ public sealed class WindowStateStore : IDisposable
         _restoring = true;
         try
         {
-            double scale = Scale;
-            int width = (int)Math.Round(Math.Max(state.Width, MinWidth) * scale);
-            int height = (int)Math.Round(Math.Max(state.Height, MinHeight) * scale);
-
             if (state.X is double x && state.Y is double y)
             {
                 // 位置本身按物理像素保存（屏幕坐标），这里不需要换算
                 var point = new PointInt32((int)x, (int)y);
                 if (IsVisible(point))
                 {
-                    _window.AppWindow.MoveAndResize(new RectInt32(point.X, point.Y, width, height));
+                    // 先移动到目标位置，再按**那块显示器**的缩放换算尺寸：
+                    // 混合缩放多屏下，用移动前的 DPI 会把窗口尺寸算错（副屏 150% 时会小三成）
+                    _window.AppWindow.Move(point);
+                    _window.AppWindow.Resize(ScaledSize(state));
                     return;
                 }
 
                 // 位置已不在任何显示器内：回到主屏居中
                 RectInt32 work = DisplayArea.GetFromWindowId(_window.AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+                SizeInt32 size = ScaledSize(state);
                 _window.AppWindow.MoveAndResize(new RectInt32(
-                    work.X + Math.Max(0, (work.Width - width) / 2),
-                    work.Y + Math.Max(0, (work.Height - height) / 2),
-                    width,
-                    height));
+                    work.X + Math.Max(0, (work.Width - size.Width) / 2),
+                    work.Y + Math.Max(0, (work.Height - size.Height) / 2),
+                    size.Width,
+                    size.Height));
                 return;
             }
 
-            _window.AppWindow.Resize(new SizeInt32(width, height));
+            _window.AppWindow.Resize(ScaledSize(state));
         }
         finally
         {
             _restoring = false;
         }
+    }
+
+    /// <summary>配置里的 DIP 尺寸 + 最小尺寸约束 → 当前显示器上的物理像素尺寸。</summary>
+    private SizeInt32 ScaledSize(WindowStateConfig state)
+    {
+        double scale = Scale;
+        return new SizeInt32(
+            (int)Math.Round(Math.Max(state.Width, MinWidth) * scale),
+            (int)Math.Round(Math.Max(state.Height, MinHeight) * scale));
     }
 
     /// <summary>窗口尺寸/位置变化后去抖写回配置。</summary>

@@ -6,7 +6,7 @@
 - **重构为 WinUI 3 工具箱**：左侧 `NavigationView` 导航，每个工具一页，取代原「两个独立窗口 + 托盘」形态；关闭窗口只隐藏到托盘，单进程常驻
 - 配置改为全新 schema v1（`tools[]` + `displayMode` + `windowState`），**不与旧 v3 兼容**（识别到旧格式即重建默认值）；不预置任何默认热键
 - 逻辑内核迁移到 `WithWindows.Core` 纯逻辑类库；P/Invoke 一律改由 CsWin32 生成，不再手写 `DllImport`
-- 发布产物改为 **Inno Setup 安装器 + 便携 zip**（自包含，免装运行库；便携包需解压后整体保留，`Assets\` 内有运行期读取的图标）
+- 发布产物改为 **Inno Setup 安装器 + 便携 zip**（自包含，免装运行库；便携包解压即用）
 - 目标平台提升为 **Windows 11 21H2+（`net10.0-windows10.0.22621.0`）**，不再支持 Windows 10
 
 ### 新增

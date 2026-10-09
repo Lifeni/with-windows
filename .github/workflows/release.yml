@@ -75,8 +75,8 @@ jobs:
           # 安装器文件名用的是不带 v 的版本号（ISCC /DAppVersion=$ver），tag 才带 v 前缀
           $ver = $tag.TrimStart('v')
           Copy-Item "dist-installer/WithWindows-$ver-x64-setup.exe" "WithWindows-$tag-x64-setup.exe"
-          # 便携版必须连 Assets/ 一起打包：图标是运行期从磁盘读的，裸 exe 会丢托盘与窗口图标
-          Compress-Archive -Path dist/* -DestinationPath "WithWindows-$tag-x64-portable.zip" -Force
+          # 只打包 exe 与 Assets：不要 dist/*，否则会把 PDB 调试符号一起发到 Release
+          Compress-Archive -Path dist/WithWindows.exe, dist/Assets -DestinationPath "WithWindows-$tag-x64-portable.zip" -Force
           Get-ChildItem "WithWindows-$tag-x64-*.exe", "WithWindows-$tag-x64-*.zip" | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Set-Content SHA256SUMS.txt -Encoding utf8
