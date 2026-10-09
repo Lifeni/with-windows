@@ -68,7 +68,11 @@ public sealed partial class HotkeyInputBox : UserControl
         }
     }
 
-    /// <summary>用户完成一次录入（含清除）后触发；参数为新的热键文本或 null。</summary>
+    /// <summary>
+    /// 用户完成一次录入（含清除）后触发；参数为新的热键文本或 null。
+    /// 说明：当前唯一宿主 <c>HotkeyDialog</c> 是关闭对话框后直接读 <see cref="HotkeyText"/>，暂无订阅方；
+    /// 保留它是为了让本控件可独立复用（例如将来做内联录制框）。
+    /// </summary>
     public event EventHandler<string?>? HotkeyChanged;
 
     private void OnGettingFocus(object sender, GettingFocusEventArgs e)
@@ -104,6 +108,7 @@ public sealed partial class HotkeyInputBox : UserControl
             return;
 
         _capturing = false;
+        _pressedModifiers.Clear();
         RefreshDisplay();
     }
 
@@ -122,6 +127,7 @@ public sealed partial class HotkeyInputBox : UserControl
     private void OnClearClick(object sender, RoutedEventArgs e)
     {
         _capturing = false;
+        _pressedModifiers.Clear();
         _hotkeyText = null;
         HideHint();
         RefreshDisplay();
@@ -175,6 +181,7 @@ public sealed partial class HotkeyInputBox : UserControl
         var hotkey = new Hotkey(modifiers, virtualKey);
         _hotkeyText = HotkeyFormatter.Format(hotkey);
         _capturing = false;
+        _pressedModifiers.Clear();
         HideHint();
         RefreshDisplay();
         HotkeyChanged?.Invoke(this, _hotkeyText);

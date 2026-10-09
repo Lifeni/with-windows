@@ -3,7 +3,7 @@ using WithWindows.Views;
 namespace WithWindows.Tools;
 
 /// <summary>
-/// 工具目录项。导航项由 <see cref="ShowInNav"/> 的项生成，快捷键行由 <see cref="HasHotkey"/> 的项生成，
+/// 工具目录项。导航项（以及托盘菜单）由 <see cref="ShowInNav"/> 的项生成；
 /// 新增工具只需在 <see cref="ToolCatalog.Tools"/> 加一条。
 /// </summary>
 /// <param name="Id">工具标识，与配置 tools[].id 对应。</param>
@@ -11,7 +11,7 @@ namespace WithWindows.Tools;
 /// <param name="Glyph">Segoe Fluent Icons 字形。</param>
 /// <param name="PageType">对应的导航页面；无页面（纯动作）时为 null。</param>
 /// <param name="ShowInNav">是否出现在左栏导航。</param>
-/// <param name="HasHotkey">是否出现在快捷键页。</param>
+/// <param name="HasHotkey">该工具是否有可绑定的全局热键；当前仅作声明，各行由所在页面自己张贴。</param>
 public sealed record ToolEntry(
     string Id,
     string Title,

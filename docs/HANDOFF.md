@@ -72,7 +72,7 @@ Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具�
 **批次六 · P5 打磨与打包**（提交 `37a049a`… 见 `git log`）
 
 - 计划：`docs/superpowers/plans/2026-10-09-polish-and-packaging.md`
-- **窗口状态记忆**：`WindowStateStore` 尺寸/位置去抖写回 + 恢复前可见性校验（超屏回主屏居中）+ 最小尺寸 640×480
+- **窗口状态记忆**：`WindowStateStore` 尺寸/位置去抖写回 + 恢复前可见性校验（超屏回主屏居中）+ 最小尺寸 480×360 DIP
 - **浅色与窄宽度**：全量 `ThemeResource`（无硬编码色值）；快捷键行宽≥760 DIP 单行、窄时两行，修掉「立即执行」被挤出可视区
 - **Inno Setup 安装器**：`installer/WithWindows.iss`；实测静默安装 → 启动 → 托盘图标 → 卸载全通；产物约 59.9 MB
 - **CI/Release 重写**：`ci.yml` 增加单文件产物与安装器校验；`release.yml` 恢复产出安装器 + 便携 exe + `SHA256SUMS.txt`

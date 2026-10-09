@@ -13,8 +13,8 @@ using WithWindows.Services;
 namespace WithWindows.Controls;
 
 /// <summary>
-/// 一条可绑热键的工具行：标题 + 录制框 + 启用开关 + 立即执行，注册失败就地提示。
-/// 由工具所在页面直接使用（投屏页的「投屏」、设置页的「呼出主窗口」）。
+/// 一条可绑热键的工具行：标题 + 说明 + 快捷键按钮（按键方块 + 铅笔 → 弹窗录制），注册失败就地提示。
+/// 由工具所在页面直接使用（投影页的「投影快捷键」、设置页的「呼出主窗口」）。
 /// </summary>
 public sealed class HotkeyRow : UserControl
 {
@@ -99,7 +99,7 @@ public sealed class HotkeyRow : UserControl
         _chips.SetHotkey(_binding?.Hotkey);
 
         AutomationProperties.SetAutomationId(_edit, $"HotkeyBox_{ToolId}");
-        AutomationProperties.SetName(_edit, "设置快捷键");
+        UpdateEditAutomationName();
         AutomationProperties.SetAutomationId(_info, $"HotkeyInfo_{ToolId}");
 
         ReportFailures(Host.ReloadBindings());
@@ -117,9 +117,14 @@ public sealed class HotkeyRow : UserControl
 
         _binding.Hotkey = string.IsNullOrWhiteSpace(result.Hotkey) ? null : result.Hotkey;
         _chips.SetHotkey(_binding.Hotkey);
+        UpdateEditAutomationName();
         Host.SaveConfig();
         ReportFailures(Host.ReloadBindings());
     }
+
+    /// <summary>读屏名要带上当前绑定值：按键方块本身是 AccessibilityView.Raw，读屏只能从这里拿到。</summary>
+    private void UpdateEditAutomationName()
+        => AutomationProperties.SetName(_edit, $"设置快捷键，当前 {_binding?.Hotkey ?? "未设置"}");
 
     /// <summary>把与本行工具相关的热重载失败原因显示出来；没有失败则收起提示。</summary>
     private void ReportFailures(IReadOnlyList<string> failures)

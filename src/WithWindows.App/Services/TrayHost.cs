@@ -8,7 +8,7 @@ using WithWindows.Tools;
 namespace WithWindows.Services;
 
 /// <summary>
-/// 托盘宿主：左键唤出主窗口，右键给出「记事本 / 快捷键 / 设置 / 退出」。
+/// 托盘宿主：左键唤出主窗口，右键给出「记事 / 投影 / 切换投影 / 设置 / 退出」（导航项由工具目录生成）。
 /// 实例必须由字段持有——被 GC 回收后图标会消失且没有任何报错。
 /// </summary>
 public sealed class TrayHost : IDisposable

@@ -13,7 +13,7 @@ using WithWindows.Services;
 namespace WithWindows.Views;
 
 /// <summary>
-/// 投影页：功能开关、投影快捷键、当前模式，以及「大卡片」形式的候选模式选择。
+/// 投影页：功能开关、投影快捷键，以及展开组件里的原生多选框（候选模式；当前模式显示在展开组件标题下）。
 /// 投影相关设置集中在这里（设置页不再重复）。
 /// </summary>
 public sealed partial class DisplayPage : Page
