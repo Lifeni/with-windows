@@ -668,3 +668,20 @@ winapp ui inspect -a WithWindows -i
 ```
 
 **教训**：`TrayIcon` 的 `trayiconId` 参数不是「随便给个唯一值」——WinUIEx 2.9.3 要求它 ≤ `0xFFFF`（实际只有 0 能稳定匹配），传窗口句柄这类大数会让点击彻底失效且**没有任何异常或日志**。同类第三方库的「静默失效」优先怀疑 id/句柄这类隐式约束，别先怀疑系统或用户操作。
+
+#### 同日追加（编辑区悬停冒出「Ctrl+F」提示）
+
+**现象**：鼠标放到记事编辑区，会弹出一个写着 `Ctrl+F` 的小提示窗（UIA 里表现为本进程的 `主机弹出窗口`）。
+
+**原因**：`KeyboardAccelerator` 自带「悬停显示快捷键」行为，而它挂在**页面根 Grid** 上，于是整页任何位置（包括编辑区）悬停都会触发；`KeyboardAccelerator.PlacementTarget`（UWP 里可把提示挪到指定控件）在 **WinUI 3 里不存在**（`XamlCompiler error WMC0011: Unknown member 'PlacementTarget'`），所以只能换实现。
+
+**修法**：删掉 `Grid.KeyboardAccelerators`，改为页面级 `AddHandler(UIElement.KeyDownEvent, …, handledEventsToo: true)` 处理 Ctrl+F / Ctrl+H / Ctrl+S（`handledEventsToo` 是必须的——编辑框会在冒泡前吃掉一部分按键，这一点与 Ctrl+滚轮 缩放同类）。
+
+实测（PID 39744）：
+
+| 操作 | 结果 |
+|---|---|
+| 悬停编辑区 | 无提示窗（只有主窗口一个 HWND） |
+| 悬停「查找替换」按钮 | 按钮自己的提示窗正常（116×63 popup） |
+| Ctrl+F（焦点在编辑区） | 日志 `记事：快捷键 Ctrl+F` → `记事：打开面板` |
+| Ctrl+H | 日志 `记事：快捷键 Ctrl+H` → `记事：打开面板（展开替换）`，`FindBox` 与 `ReplaceBox` 同时可见 |

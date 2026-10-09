@@ -33,6 +33,7 @@
 - 记事页「清除格式」「插入链接」会把应用带崩：`RichEditBox` 的 `ITextRange.Link` 在空选区等情况下抛 `ArgumentException`，异常没被兜住（事件日志三次 `0xC000027B` 中的两次）。两个按钮随格式栏一并移除，格式相关代码整组删除
 - 记事页查找不跳转、看不出命中：`RichEditBox` 在没有键盘焦点时既不跟随选区滚动也不显示选区——现在命中后显式 `ScrollIntoView`，并用 `SelectionHighlightColorWhenNotFocused` 让未聚焦的选区保持高亮；没命中时查找框描边标红（代替已去掉的结果文本行）
 - 托盘图标左右键完全没反应：WinUIEx 2.9.3 的 `TrayIcon` 在 `ProcessTrayIconEvents` 里拿 `HIWORD(lParam)` 当图标 id 比对，而本项目把 `AppWindow.Id`（实际就是窗口句柄，几百万的大数）当图标 id 传进去，高位永远对不上，点击事件在库内部就被丢掉（图标照常显示，所以看着像「点了没反应」）。改为传 `0` 并在代码里写明原因，左右键与右键菜单（记事 / 切换投影 · 设置 · 退出）实测都正常
+- 鼠标移到记事编辑区会冒出「Ctrl+F」小提示：那是 `KeyboardAccelerator` 自带的悬停提示，而加速键挂在页面根元素上，整页都会触发。改用页面级 `KeyDown`（带 `handledEventsToo`）处理 Ctrl+F / Ctrl+H / Ctrl+S，提示消失、快捷键实测仍有效；按钮自己的提示保留
 - 记事本页仅打开（不做编辑）就会改写草稿并逐次累积空行（`RichEditBox` 行尾规范化被误判为用户编辑）
 - 记事页切页返回后「置顶」开关显示与实际状态不一致（置顶开关随后已随页面重构移除）
 - 单文件发布遗漏 `Assets/`，安装后托盘与窗口图标会丢失

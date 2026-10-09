@@ -62,6 +62,12 @@ public sealed partial class NotepadPage : Page
             UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnEditorPointerWheel),
             handledEventsToo: true);
+
+        // Ctrl+F / Ctrl+H / Ctrl+S：见 XAML 顶部注释——用 KeyDown 而不是 KeyboardAccelerator
+        AddHandler(
+            UIElement.KeyDownEvent,
+            new KeyEventHandler(OnPageKeyDown),
+            handledEventsToo: true);
     }
 
     private static AppConfig? Config => App.Host?.Config;
@@ -197,22 +203,36 @@ public sealed partial class NotepadPage : Page
         StatusCaret.Text = $"行 {line}，列 {column}";
     }
 
-    private void OnFindAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    /// <summary>
+    /// 页面级快捷键：Ctrl+F 查找、Ctrl+H 替换（顺带展开替换行）、Ctrl+S 另存为。
+    /// 用 KeyDown + handledEventsToo（编辑框会先吃掉一部分按键，必须带 handledEventsToo）；
+    /// 不用 KeyboardAccelerator 的原因见 XAML 顶部注释（它会弹「Ctrl+F」悬停提示）。
+    /// </summary>
+    private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        args.Handled = true;
-        ShowFindPanel(expandReplace: false);
-    }
+        if (e.Key is not (VirtualKey.F or VirtualKey.H or VirtualKey.S))
+            return;
 
-    private void OnReplaceAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        ShowFindPanel(expandReplace: true);
-    }
+        bool ctrl = (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
+        if (!ctrl)
+            return;
 
-    private void OnSaveAsAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        OnSaveAsClick(this, new RoutedEventArgs());
+        e.Handled = true;
+        switch (e.Key)
+        {
+            case VirtualKey.F:
+                Breadcrumb("快捷键 Ctrl+F");
+                ShowFindPanel(expandReplace: false);
+                break;
+            case VirtualKey.H:
+                Breadcrumb("快捷键 Ctrl+H");
+                ShowFindPanel(expandReplace: true);
+                break;
+            default:
+                OnSaveAsClick(this, new RoutedEventArgs());
+                break;
+        }
     }
 
     private void OnFindClick(object sender, RoutedEventArgs e) => ShowFindPanel(expandReplace: false);

@@ -28,21 +28,11 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 常用快捷键：Ctrl+F / Ctrl+H 打开查找替换，Ctrl+S 另存为 -->
-        <Grid.KeyboardAccelerators>
-            <KeyboardAccelerator
-                Key="F"
-                Invoked="OnFindAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="H"
-                Invoked="OnReplaceAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="S"
-                Invoked="OnSaveAsAccelerator"
-                Modifiers="Control" />
-        </Grid.KeyboardAccelerators>
+        <!--
+            常用快捷键（Ctrl+F 查找、Ctrl+H 替换、Ctrl+S 另存为）在 code-behind 里用 KeyDown 处理，
+            不用 KeyboardAccelerator：加速键会在鼠标悬停时自动弹「Ctrl+F」小提示，
+            而它挂在页面根元素上，鼠标移到编辑区任何位置都会冒出来。
+        -->
 
         <!--
             顶部工具条：左侧秒级时间，右侧实用按钮（查找替换 / 另存为）——不做格式化按钮组，
@@ -87,7 +77,7 @@
                     Background="Transparent"
                     BorderThickness="0"
                     Click="OnFindClick"
-                    ToolTipService.ToolTip="查找替换（Ctrl+F / Ctrl+H）">
+                    ToolTipService.ToolTip="查找替换">
                     <FontIcon FontSize="16" Glyph="&#xE721;" />
                 </Button>
 
@@ -100,7 +90,7 @@
                     Background="Transparent"
                     BorderThickness="0"
                     Click="OnSaveAsClick"
-                    ToolTipService.ToolTip="另存为（正文自动保存）">
+                    ToolTipService.ToolTip="另存为">
                     <FontIcon FontSize="16" Glyph="&#xE74E;" />
                 </Button>
             </StackPanel>
