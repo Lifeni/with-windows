@@ -17,6 +17,10 @@ public class DisplayModeActionTests
         => Assert.Throws<ArgumentException>(() => DisplayModeAction.TopologyFor("triple"));
 
     [Fact]
+    public void Id_与配置工具标识一致()
+        => Assert.Equal("display_mode", ((IAction)new DisplayModeAction()).Id);
+
+    [Fact]
     public void Execute_未知模式_在改动显示状态前抛异常()
         => Assert.Throws<ArgumentException>(() => new DisplayModeAction().Execute("triple"));
 

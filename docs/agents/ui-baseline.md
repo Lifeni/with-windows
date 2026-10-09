@@ -92,3 +92,20 @@ AppWindow.SetIcon("Assets/with-windows.ico");
 **修复后基线**：`artifacts/ui/shell-titlebar-2026-10-09.png` —— 单条标题栏（汉堡按钮 + 应用图标 + 标题 + 窗口按钮），左栏导航正常，无重复标题。
 
 > 教训：使用 WinUI 3 的 `TitleBar` 控件时，**必须同时**在 code-behind 里设置 `ExtendsContentIntoTitleBar = true` 与 `SetTitleBar(...)`，否则会得到两条标题栏。这条已写入 `docs/agents/winui3-hard-rules.md` 的待补清单。
+
+### 2026-10-09 工具目录驱动导航（提交 `feat(工具): 目录驱动导航与热键分派`）
+
+**改动**：`MainWindow` 不再手写导航项，改由 `ToolCatalog.Tools` 生成（`ShowInNav` 的项进左栏）；无障碍标识规则为 `"NavItem" + 首字母大写(工具 ID)`，因此旧基线里的 `NavItemNotepad` / `NavItemHotkeys` 名称保持不变。
+
+**启动自检**（截图：`artifacts/ui/shell-nav-catalog-2026-10-09.png`，1902×988）：
+
+```text
+Window > Pane > Pane > Custom > Window > Pane > Group
+      NavItemNotepad ListItem "记事本"
+      NavItemHotkeys ListItem "快捷键"
+      SettingsItem ListItem "设置"
+```
+
+- 默认页：`NotepadPlaceholder Text "记事本"`
+- `invoke NavItemHotkeys`（经 `SelectionItemPattern`）后：`HotkeysPlaceholder Text "快捷键"` 出现
+- 目视：左栏三项与设置置底正常，内容区无错乱，Mica 背景生效

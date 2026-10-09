@@ -8,12 +8,15 @@ namespace WithWindows.Core.Actions;
 /// 以及 toggle：在候选模式（配置 displayMode.modes，默认 internal/extend）中循环。
 /// 目标模式与当前一致时返回 Changed=false。
 /// </summary>
-public sealed class DisplayModeAction
+public sealed class DisplayModeAction : IAction
 {
     private readonly string[] _toggleModes;
 
     /// <summary>构造时注入 toggle 候选模式（来自配置 displayMode.modes；空数组 = 默认 internal/extend）。</summary>
     public DisplayModeAction(string[]? toggleModes = null) => _toggleModes = toggleModes ?? Array.Empty<string>();
+
+    /// <summary>动作标识，与配置 tools[].id 一致。</summary>
+    public string Id => "display_mode";
 
     /// <summary>执行切换；mode 为 internal / extend / external / clone / toggle（大小写不敏感）。非法值抛 ArgumentException。</summary>
     public ActionResult Execute(string mode)
