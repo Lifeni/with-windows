@@ -632,3 +632,39 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 **顺带补的反馈**：结果文本行早前按用户要求删掉了，于是「找不到」变成完全静默（例如输入法把 `$` 打成全角 `￥` 时）。现在没命中会把查找框底边描红（对齐系统记事本），改了查找词就清掉。
 
 实测（截图 `artifacts/ui/find-highlight4.png`）：查找词 `US`，连按三次「下一个」→ 状态栏 `行 414，列 9`，视图滚到该行，命中项以强调色高亮。
+
+#### 同日追加（托盘点击无反应：已定位并修复）
+
+**过程**（这条值得记，因为前面三轮都判断错了方向）：
+
+1. 用户把图标从溢出区拖到任务栏后仍点不动；`winapp ui` 能看到 `btn-notifyitemicon-* Button "With Windows"`，用它做右键/左键都不产生任何日志。
+2. **决定性实验**：停掉进程 → 图标消失 ⇒ 图标确实由本进程注册，不是幽灵图标；问题在「点击到达之后」。
+3. 于是去读 **WinUIEx 2.9.3 的源码**（`gh api /repos/dotMorten/WinUIEx/contents/src/WinUIEx/TrayIcon.cs?ref=v2.9.3`）：
+
+   ```csharp
+   private void ProcessTrayIconEvents(Message message)
+   {
+       var iconid = message.HighOrder;                          // HIWORD(lParam)
+       if (iconid != TrayIconId) return;                         // ← 这里整个丢掉
+       var type = (WindowsMessages)(message.LParam & 0xffff);     // LOWORD(lParam)
+       ...
+   }
+   ```
+
+   而 `Message.HighOrder => unchecked((short)((long)LParam >> 16))`——库把「图标 id」当成 lParam 的高 16 位来比对。本项目原先传的是 `(uint)window.AppWindow.Id.Value`（值就是主窗口 HWND，例如 `2823488`），高 16 位永远不等于这个 id ⇒ **所有点击事件在库内部被静默丢弃**。
+4. **修法**：图标 id 改用 `0`（`TrayHost` 里已写明原因），左右键与右键菜单立刻正常。
+
+**实测**（日志 + UIA）：
+
+```text
+2026-10-10 00:59:10 [INFO] 托盘：右键菜单
+2026-10-10 01:00:14 [INFO] 托盘：左键
+
+winapp ui inspect -a WithWindows -i
+  mnu-trayitemnotepad-63c2    MenuItem "记事"
+  mnu-trayitemswitchd-63c4    MenuItem "切换投影"
+  mnu-trayitemsetting-63c6    MenuItem "设置"
+  mnu-trayitemexit-63c8       MenuItem "退出"
+```
+
+**教训**：`TrayIcon` 的 `trayiconId` 参数不是「随便给个唯一值」——WinUIEx 2.9.3 要求它 ≤ `0xFFFF`（实际只有 0 能稳定匹配），传窗口句柄这类大数会让点击彻底失效且**没有任何异常或日志**。同类第三方库的「静默失效」优先怀疑 id/句柄这类隐式约束，别先怀疑系统或用户操作。

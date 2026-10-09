@@ -34,8 +34,10 @@ public sealed class TrayHost : IDisposable
                 return;
             }
 
-            // TrayIcon 的窗口标识是 uint（AppWindow.Id.Value 是 ulong），图标只支持 .ico / .svg
-            uint iconId = (uint)window.AppWindow.Id.Value;
+            // 图标 id 必须是 0：WinUIEx 2.9.3 用 HIWORD(lParam) 当图标 id 比对
+            // （见 TrayIcon.ProcessTrayIconEvents），而外壳回调的 lParam 低位才是消息、
+            // 高位通常是 0——传 AppWindow.Id（几百万的大数）时永远对不上，事件会被整个丢掉。
+            const uint iconId = 0;
             _trayIcon = new TrayIcon(iconId, AppIcon.Preferred, "With Windows");
             // 显式置为可见：默认值不可依赖，且 Win11 会先把新图标收进溢出区
             _trayIcon.IsVisible = true;
