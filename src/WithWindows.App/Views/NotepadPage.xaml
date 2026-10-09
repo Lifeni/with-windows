@@ -3,6 +3,17 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <Page.Resources>
+        <!-- 编辑器不要边框、也不要聚焦时的高亮下划线：把模板用到的这几个键在本页覆盖掉 -->
+        <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+        <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+        <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+    </Page.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -15,8 +26,18 @@
             x:Name="NotepadBar"
             Grid.Row="0"
             AutomationProperties.AutomationId="NotepadToolbar"
-            DefaultLabelPosition="Right"
+            DefaultLabelPosition="Collapsed"
             IsDynamicOverflowEnabled="True">
+
+            <!-- 工具条左侧：秒级时间 -->
+            <CommandBar.Content>
+                <TextBlock
+                    x:Name="ClockText"
+                    Margin="12,0,4,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="NotepadClock"
+                    Style="{StaticResource BodyStrongTextBlockStyle}" />
+            </CommandBar.Content>
 
             <AppBarButton
                 AutomationProperties.AutomationId="NotepadSave"
@@ -102,12 +123,15 @@
             Grid.Row="1"
             AutomationProperties.AutomationId="NotepadEditor"
             AcceptsReturn="True"
+            Background="Transparent"
+            BorderThickness="0"
             IsSpellCheckEnabled="False"
             Padding="16,12"
             ScrollViewer.VerticalScrollBarVisibility="Auto"
             SelectionChanged="OnEditorSelectionChanged"
             TextChanged="OnEditorTextChanged"
-            TextWrapping="Wrap" />
+            TextWrapping="Wrap"
+            UseSystemFocusVisuals="False" />
 
         <!-- 底部状态栏：行列 / 字符数 / 缩放 -->
         <Grid

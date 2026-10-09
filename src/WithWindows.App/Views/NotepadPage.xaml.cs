@@ -35,6 +35,7 @@ public sealed partial class NotepadPage : Page
     private const double DefaultFontSize = 14;
 
     private NotepadDraft? _draft;
+    private DispatcherQueueTimer? _clock;
     private bool _loading;
 
     /// <summary>
@@ -96,12 +97,29 @@ public sealed partial class NotepadPage : Page
         }
 
         Editor.TextWrapping = WrapToggle.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        StartClock();
         UpdateStatus();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _clock?.Stop();
         _draft?.Flush();
+    }
+
+    /// <summary>工具条左侧的秒级时钟；页面离开时停表。</summary>
+    private void StartClock()
+    {
+        if (_clock is null)
+        {
+            _clock = DispatcherQueue.CreateTimer();
+            _clock.Interval = TimeSpan.FromSeconds(1);
+            _clock.IsRepeating = true;
+            _clock.Tick += (_, _) => ClockText.Text = DateTime.Now.ToString("HH:mm:ss");
+        }
+
+        ClockText.Text = DateTime.Now.ToString("HH:mm:ss");
+        _clock.Start();
     }
 
     /// <summary>
