@@ -4,14 +4,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:WithWindows.Controls">
 
-    <ScrollViewer Padding="24">
-        <!-- 与 PowerToys 一致：内容铺开到可用宽度，上限 1200 DIP 并水平居中 -->
-        <Grid x:Name="ContentHost">
-            <StackPanel
-                Width="{Binding ActualWidth, ElementName=ContentHost}"
-                MaxWidth="1200"
-                HorizontalAlignment="Center"
-                Spacing="8">
+    <ScrollViewer
+        x:Name="PageScroll"
+        Padding="24"
+        HorizontalScrollBarVisibility="Disabled"
+        HorizontalScrollMode="Disabled">
+        <!-- 与 PowerToys 一致：内容跟随视口宽度，上限 1200 DIP 并水平居中 -->
+        <StackPanel
+            Width="{Binding ViewportWidth, ElementName=PageScroll}"
+            MaxWidth="1200"
+            HorizontalAlignment="Center"
+            Spacing="8">
             <TextBlock
                 Margin="0,0,0,8"
                 AutomationProperties.AutomationId="SettingsPlaceholder"
@@ -51,62 +54,111 @@
                 Title="呼出主窗口"
                 ToolId="notepad" />
 
-            <TextBlock Margin="0,8,0,0" Style="{StaticResource SubtitleTextBlockStyle}" Text="关于" />
-            <Border
-                Padding="16,12"
+            <!-- 关于：参考 WinUI Gallery 的写法——折叠成一项，展开后每个条目一行 -->
+            <Expander
+                Margin="0,8,0,0"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                AutomationProperties.AutomationId="AboutExpander"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="6">
-                <Grid ColumnSpacing="16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                CornerRadius="6"
+                IsExpanded="False">
+                <Expander.Header>
+                    <Grid Padding="16,12" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                    <Image
-                        x:Name="AboutIconImage"
-                        Grid.Column="0"
-                        Width="48"
-                        Height="48"
-                        VerticalAlignment="Top"
-                        AutomationProperties.AutomationId="AboutIcon" />
+                        <Image
+                            x:Name="AboutIconImage"
+                            Grid.Column="0"
+                            Width="32"
+                            Height="32"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="AboutIcon" />
 
-                    <StackPanel Grid.Column="1" Spacing="10">
-                        <StackPanel Spacing="2">
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="关于" />
                             <TextBlock
-                                x:Name="VersionText"
-                                AutomationProperties.AutomationId="AboutVersion"
-                                Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock
-                                x:Name="BuildDateText"
-                                AutomationProperties.AutomationId="AboutBuildDate"
+                                x:Name="AboutSummaryText"
+                                AutomationProperties.AutomationId="AboutSummary"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Style="{StaticResource CaptionTextBlockStyle}" />
                         </StackPanel>
+                    </Grid>
+                </Expander.Header>
 
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <HyperlinkButton
-                                AutomationProperties.AutomationId="AboutRepository"
-                                Click="OnOpenRepositoryClick">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon FontSize="14" Glyph="&#xE774;" />
-                                    <TextBlock Text="GitHub 仓库" />
-                                </StackPanel>
-                            </HyperlinkButton>
-                            <Button
-                                AutomationProperties.AutomationId="OpenConfigFolder"
-                                Click="OnOpenConfigFolderClick"
-                                Content="打开配置目录" />
-                            <Button
-                                AutomationProperties.AutomationId="OpenLogFile"
-                                Click="OnOpenLogFileClick"
-                                Content="打开日志文件" />
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-            </Border>
-            </StackPanel>
-        </Grid>
+                <StackPanel Margin="16,4,16,12" Spacing="12">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="版本" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock
+                            x:Name="VersionText"
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="AboutVersion" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="构建日期" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock
+                            x:Name="BuildDateText"
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="AboutBuildDate" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="GitHub 仓库" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <HyperlinkButton
+                            Grid.Column="1"
+                            Padding="0"
+                            AutomationProperties.AutomationId="AboutRepository"
+                            Click="OnOpenRepositoryClick"
+                            Content="github.com/Lifeni/with-windows" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="配置目录" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Button
+                            Grid.Column="1"
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="OpenConfigFolder"
+                            Click="OnOpenConfigFolderClick"
+                            Content="打开配置目录" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="日志文件" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Button
+                            Grid.Column="1"
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="OpenLogFile"
+                            Click="OnOpenLogFileClick"
+                            Content="打开日志文件" />
+                    </Grid>
+                </StackPanel>
+            </Expander>
+        </StackPanel>
     </ScrollViewer>
 </Page>

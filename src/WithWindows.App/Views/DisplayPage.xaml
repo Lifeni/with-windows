@@ -4,15 +4,18 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:WithWindows.Controls">
 
-    <ScrollViewer Padding="24">
+    <ScrollViewer
+        x:Name="PageScroll"
+        Padding="24"
+        HorizontalScrollBarVisibility="Disabled"
+        HorizontalScrollMode="Disabled">
         <StackPanel Spacing="16">
             <!-- 与 PowerToys 一致：内容铺开到可用宽度，上限 1200 DIP 并水平居中 -->
-            <Grid x:Name="ContentHost">
-                <StackPanel
-                    Width="{Binding ActualWidth, ElementName=ContentHost}"
-                    MaxWidth="1200"
-                    HorizontalAlignment="Center"
-                    Spacing="8">
+            <StackPanel
+                Width="{Binding ViewportWidth, ElementName=PageScroll}"
+                MaxWidth="1200"
+                HorizontalAlignment="Center"
+                Spacing="8">
                 <TextBlock
                     Margin="0,0,0,8"
                     AutomationProperties.AutomationId="DisplayTitle"
@@ -85,8 +88,7 @@
 
                     <StackPanel x:Name="ModesHost" Margin="0,4,0,0" Spacing="2" />
                 </Expander>
-                </StackPanel>
-            </Grid>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>

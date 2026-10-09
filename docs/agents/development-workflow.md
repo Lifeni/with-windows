@@ -31,6 +31,16 @@ codex exec review --uncommitted
 codex exec review --commit <sha>
 ```
 
+**当前 CLI 的限制（2026-10-09 实测）**：本机 `codex exec review` 的 `--base` 与 `[PROMPT]` **互斥**（报 `the argument '--base <BRANCH>' cannot be used with '[PROMPT]'`），无法一边按范围审一边带限定指令。此时改用等价的独立审查：
+
+```powershell
+$prompt = @'
+你是独立代码审查者。审查范围：<base>..HEAD。只审 src/**；docs/** 仅在明显矛盾时提一句，不要读长文档历史条目；
+不要执行构建/测试，也不要结束 WithWindows.exe 进程。按 P1/P2/P3 输出发现（文件:行、问题、依据、建议）。
+'@
+$prompt | codex exec -C <worktree> -s read-only -
+```
+
 规则：
 
 - **默认就执行，不要就「要不要跑审查」征求用户意见**——这是每批改动的固定收尾步骤，和构建、测试同级。

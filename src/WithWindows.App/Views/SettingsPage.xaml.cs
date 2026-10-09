@@ -38,7 +38,8 @@ public sealed partial class SettingsPage : Page
             AutoStartToggle.IsOn = AutoStart.IsEnabled();
             AutoStartStateText.Text = AutoStartToggle.IsOn ? "开" : "关";
             VersionText.Text = $"With Windows {CurrentVersion()}";
-            BuildDateText.Text = $"构建日期 {BuildDate()}";
+            BuildDateText.Text = BuildDate();
+            AboutSummaryText.Text = $"With Windows {CurrentVersion()} · 构建于 {BuildDate()}";
 
             // 未打包应用里 ms-appx:/// 解析不可靠（实测渲染成花屏），直接用绝对路径加载
             if (AppIcon.PngExists)
