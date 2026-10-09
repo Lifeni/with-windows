@@ -3,7 +3,7 @@ name: 构建并发布 Release
 # 只在"版本更新"时构建发布：
 #   - push 到 main：csproj 的 <Version> 若还没有对应的 vX.Y.Z tag，则自动打 tag 并发布；已有 tag 直接跳过
 #   - push v* tag：直接发布，并校验 tag 与 csproj 版本一致
-# 产物：Inno Setup 安装器 + 便携单文件 exe + SHA256SUMS.txt
+# 产物：Inno Setup 安装器 + 便携 zip（内含 exe 与 Assets）+ SHA256SUMS.txt
 on:
   push:
     branches: [ main ]
@@ -51,7 +51,7 @@ jobs:
       - name: 测试
         run: dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -c Release -p:Platform=x64
 
-      - name: 生成便携单文件（自包含）
+      - name: 生成便携载荷（自包含单文件）
         if: steps.version.outputs.need_release == 'true'
         run: dotnet publish src/WithWindows.App/WithWindows.App.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
 

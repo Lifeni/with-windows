@@ -32,7 +32,8 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
-        AppWindow.SetIcon(AppIcon.Resolve());
+        if (AppIcon.Exists)
+            AppWindow.SetIcon(AppIcon.Preferred);
 
         BuildNavigation();
         NavView.SelectedItem = NavView.MenuItems[0];
@@ -41,6 +42,8 @@ public sealed partial class MainWindow : Window
         // Window.Closed 在 WinUI 3 里不可取消，必须用 AppWindow.Closing（AppWindowClosingEventArgs.Cancel）。
         AppWindow.Closing += OnAppWindowClosing;
         _tray = new TrayHost(this);
+        if (!_tray.IsAvailable)
+            App.Host?.Log.Error($"托盘图标不可用：{_tray.FailureReason}");
 
         _windowState = new WindowStateStore(this, App.Host?.Config ?? new WithWindows.Core.Config.AppConfig(), () => App.Host?.SaveConfig());
         _windowState.ApplyMinimumSize();
@@ -54,7 +57,6 @@ public sealed partial class MainWindow : Window
     {
         Activated -= OnFirstActivated;
         _windowState.Restore();
-        NavView.IsPaneOpen = true;
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -158,6 +160,13 @@ public sealed partial class MainWindow : Window
     {
         if (_exiting)
             return;
+
+        // 没有托盘图标就没有唤回窗口的入口，此时关闭应当真正退出，否则应用会「消失」
+        if (!_tray.IsAvailable)
+        {
+            ExitApplication();
+            return;
+        }
 
         args.Cancel = true;
         AppWindow.Hide();

@@ -332,6 +332,19 @@ SettingsItem ListItem "设置" (246,1233 60x54)
 
 导航项宽度 60（紧凑态），窗口 1100×720 DIP。
 
+**同日修复（独立审查发现 2 条 P2）**：
+
+1. `OnFirstActivated` 里漏删的 `NavView.IsPaneOpen = true` 会把紧凑栏又展开成全宽，与「默认紧凑」的意图矛盾——已删除，并实测确认首启即为紧凑态。
+2. **图标兜底不成立**：WinUIEx 的 `TrayIcon` 只接受 `.ico` / `.svg`，拿 `exe` 路径当兜底无效，缺图标时还可能抛异常导致启动失败。已改为：`AppIcon` 只暴露 `Assets\with-windows.ico` 与其存在性；`TrayHost` 创建失败时标记 `IsAvailable = false` 并写日志，此时**窗口关闭改为真正退出**（没有托盘就没有唤回入口，不能让应用变成无入口的后台进程）。
+
+**关于「便携版会不会缺图标」的实测澄清**（此前我与审查都判断错了）：单文件自包含应用运行时 `AppContext.BaseDirectory` 指向解压目录 `%TEMP%\.net\WithWindows\<hash>\`，且 `Assets\with-windows.ico` **就在那里**——单文件发布会把 `Content` 打进 exe。诊断输出：
+
+```text
+诊断：BaseDirectory=C:\Users\LFN\AppData\Local\Temp\.net\WithWindows\BZXpOz-3f4GS\  AppIcon.Exists=True  TrayAvailable=True
+```
+
+因此「剥掉 `dist\Assets` 只留 exe」时图标依然可用；publish 目录里那份 `Assets\` 主要给安装器与 CI 校验用。
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。
