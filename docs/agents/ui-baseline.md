@@ -296,6 +296,17 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 
 **注意**：`AppWindow` 的尺寸/位置是**物理像素**，而 DPI 不感知的进程（如普通 PowerShell 调 `GetWindowRect`）读到的是虚拟化坐标（本机 150% 缩放下相差 1.5 倍），排查时别误判成 bug。
 
+**补充修正（默认窗口与 DIP）**：默认窗口最初是 900×640，首启时左栏只剩一个汉堡按钮——因为配置里的宽高被当成**物理像素**，本机 150% 缩放下 1100 物理像素只有约 733 DIP，落在 `NavigationView` 的紧凑区间（641–1008 DIP）。
+
+修法：
+
+1. 配置里的宽高语义改为 **DIP**（与 WinUI 一致），应用前按窗口 DPI 换算成物理像素——同一份配置在不同缩放的屏幕上视觉大小一致；
+2. 缩放率用 **CsWin32 的 `GetDpiForWindow`** 取（新增 `Core.Interop.DisplayScale`），**不要用 `XamlRoot.RasterizationScale`**：窗口首次激活、内容尚未完成布局时它返回 1.0，会按 100% 误算；
+3. 恢复尺寸改到首个 `Activated` 之后执行；
+4. 默认窗口改为 **1100×720 DIP**（> `ExpandedModeThresholdWidth` 的 1008），首启即展开左栏。
+
+实测（本机 150% 缩放）：窗口 1650×1080 物理 = 1100×720 DIP，导航项宽 467（展开态，含文字），`config.windowState` 落盘 `1100×720`。
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。
