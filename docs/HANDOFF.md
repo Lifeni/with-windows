@@ -22,7 +22,7 @@ Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具�
 
 ## 二、当前进度（截至 2026-10-09）
 
-分支 `dev`，HEAD 见 `git log`。已完成五个批次：
+分支 `dev`，HEAD 见 `git log`。已完成六个批次：
 
 **批次一 · P0 规范与环境**（提交 `b226f26`…`18a7655`）
 
@@ -66,6 +66,15 @@ Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具�
 - **设置页**：开机自启、投屏候选模式（至少保留一项）、关于
 - **记事本页**：`RichEditBox` + 防抖草稿（`%APPDATA%\WithWindows\notepad.txt`）+ 秒级时钟 + 缩放 + 置顶
 - Core 测试增至 **100**，全部通过
+
+**批次六 · P5 打磨与打包**（提交 `37a049a`… 见 `git log`）
+
+- 计划：`docs/superpowers/plans/2026-10-09-polish-and-packaging.md`
+- **窗口状态记忆**：`WindowStateStore` 尺寸/位置去抖写回 + 恢复前可见性校验（超屏回主屏居中）+ 最小尺寸 640×480
+- **浅色与窄宽度**：全量 `ThemeResource`（无硬编码色值）；快捷键行宽≥760 DIP 单行、窄时两行，修掉「立即执行」被挤出可视区
+- **Inno Setup 安装器**：`installer/WithWindows.iss`；实测静默安装 → 启动 → 托盘图标 → 卸载全通；产物约 59.9 MB
+- **CI/Release 重写**：`ci.yml` 增加单文件产物与安装器校验；`release.yml` 恢复产出安装器 + 便携 exe + `SHA256SUMS.txt`
+- **README 重写**、`CHANGELOG` 整理为 `v0.5.0` 可发布章节
 
 ## 三、已定决策（不要重新讨论）
 
@@ -120,19 +129,19 @@ winapp ui screenshot -a WithWindows --json
 Stop-Process -Id $p.Id -Force
 ```
 
-当前基线：Core 测试 **100/100**，解决方案构建 **0 错误**。界面基线与截图见 `docs/agents/ui-baseline.md`。
+当前基线：Core 测试 **100/100**，解决方案构建 **0 错误**；安装器可编译并完成安装/卸载实测。界面基线与截图见 `docs/agents/ui-baseline.md`。
 
-## 六、下一步：P5 打磨与打包（P2/P3/P4 已完成）
+## 六、下一步：发布与后续（P0–P5 已完成）
 
-三个工具页与托盘已可用：记事本（编辑/草稿/时钟/缩放/置顶）、快捷键（录制/启用/立即执行）、设置（自启/投屏候选/关于）。
+工具箱已可分发：三个工具页 + 托盘常驻 + 窗口状态记忆 + 安装器 + CI/Release 链路。
 
 按依赖顺序：
 
-1. **深浅色与自适应**：浅色主题截图验证；宽/中/窄三档布局
-2. **窗口状态记忆**：尺寸/位置/字号持久化到 `windowState`（含可见性校验，(0, 0) 合法、用 null 表示未保存）
-3. **Inno Setup 安装器**：`installer/WithWindows.iss`；`release.yml` 恢复产出（安装器 + 便携 exe + SHA256SUMS）
-4. **README 重写**：功能、命令、目录结构、安装说明全部对齐新实现
-5. **端到端复核**：干净机器安装、常驻、热键与托盘
+1. **首次发布**：确认 `CHANGELOG` 的 `## [v0.5.0]` 与 csproj `<Version>` 一致后 push 到 `main`，工作流自动打 tag 并出 Release（或手动 `git tag v0.5.0 && git push origin v0.5.0`）
+2. **安装器向导中文化**（可选）：Inno Setup 6 官方包不含中文语言文件，把 `ChineseSimplified.isl` 放进 `installer/` 即自动启用（脚本已用 `#if FileExists` 处理）
+3. **干净机器验证**：在未装 .NET / Windows App Runtime 的机器上实装，确认零依赖启动
+4. **后续工具**：新增工具 = `ToolCatalog` 加一条 + 一个页面；出现第 3、4 个工具时可考虑把 `ToolCatalog` 抽成 `ITool` 泛化
+5. **代码签名**（可选）：消除 SmartScreen「未知发布者」提示，设计文档第 10.4 节给了 SignPath 等路径
 
 **注意**：P5 的实现计划文档还没写。按流程应先补计划再实施（P0/P1、P2、P3/P4 的计划见 `docs/superpowers/plans/`）。
 

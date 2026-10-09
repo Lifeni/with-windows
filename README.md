@@ -5,27 +5,29 @@
 
 > 本项目由 AI 协作完成：代码、文档与迭代均经 AI 生成和优化。
 
-> ⚠️ **重构进行中**：项目已从「两个独立窗口」重构为 WinUI 3 工具箱（左侧 `NavigationView` 导航，每个工具一页；含「记事本」「快捷键」「设置」与常驻托盘）。下面「功能」段的描述仍对应重构前的实现，**安装与发布说明待打包改造（Inno Setup）完成后重写**；当前可用命令见「快速开始」，界面基线见 `docs/agents/ui-baseline.md`。
-
 ## 功能
 
-Windows 常驻托盘的全局热键 → 动作平台。重构前为「无主界面，通过系统托盘管理，两个独立窗口」：
+Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关闭窗口只是隐藏到托盘，单进程常驻后台。首版三个页面：
 
-**快捷记事**：热键弹出置顶记事本，关闭时保存并复制到剪贴板。
-- 标题栏实时时钟（秒级刷新，窗口隐藏时停表）；Ctrl+滚轮 / Ctrl+加减号缩放字体（10-32px，Ctrl+0 重置）
-- 行距舒适（1.05 倍）；Ctrl+S 另存为；Ctrl+C/V 原生复制粘贴
-- 状态栏显示行列/字符数 + **置顶开关**（右下角图钉按钮，状态持久化）
-- 窗口常驻：关闭 = 最小化到托盘，内容/字体/尺寸/位置跨开窗保留
-- 正文为空时不写剪贴板；从托盘退出应用不会覆盖剪贴板内容
-- 最小尺寸 520×780，可自由放大
+**记事本**（打开即编辑器）
 
-**设置**：右键菜单"设置"打开。
-- **切换投屏**：勾选参与循环切换的模式 + 快捷键设置/重置
-- **快捷记事**：快捷键设置/重置
-- 开机自启开关、恢复默认快捷键、关于
-- 全部修改即时保存热重载；热键被占用导致注册失败时，用警告条说明是哪个键、为什么失败
+- 输入即自动保存草稿（500 ms 防抖）到 `%APPDATA%\WithWindows\notepad.txt`，重开自动读回
+- 页内秒级时钟；字体缩放 10–32 px（`Ctrl+滚轮` 与 `A−` / `A+`），字号随配置持久化
+- 置顶开关作用于主窗口，切页返回后状态保持正确
 
-**托盘菜单**：快捷记事 / 切换投屏 / 设置 / 退出（左键单击托盘图标打开记事本）。
+**快捷键**
+
+- 每个可绑热键的工具一行：录制框 + 启用开关 + 立即执行
+- 点击录制框后按下组合键即录入，`Esc` 取消，可用「清除」解除绑定；不预置任何默认热键
+- 注册失败（如 1409 已被占用）在该行就地显示原因，不静默失败
+
+**设置**
+
+- 开机自启（写 `HKCU\...\Run`，用户级）、投屏候选模式（至少保留一项）、关于（版本 / 配置路径 / 日志路径）
+
+**托盘**：左键唤出主窗口，右键菜单「记事本 / 快捷键 / 设置 / 退出」。
+
+内置工具：**记事本**、**切换投屏**（`SetDisplayConfig` 直接应用拓扑；目标与当前一致时提示「当前已是…」，不做无谓切换）。
 
 ## 快速开始
 
@@ -39,75 +41,82 @@ dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -p:Platfo
 # 启动应用（调试用）
 dotnet run --project src/WithWindows.App/WithWindows.App.csproj -p:Platform=x64
 
-# 发布产物与 Inno Setup 安装器将在重构的 P5 阶段补回本文件
 # 开发辅助：一键构建并重启（Windows PowerShell）
 powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 ```
 
-注意：常驻实例运行时会锁 exe，重新构建前先停掉它（托盘"退出"或任务管理器结束 WithWindows.exe）；需要 .NET 10 SDK（9 的 SDK 编译不了 net10 目标框架）。
+冒烟检查（不常驻、不抢单实例、不建托盘，结果写日志）：
 
-## 下载
+```bash
+& "src/WithWindows.App/bin/x64/Debug/net10.0-windows10.0.22621.0/win-x64/WithWindows.exe" --smoke
+```
 
-安装包形态在重构中改为 **Inno Setup 安装器 + 便携 exe**（P5 落地）。在此之前，Release 与安装说明暂不更新；重构前的产物形态如下，仅供参考：
+发布与打包（安装器脚本见 [installer/README.md](installer/README.md)）：
+
+```powershell
+# 自包含单文件（约 225 MB，免装任何运行库）
+dotnet publish src/WithWindows.App/WithWindows.App.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+
+# 编译安装器（需 Inno Setup 6）
+$ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\WithWindows.iss
+```
+
+注意：常驻实例会锁 exe，重新构建前先退出应用（托盘「退出」或任务管理器结束 `WithWindows.exe`）。
+
+## 下载与安装
+
+每个 Release 提供两个 x64 产物：
 
 | 文件 | 大小 | 说明 |
 | --- | --- | --- |
-| `WithWindows-vX.Y.Z-x64-selfcontained.exe` | 约 167 MB | 内置 .NET 10 与 Windows App SDK 运行库，**推荐**，不依赖系统预装 |
-| `WithWindows-vX.Y.Z-x64-frameworkdependent.exe` | 约 38 MB | 需系统已装 .NET 10 桌面运行时与 Windows App Runtime 2.4 |
+| `WithWindows-vX.Y.Z-x64-setup.exe` | 约 60 MB | **推荐**。Inno Setup 安装器：装到 `%LocalAppData%\Programs\With Windows`，创建开始菜单项，桌面快捷方式与开机自启为可选任务 |
+| `WithWindows-vX.Y.Z-x64-portable.exe` | 约 225 MB | 便携单文件，双击即用，不写安装信息 |
 
-两者都是单文件（XAML 资源与运行库已内嵌进 exe）；首次启动会把原生库解压到 `%TEMP%` 并复用，之后启动恢复正常。同时提供同名 `.zip`（自包含版约 66 MB），慢网络可以下 zip 再解压。`SHA256SUMS.txt` 提供校验和。
+`SHA256SUMS.txt` 提供校验和。安装器**未签名**，首次运行会出现 SmartScreen「未知发布者」提示：点「更多信息 → 仍要运行」即可（这是设计文档第 10.4 节的既定取舍，与 MSIX 自签名被直接拒绝有本质区别）。
+
+卸载会删除程序目录、开始菜单项与自启项，**不触碰** `%APPDATA%\WithWindows\` 下的用户数据。
 
 ## 系统要求
 
-- **Windows 10 1809（17763）及以上 / Windows 11，x64**（Windows App SDK 2.4 的 WinUI 程序集目标框架是 `net6.0-windows10.0.17763.0`，本项目使用 .NET 10）
-- 两个下载版本对运行库的要求不同：
-
-| 版本 | 需要系统预装 | 说明 |
-| --- | --- | --- |
-| `selfcontained` | 无 | 自带 .NET 10 与 Windows App SDK 运行库，双击即用 |
-| `frameworkdependent` | .NET 10 桌面运行时 + Windows App Runtime 2.4 | 体积约 1/4；Windows 11 25H2 及更新版本已随系统自带 Windows App Runtime |
-
-### 为什么提供两个版本
-
-WinUI 3 应用需要两样东西：**现代 .NET 运行时**（不是 Windows 自带的 .NET Framework 4.8.1）和 **Windows App SDK 运行库**。
-
-- 微软自家的系统组件（开始菜单/任务栏体验、文件资源管理器，以及记事本、画图、截图、照片等）走的是 MSIX 框架包依赖：系统镜像用 CBS 预置了 `Microsoft.WindowsAppRuntime.CBS.*`，应用清单里声明 `<TargetWASDKPackageName>` 即可，无需单独安装
-- 未打包（unpackaged）的第三方应用没有这层便利，只能二选一：**自包含**（把运行库打进产物，体积大但零依赖）或**框架依赖**（体积小，但要求用户预装运行库）
-- 本项目两种都提供，默认推荐自包含版
+- **Windows 11 21H2（22000）及以上，x64**——目标框架 `net10.0-windows10.0.22621.0`，不背 Windows 10
+- Release 产物为**自包含**：无需预装 .NET 运行时与 Windows App Runtime
+- 自行构建框架依赖版本时，需 .NET 10 桌面运行时 + Windows App Runtime
 
 ## 技术栈
 
-- .NET 10（LTS）+ WinUI 3（Windows App SDK 2.4）：现代 Win11 原生 UI
-- WinUIEx：托盘图标（TrayIcon）、窗口管理
-- Microsoft.Windows.SDK.BuildTools：构建期工具（不随产物分发）
-- P/Invoke：`RegisterHotKey`（隐藏消息窗口收 WM_HOTKEY）、`SetDisplayConfig` / `QueryDisplayConfig`（投屏）；注册表读写用 `Microsoft.Win32.Registry`（开机自启、置顶状态）
-- `System.Text.Json` 配置读写（原子替换 + `config.json.bak` 备份回退）
-- xunit + Microsoft.NET.Test.Sdk：单元测试
-- Windows App SDK 按组件包引用（只引 Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime，不打包用不到的 Widgets / AI / ML / Search）
-- **发布为单文件 exe**：自包含约 167 MB；WinUI 3 不支持裁剪（`PublishTrimmed`），单文件依赖 `EnableMsixTooling`（已在 csproj 中按条件开启）
+- .NET 10 + WinUI 3（Windows App SDK）：未打包（`WindowsPackageType=None`），目标框架 `net10.0-windows10.0.22621.0`
+- 仅 x64；`PublishTrimmed` 固定 `false`（WinUI 3 不支持裁剪）；单文件发布依赖 `EnableMsixTooling`（csproj 按条件开启）
+- WinUIEx：托盘 `TrayIcon`；CommunityToolkit.Mvvm：页面视图模型
+- **P/Invoke 一律 CsWin32 生成**（`src/WithWindows.Core/Interop/NativeMethods.txt`），不手写 `DllImport`
+- 全局热键用**独立隐藏消息窗口**接收 `WM_HOTKEY`（绝不子类化 WinUI 窗口，项目已验证两次会原生崩溃）
+- 配置用 `System.Text.Json`（原子替换 + `config.json.bak` 回退 + 自愈清理未知工具）；测试用 xunit
 
 ## 配置
 
 运行时数据位于 `%APPDATA%\WithWindows\`：
 
-- `config.json`——配置（首次启动自举默认值；旧 v2 数组格式自动迁移为 v3）
+- `config.json`——配置（首次启动自举默认值；旧格式不兼容，识别到即重建默认值）
 - `config.json.bak`——上一次保存成功的配置，主文件损坏时自动回退
 - `log.txt`——运行日志（超过 1 MB 轮转为 `log.1.txt`）
 - `notepad.txt`——记事本内容
 
 ```json
 {
-  "version": 3,
-  "bindings": { "notepad": "F13", "display_mode": "F14" },
+  "version": 1,
+  "tools": [
+    { "id": "notepad", "enabled": true, "hotkey": null },
+    { "id": "display_mode", "enabled": true, "hotkey": null }
+  ],
   "displayMode": { "modes": ["internal", "extend"] },
-  "windowState": { "notepadFontSize": 14, "notepadWidth": 520, "notepadHeight": 780, "settingsWidth": 520, "settingsHeight": 780 }
+  "windowState": { "width": 900, "height": 640, "x": null, "y": null, "notepadFontSize": 14 }
 }
 ```
 
-- `version`：配置模型版本，当前为 3
-- `bindings`：动作 → 热键，在设置窗口录制修改（保存即热重载）。热键留空 = 不绑定；字母/数字必须配合修饰键（F1–F24 可单键）
-- `displayMode.modes`：投屏 toggle 循环的候选模式（修改后立即生效，无需重启）
-- `windowState`：窗口尺寸/位置/字体记忆（关闭重开自动恢复；位置超出屏幕自动移回主屏）。没有保存过位置的窗口不含 `notepadX` / `notepadY` / `settingsX` / `settingsY` 字段
+- `version`：配置模型版本，当前为 1
+- `tools`：工具列表，每项含 `id` / `enabled` / `hotkey`；`hotkey` 为 `null` 或空 = 不绑定（**不预置任何默认热键**）
+- `displayMode.modes`：投屏 toggle 的候选模式，按固定顺序循环（修改后立即生效）
+- `windowState`：窗口尺寸/位置与记事本字号。位置为 `null` 表示尚未保存（`(0, 0)` 是合法坐标，不用 0 当哨兵）；位置超出所有显示器时回主屏居中
 
 仓库内的 [config/config.json](config/config.json) 是同样结构的示例文件，仅作参考。
 
@@ -119,9 +128,10 @@ with-windows/
 ├── CHANGELOG.md            # 更新日志（Release 正文来源）
 ├── LICENSE                 # MIT 开源协议
 ├── WithWindows.sln         # 解决方案文件
-├── .github/workflows/      # ci.yml（PR 构建 + 核心测试）、release.yml（版本判定与测试；产物发布待 P5 重写）
+├── .github/workflows/      # ci.yml（PR 构建 + 测试 + 发布链路校验）、release.yml（出安装器与便携 exe）
 ├── config/                 # 配置示例（运行时配置在 %APPDATA%\WithWindows）
-├── docs/                   # 图标与截图素材
+├── docs/                   # 素材与文档（agents 分册、设计文档、实现计划、界面基线）
+├── installer/              # Inno Setup 脚本与说明
 ├── scripts/                # 开发脚本（dev.ps1、IconGen 图标生成）
 ├── src/WithWindows.App/    # 未打包 WinUI 3 应用（Shell/ Views/ ViewModels/ Services/ Controls/ Themes）
 ├── src/WithWindows.Core/   # 纯逻辑类库（Hotkeys/ Config/ Actions/ Interop/ Diagnostics/ App）
@@ -130,7 +140,13 @@ with-windows/
 
 ## 发布
 
-发布流程**正在重写**：产物形态改为 Inno Setup 安装器 + 便携 exe，`release.yml` 暂只做版本判定与测试，不再产出 Release（P5 落地后补全本节）。版本号驱动规则保留：改 `src/WithWindows.App/WithWindows.App.csproj` 里的 `<Version>` 并在 `CHANGELOG.md` 顶部加同版本号章节；push 到 `main` 时若该版本还没有对应 `vX.Y.Z` tag，即视为待发布。
+发布由**版本号驱动**，不需要手动打 tag：
+
+1. 改 `src/WithWindows.App/WithWindows.App.csproj` 的 `<Version>`，并在 `CHANGELOG.md` 顶部加同版本号的 `## [vX.Y.Z] - 日期` 章节
+2. push 到 `main`：工作流发现该版本还没有对应的 `vX.Y.Z` tag，就自动跑测试 → 发布自包含单文件 → 编译安装器 → 产出安装器、便携 exe 与 `SHA256SUMS.txt` → 打 tag 并创建 Release
+3. 版本号未变（tag 已存在）时只跑测试，不重复构建与发布；PR 由 `ci.yml` 负责构建 + 测试 + 单文件/安装器校验（两者触发条件不重叠）
+
+发布中途失败时，可在 Actions 里手动 Run workflow 并勾选 `force` 重新发布当前版本。
 
 ## 更新日志
 
