@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.Storage;
@@ -39,6 +40,14 @@ public sealed partial class NotepadPage : Page
     private NotepadDraft? _draft;
     private DispatcherQueueTimer? _clock;
     private bool _loading;
+
+    // 查找替换的上次输入与选项
+    private string _lastFindText = "";
+    private string _lastReplaceText = "";
+    private bool _matchCase;
+
+    // 当前行距（切换字号时保持）
+    private float _lastLineSpacing = 1.05f;
 
     /// <summary>
     /// 载入完成后编辑器内的实际文本，用作「是否真的被编辑过」的基线。
@@ -128,16 +137,18 @@ public sealed partial class NotepadPage : Page
     /// 行距 1.05（设计文档的可读性要求）。设置默认段落格式，并对已有内容再应用一次——
     /// 载入文本会把段落格式重置为默认，只设默认值对已有内容不生效。
     /// </summary>
-    private void ApplyLineSpacing()
+    private void ApplyLineSpacing(float lineSpacing = 1.05f)
     {
         var format = Editor.Document.GetDefaultParagraphFormat();
-        format.SetLineSpacing(LineSpacingRule.Multiple, 1.05f);
+        format.SetLineSpacing(LineSpacingRule.Multiple, lineSpacing);
         Editor.Document.SetDefaultParagraphFormat(format);
 
         var selection = Editor.Document.Selection;
         selection.SetRange(0, int.MaxValue);
-        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.05f);
+        selection.ParagraphFormat.SetLineSpacing(LineSpacingRule.Multiple, lineSpacing);
         selection.SetRange(0, 0);
+
+        _lastLineSpacing = lineSpacing;
     }
 
     private void OnEditorTextChanged(object sender, RoutedEventArgs e)
@@ -192,9 +203,151 @@ public sealed partial class NotepadPage : Page
         StatusCaret.Text = $"行 {line}，列 {column}";
     }
 
-    private void OnUndoClick(object sender, RoutedEventArgs e) => Editor.Document.Undo();
+    private void OnFontIncreaseClick(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize + 1, persist: true);
 
-    private void OnRedoClick(object sender, RoutedEventArgs e) => Editor.Document.Redo();
+    private void OnFontDecreaseClick(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize - 1, persist: true);
+
+    private void OnLineSpacingNormalClick(object sender, RoutedEventArgs e) => ApplyLineSpacing(1.05f);
+
+    private void OnLineSpacingWideClick(object sender, RoutedEventArgs e) => ApplyLineSpacing(1.5f);
+
+    private void OnFindAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        _ = ShowFindReplaceAsync();
+    }
+
+    private void OnSaveAsAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        OnSaveAsClick(this, new RoutedEventArgs());
+    }
+
+    private async void OnFindClick(object sender, RoutedEventArgs e) => await ShowFindReplaceAsync();
+
+    /// <summary>查找替换对话框：纯文本查找，支持逐个替换与全部替换。</summary>
+    private async Task ShowFindReplaceAsync()
+    {
+        var findBox = new TextBox { Header = "查找内容", Text = _lastFindText };
+        var replaceBox = new TextBox { Header = "替换为", Text = _lastReplaceText };
+        var caseCheck = new CheckBox { Content = "区分大小写", IsChecked = _matchCase };
+        var status = new TextBlock
+        {
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+        };
+
+        AutomationProperties.SetAutomationId(findBox, "FindBox");
+        AutomationProperties.SetAutomationId(replaceBox, "ReplaceBox");
+        AutomationProperties.SetAutomationId(caseCheck, "FindMatchCase");
+        AutomationProperties.SetAutomationId(status, "FindStatus");
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var findNext = new Button { Content = "查找下一个" };
+        var replaceOne = new Button { Content = "替换" };
+        var replaceAll = new Button { Content = "全部替换" };
+        AutomationProperties.SetAutomationId(findNext, "FindNextButton");
+        AutomationProperties.SetAutomationId(replaceOne, "ReplaceButton");
+        AutomationProperties.SetAutomationId(replaceAll, "ReplaceAllButton");
+        buttons.Children.Add(findNext);
+        buttons.Children.Add(replaceOne);
+        buttons.Children.Add(replaceAll);
+
+        var content = new StackPanel { Spacing = 12, MinWidth = 360 };
+        content.Children.Add(findBox);
+        content.Children.Add(replaceBox);
+        content.Children.Add(caseCheck);
+        content.Children.Add(buttons);
+        content.Children.Add(status);
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "查找和替换",
+            Content = content,
+            CloseButtonText = "关闭",
+        };
+
+        bool MatchCase() => caseCheck.IsChecked == true;
+        string Text() => ReadAllText();
+        void Remember()
+        {
+            _lastFindText = findBox.Text;
+            _lastReplaceText = replaceBox.Text;
+            _matchCase = MatchCase();
+        }
+        findNext.Click += (_, _) =>
+        {
+            Remember();
+            string needle = findBox.Text;
+            if (string.IsNullOrEmpty(needle))
+            {
+                status.Text = "请输入查找内容";
+                return;
+            }
+
+            string text = Text();
+            var comparison = MatchCase() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            int from = Math.Clamp(Editor.Document.Selection.EndPosition, 0, text.Length);
+
+            // 先从光标向后找，找不到再回绕到开头
+            int index = text.IndexOf(needle, from, comparison);
+            if (index < 0)
+                index = text.IndexOf(needle, 0, comparison);
+
+            if (index < 0)
+            {
+                status.Text = "没有找到匹配内容";
+                return;
+            }
+
+            Editor.Document.Selection.SetRange(index, index + needle.Length);
+            Editor.Focus(FocusState.Programmatic);
+            status.Text = $"已选中第 {index + 1} 个字符处";
+        };
+
+        replaceOne.Click += (_, _) =>
+        {
+            Remember();
+            Editor.Document.Selection.GetText(TextGetOptions.None, out string selected);
+            if (!string.IsNullOrEmpty(findBox.Text)
+                && string.Equals(selected.TrimEnd('\r'), findBox.Text,
+                    MatchCase() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase))
+            {
+                Editor.Document.Selection.SetText(TextSetOptions.None, replaceBox.Text);
+            }
+
+            status.Text = "已替换当前选中项（如未选中匹配内容则先点「查找下一个」）";
+        };
+
+        replaceAll.Click += (_, _) =>
+        {
+            Remember();
+            if (string.IsNullOrEmpty(findBox.Text))
+                return;
+
+            string text = Text();
+            var comparison = MatchCase() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            int count = 0;
+            int index = text.IndexOf(findBox.Text, 0, comparison);
+            var builder = new System.Text.StringBuilder();
+            int cursor = 0;
+            while (index >= 0)
+            {
+                builder.Append(text, cursor, index - cursor);
+                builder.Append(replaceBox.Text);
+                cursor = index + findBox.Text.Length;
+                count++;
+                index = text.IndexOf(findBox.Text, cursor, comparison);
+            }
+            builder.Append(text, cursor, text.Length - cursor);
+
+            Editor.Document.SetText(TextSetOptions.None, builder.ToString());
+            status.Text = $"已替换 {count} 处";
+        };
+
+        await dialog.ShowAsync();
+    }
 
     /// <summary>
     /// 另存为：正文本身自动保存（防抖写草稿），这个按钮用于把内容另存到用户选定的文件。

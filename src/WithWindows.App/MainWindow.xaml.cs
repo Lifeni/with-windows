@@ -144,6 +144,21 @@ public sealed partial class MainWindow : Window
         Activate();
     }
 
+    /// <summary>托盘里的直接动作（不切页），执行结果写日志。</summary>
+    public void RunTrayAction(string toolId)
+    {
+        try
+        {
+            var router = new HotkeyRouter(this, App.Host!.Config);
+            Core.Actions.ActionResult? result = router.Invoke(toolId);
+            App.Host.Log.Info($"托盘动作「{toolId}」：{result?.Message ?? "已执行"}");
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"托盘动作「{toolId}」失败：{ex.Message}");
+        }
+    }
+
     /// <summary>真正退出应用；绕过「关闭 = 隐藏」的拦截。</summary>
     public void ExitApplication()
     {

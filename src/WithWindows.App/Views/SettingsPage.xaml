@@ -130,33 +130,6 @@
                             Content="github.com/Lifeni/with-windows" />
                     </Grid>
 
-                    <Grid ColumnSpacing="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="配置目录" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Button
-                            Grid.Column="1"
-                            HorizontalAlignment="Left"
-                            AutomationProperties.AutomationId="OpenConfigFolder"
-                            Click="OnOpenConfigFolderClick"
-                            Content="打开配置目录" />
-                    </Grid>
-
-                    <Grid ColumnSpacing="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="日志文件" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Button
-                            Grid.Column="1"
-                            HorizontalAlignment="Left"
-                            AutomationProperties.AutomationId="OpenLogFile"
-                            Click="OnOpenLogFileClick"
-                            Content="打开日志文件" />
-                    </Grid>
                 </StackPanel>
             </Expander>
         </StackPanel>

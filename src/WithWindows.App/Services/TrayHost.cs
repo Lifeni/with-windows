@@ -69,6 +69,12 @@ public sealed class TrayHost : IDisposable
         foreach (ToolEntry tool in ToolCatalog.Tools.Where(t => t.ShowInNav))
             menu.Items.Add(CreateItem(tool.Title, tool.Id));
 
+        // 与 main 分支一致：托盘里提供「切换投影」的直接动作，不必先进页面
+        var switchDisplay = new MenuFlyoutItem { Text = "切换投影" };
+        AutomationId(switchDisplay, "TrayItemSwitchDisplay");
+        switchDisplay.Click += (_, _) => _window.RunTrayAction(ToolCatalog.DisplayModeId);
+        menu.Items.Add(switchDisplay);
+
         menu.Items.Add(CreateItem("设置", "settings"));
         menu.Items.Add(new MenuFlyoutSeparator());
 
