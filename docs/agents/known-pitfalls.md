@@ -14,6 +14,8 @@
 
 **没有 XAML 设计器**：这不是缺陷而是优点——所有界面都是纯文本，可读、可改、可 diff。UI 改动必须写成可 review 的 XAML diff。
 
+**`UserControl` 没有自动化节点**：把 `AutomationProperties.AutomationId` 设在 `UserControl` 上等于没设——它在 UIA 树里不出现，既搜不到也无法被 `winapp ui focus` / `send-keys --target` 定位。自定义控件若要被自动化与读屏使用，根元素要用可聚焦控件（如 `Button`），或由控件把 ID 转交给内部可聚焦元素。
+
 ## 热键与配置
 
 **热键注册失败不抛异常**：`RegisterHotKey` 返回 `false` 并设置 Win32 错误码（`1409` = 已被占用）。必须把失败原因回传设置界面，否则用户只会觉得「按了没反应」。

@@ -17,6 +17,9 @@ public partial class App : Application
     /// <summary>主窗口引用；关闭时只是隐藏，不置空。</summary>
     public static Window? MainWindow { get; private set; }
 
+    /// <summary>应用宿主（配置、热键、日志）；页面通过它读写配置。启动失败时为 null。</summary>
+    public static AppHost? Host { get; private set; }
+
     // 生命周期等于进程：必须以字段持有，禁止局部 using（否则第二个实例照样能起）
     private AppHost? _host;
 
@@ -47,6 +50,7 @@ public partial class App : Application
         }
 
         _host = start.Host;
+        Host = _host;
         _host.ToolInvoker = toolId => new HotkeyRouter((MainWindow)MainWindow!, _host.Config).Invoke(toolId);
     }
 

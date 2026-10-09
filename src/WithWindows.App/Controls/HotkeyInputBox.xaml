@@ -1,0 +1,56 @@
+<UserControl
+    x:Class="WithWindows.Controls.HotkeyInputBox"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    PreviewKeyDown="OnPreviewKeyDown">
+
+    <StackPanel Spacing="4">
+        <!-- 根用 Button：UserControl 自身没有自动化节点，无法被聚焦或用 AutomationId 定位 -->
+        <Button
+            x:Name="BoxButton"
+            Padding="0"
+            HorizontalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            Background="Transparent"
+            BorderThickness="0"
+            GettingFocus="OnGettingFocus"
+            LosingFocus="OnLosingFocus">
+            <Border
+                Background="{ThemeResource ControlFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="12,8">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        x:Name="ValueText"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="未设置" />
+
+                    <Button
+                        x:Name="ClearButton"
+                        Grid.Column="1"
+                        AutomationProperties.AutomationId="HotkeyClearButton"
+                        AutomationProperties.Name="清除热键"
+                        Click="OnClearClick"
+                        Content="清除" />
+                </Grid>
+            </Border>
+        </Button>
+
+        <TextBlock
+            x:Name="HintText"
+            AutomationProperties.AutomationId="HotkeyHint"
+            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+            Style="{StaticResource CaptionTextBlockStyle}"
+            Text=""
+            TextWrapping="Wrap"
+            Visibility="Collapsed" />
+    </StackPanel>
+</UserControl>
