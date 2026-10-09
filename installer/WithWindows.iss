@@ -8,7 +8,11 @@
 
 #define AppName "With Windows"
 #define AppExeName "WithWindows.exe"
-#define SourceDir "..\dist"
+
+; 载荷目录（相对本 .iss 文件）。可用 /DSourceDir=..\dist-check 覆盖，便于 CI 直接指向校验目录。
+#ifndef SourceDir
+  #define SourceDir "..\dist"
+#endif
 
 ; Inno Setup 6 官方安装包不含中文语言文件。把 ChineseSimplified.isl 放到本目录即可自动启用中文向导；
 ; 没有该文件时回退英文（不预置第三方翻译文件，避免引入未经审阅的内容）。

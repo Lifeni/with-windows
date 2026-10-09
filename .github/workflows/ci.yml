@@ -18,4 +18,25 @@ jobs:
       - name: 核心逻辑测试
         run: dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -c Release -p:Platform=x64 --no-build
 
-      # 单文件发布校验与安装器产出待 P5 用 Inno Setup 重写后恢复
+      # 发布链路容易在 SDK / WASDK 升级后静默失效（历史上踩过 Assets 与 XBF/PRI 不复制），每次校验一遍
+      - name: 校验单文件发布
+        run: dotnet publish src/WithWindows.App/WithWindows.App.csproj -c Release -o dist-check -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+
+      - name: 校验单文件与资源产物
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist-check/WithWindows.exe)) { Write-Error "未生成单文件 exe" }
+          if (-not (Test-Path dist-check/Assets/with-windows.ico)) { Write-Error "Assets 未随发布产出（托盘与窗口图标会丢失）" }
+          $size = (Get-Item dist-check/WithWindows.exe).Length / 1MB
+          Write-Host "单文件 exe 大小: $([math]::Round($size, 1)) MB"
+
+      - name: 安装 Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: 校验安装器可编译
+        shell: pwsh
+        run: |
+          $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=$ver /DSourceDir=..\dist-check installer\WithWindows.iss
+          if (-not (Test-Path "dist-installer/WithWindows-$ver-x64-setup.exe")) { Write-Error "未生成安装器" }
+          Write-Host "安装器已生成：WithWindows-$ver-x64-setup.exe"

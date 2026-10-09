@@ -1,9 +1,9 @@
 name: 构建并发布 Release
 
-# 重构进行中：发布产物（Inno Setup 安装器 + 便携 exe）待 P5 重写，当前只做版本判定与测试，不产出 Release。
-# 版本号驱动规则保留，P5 直接接上：
-#   - push 到 main：csproj 的 <Version> 若还没有对应的 vX.Y.Z tag，则视为待发布；已有 tag 直接跳过
-#   - push v* tag：校验 tag 与 csproj 版本一致
+# 只在"版本更新"时构建发布：
+#   - push 到 main：csproj 的 <Version> 若还没有对应的 vX.Y.Z tag，则自动打 tag 并发布；已有 tag 直接跳过
+#   - push v* tag：直接发布，并校验 tag 与 csproj 版本一致
+# 产物：Inno Setup 安装器 + 便携单文件 exe + SHA256SUMS.txt
 on:
   push:
     branches: [ main ]
@@ -51,8 +51,51 @@ jobs:
       - name: 测试
         run: dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -c Release -p:Platform=x64
 
-      - name: 发布流程待 P5 重写
+      - name: 生成便携单文件（自包含）
+        if: steps.version.outputs.need_release == 'true'
+        run: dotnet publish src/WithWindows.App/WithWindows.App.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+
+      - name: 安装 Inno Setup
+        if: steps.version.outputs.need_release == 'true'
+        run: choco install innosetup --no-progress -y
+
+      - name: 编译安装器
         if: steps.version.outputs.need_release == 'true'
         shell: pwsh
         run: |
-          Write-Host "待发布 ${{ steps.version.outputs.tag }}：产物（Inno Setup 安装器与便携 exe）将在 P5 重写，本次不创建 Release。"
+          $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\WithWindows.iss
+          if (-not (Test-Path "dist-installer/WithWindows-$ver-x64-setup.exe")) { Write-Error "未生成安装器" }
+
+      - name: 整理产物与校验和
+        if: steps.version.outputs.need_release == 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          Copy-Item "dist-installer/WithWindows-$tag-x64-setup.exe" "WithWindows-$tag-x64-setup.exe"
+          Copy-Item dist/WithWindows.exe "WithWindows-$tag-x64-portable.exe"
+          Get-ChildItem "WithWindows-$tag-x64-*.exe" | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content SHA256SUMS.txt -Encoding utf8
+
+      - name: 提取更新日志为 Release 正文
+        if: steps.version.outputs.need_release == 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $content = Get-Content CHANGELOG.md -Raw
+          $pat = "(?s)##\s*\[" + [regex]::Escape($tag) + "\].*?(?=\r?\n##\s|\z)"
+          $m = [regex]::Match($content, $pat)
+          if (-not $m.Success) { Write-Error "CHANGELOG.md 缺少 [$tag] 章节" }
+          Set-Content -Path release_body.md -Value $m.Value -Encoding utf8
+
+      - name: 打 tag 并上传 GitHub Release
+        if: steps.version.outputs.need_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: |
+            WithWindows-*-x64-setup.exe
+            WithWindows-*-x64-portable.exe
+            SHA256SUMS.txt
+          body_path: release_body.md
