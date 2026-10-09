@@ -25,11 +25,15 @@ public sealed partial class HotkeyInputBox : UserControl
 
         // UserControl 自身没有自动化节点：把页面设置的 AutomationId 转交到可聚焦的 BoxButton，
         // 否则录制框在可访问性树里既定位不到、也无法被键盘聚焦。
+        // 清除按钮的 ID 必须按实例派生——一页里有多个录制框，写死会出现重复 ID。
         Loaded += (_, _) =>
         {
             string id = AutomationProperties.GetAutomationId(this);
             if (!string.IsNullOrEmpty(id))
+            {
                 AutomationProperties.SetAutomationId(BoxButton, id);
+                AutomationProperties.SetAutomationId(ClearButton, id + "Clear");
+            }
         };
     }
 
@@ -49,6 +53,20 @@ public sealed partial class HotkeyInputBox : UserControl
 
     private void OnGettingFocus(object sender, GettingFocusEventArgs e)
     {
+        _capturing = true;
+        HideHint();
+        RefreshDisplay();
+    }
+
+    /// <summary>
+    /// 点击录制框重新进入录制状态。必须有这个入口：完成一次录入后焦点仍在按钮上，
+    /// 再点一次不会触发 GettingFocus，否则用户无法重新录入（只能先让焦点离开再回来）。
+    /// </summary>
+    private void OnBoxClick(object sender, RoutedEventArgs e)
+    {
+        if (_capturing)
+            return;
+
         _capturing = true;
         HideHint();
         RefreshDisplay();
@@ -82,7 +100,7 @@ public sealed partial class HotkeyInputBox : UserControl
             _capturing = false;
             HideHint();
             RefreshDisplay();
-            Focus(FocusState.Programmatic);
+            BoxButton.Focus(FocusState.Programmatic);
             return;
         }
 

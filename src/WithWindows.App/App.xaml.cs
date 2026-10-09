@@ -57,14 +57,23 @@ public partial class App : Application
     /// <summary>启动失败：在当前窗口上弹对话框后退出。</summary>
     private static async void ShowStartupError(MainWindow window, string message)
     {
-        var dialog = new ContentDialog
+        try
         {
-            XamlRoot = window.Content.XamlRoot,
-            Title = "启动失败",
-            Content = message,
-            CloseButtonText = "退出",
-        };
-        await dialog.ShowAsync();
+            var dialog = new ContentDialog
+            {
+                XamlRoot = window.Content.XamlRoot,
+                Title = "启动失败",
+                Content = message,
+                CloseButtonText = "退出",
+            };
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            // 弹框本身失败（XamlRoot 尚不可用等）时不能把异常抛出 async void——那是未观测异常，会直接杀进程
+            System.Diagnostics.Debug.WriteLine($"展示启动失败对话框失败：{ex.Message}");
+        }
+
         Current.Exit();
     }
 

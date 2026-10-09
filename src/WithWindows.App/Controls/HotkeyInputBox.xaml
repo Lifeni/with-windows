@@ -13,6 +13,7 @@
             HorizontalContentAlignment="Stretch"
             Background="Transparent"
             BorderThickness="0"
+            Click="OnBoxClick"
             GettingFocus="OnGettingFocus"
             LosingFocus="OnLosingFocus">
             <Border
@@ -36,7 +37,6 @@
                     <Button
                         x:Name="ClearButton"
                         Grid.Column="1"
-                        AutomationProperties.AutomationId="HotkeyClearButton"
                         AutomationProperties.Name="清除热键"
                         Click="OnClearClick"
                         Content="清除" />

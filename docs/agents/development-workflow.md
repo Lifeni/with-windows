@@ -15,6 +15,28 @@
 
 第 2 步的 `dotnet run` 会前台阻塞。自动化场景下必须**非阻塞启动**（后台进程），确认窗口存在后结束进程，不要让命令挂住。
 
+## 一之二、每批改动后的独立代码审查（硬性）
+
+六步闭环由**实现者**自己跑，缺少独立性。因此**每完成一批改动（一个计划里的多个任务，或一次会话量级的改动）后，必须再跑一次独立审查**：
+
+```powershell
+# 审查本批新增的全部提交（<base> 取本批之前的那个提交）
+codex exec review --base <base-commit>
+
+# 只审查尚未提交的改动
+codex exec review --uncommitted
+
+# 审查单个提交
+codex exec review --commit <sha>
+```
+
+规则：
+
+- `codex exec review` 是**独立进程、独立上下文**，不共享本会话的判断，因此能发现「自己审自己」漏掉的问题。
+- 审查发现的问题按优先级处理：**先修 Critical / Important，再提交**；确属误判或有意取舍的，在提交信息或文档里写明理由，不要静默忽略。
+- 审查结论（发现项与处置）记入 `docs/agents/ui-baseline.md` 的对应条目或 `.superpowers/sdd/` 的执行日志。
+- 子代理通道若恢复，优先用 `superpowers:subagent-driven-development`（每任务一个实现者 + 审查者）；通道不可用时，`codex exec review` 是**替代方案而非可选项**。
+
 ## 二、界面自检命令
 
 前置条件：应用正在运行，且处于有图形会话的环境。

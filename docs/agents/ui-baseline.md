@@ -211,3 +211,22 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 | 设置页 | `AutoStartToggle` / `ModeCheckBox_*` / `AboutVersion` / `AboutConfigPath` / `AboutLogPath` |
 | 托盘 | `NotifyIconSettings` 有本 exe 条目（提示 `With Windows`）；关闭窗口后进程存活 |
 | 全局热键 | 录制 → 注册 → 触发 → 路由到对应页面，全链路实测通过 |
+
+### 2026-10-09 独立审查（`codex exec review --base 5f4bb33`）发现与修复
+
+**背景**：六步闭环由实现者自跑，缺独立性。改用 `codex exec review`（独立进程、独立上下文）审查 P3/P4 整批提交。
+
+**发现 4 项，全部核实属实并已修复**（提交 `fix(快捷键页): 修复录制框无法重复录入等问题`）：
+
+| 级别 | 问题 | 处置 |
+|---|---|---|
+| P2 | 录制框完成一次录入后**无法再次点击重录**——`_capturing` 只在 `GettingFocus` 置 true，而录入成功/Esc 后焦点仍在按钮上，再点不产生焦点变化 | 增加 `BoxButton.Click` 重入入口；Esc 分支的 `Focus` 改到按钮上 |
+| P2 | `ShowStartupError` 是 `async void` 且无 `try/catch`，违反 `winui3-hard-rules.md:89`；`ShowAsync` 失败会变成未观测异常直接杀进程 | 整段包 `try/catch`，失败时仍走 `Exit()` |
+| P3 | `AppHost.Dispose` 从未被调用，「应用退出」日志与热键/日志/互斥体释放是死代码 | `ExitApplication` 里调用 `App.Host?.Dispose()` |
+| P3 | 清除按钮 `AutomationId` 写死，同页多个录制框出现重复 ID | 按实例派生为 `{录制框 ID}Clear` |
+
+**验证**（截图同 `artifacts/ui/final-check-2026-10-09.png`）：
+
+- 清除按钮 ID 已唯一：`HotkeyBox_notepadClear` / `HotkeyBox_display_modeClear`
+- 用**真实鼠标点击**（`winapp ui click`，而非 `--target` 聚焦，后者测不到这个 bug）连续两次录入同一个录制框：先 `Ctrl+Shift+F14`、再 `Ctrl+Alt+F13`，两次都写入成功
+- 验证后已把热键清空，恢复「不绑定」

@@ -125,6 +125,8 @@ public sealed partial class MainWindow : Window
     {
         _exiting = true;
         _tray.Dispose();
+        // 显式释放热键、日志与单实例互斥体（AppHost 由 App 字段持有，这里主动收尾）
+        App.Host?.Dispose();
         Application.Current.Exit();
     }
 

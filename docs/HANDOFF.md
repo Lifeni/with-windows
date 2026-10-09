@@ -146,7 +146,7 @@ Stop-Process -Id $p.Id -Force
 4. **不要用 `git checkout -- .` / `git reset`**：会回退未提交的修复。要撤销改动用精确的 `dotnet sln remove` 这类命令，或先提交。
 5. **`dotnet run` 会阻塞**：验证界面一律用 `Start-Process` 非阻塞启动，验证完 `Stop-Process`。
 6. **验证命令不要一律加 `--no-restore`**：它会掩盖还原层的问题。P0/P1 就是这么漏掉了一个真实的 NU1008 缺陷（`Core.Tests` 违反集中包版本管理），直到终审才被发现。
-7. **原生子代理（`spawn_agent`）不可靠**：根因是 `agent_message_board` 特性关闭导致任务消息投递失败。`multi_agent_v2` 已启用（新会话生效）。若仍不可用，**用 `codex exec` 起独立进程替代**，它带 `exec review` 子命令可做独立代码审查。
+7. **原生子代理（`spawn_agent`）不可靠**（2026-10-09 复测仍失败：子代理只拿到仓库上下文，收不到任务正文）。**替代方案见 `docs/agents/development-workflow.md` 第一节之二：每批改动后跑 `codex exec review --base <base-commit>`**，它是独立进程、独立上下文的审查。
 8. **写文件用 `apply_patch`**，不要用 `cat` / heredoc。
 
 ## 八、验证记录在哪
