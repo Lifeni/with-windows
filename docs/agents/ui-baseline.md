@@ -593,3 +593,27 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 | 设置·开机自启 | 100 px（66.7 DIP） | +1.5 px | −0.5 px |
 | 设置·显示窗口 | 100 px | −1 px | −1 px |
 | 设置·关于 | 100 px | 0 px | −1 px |
+
+#### 同日追加（第五轮反馈：删掉格式按钮、托盘点击无反应）
+
+**记事工具条精简**：按用户要求删掉整组 Markdown 格式按钮（标题 / 列表 / 粗体 / 斜体 / 删除线 / 链接 / 清除格式）及其全部处理函数，工具条只剩「左侧秒级时钟 + 右侧查找替换 / 另存为」。这不是纯审美取舍——日志表明这组按钮里有两个必崩项：
+
+```text
+2026-10-09 19:56:14 [ERROR] 未处理异常：System.ArgumentException ... ITextRange.set_Link
+   at WithWindows.Views.NotepadPage.OnClearFormatClick(...) line 297
+2026-10-10 00:21:56 [ERROR] 未处理异常：System.ArgumentException ... ITextRange.set_Link
+   at WithWindows.Views.NotepadPage.OnLinkClick(...) line 270
+2026-10-10 00:23:24（同上，OnLinkClick）
+```
+
+`RichEditBox` 的 `ITextRange.Link` 赋值在空选区（以及部分选区）下抛 `ArgumentException`，异常穿出 `async void` / 按钮回调后走 XAML 收口点 → `0xC000027B` 进程退出。今天三次原生崩溃里有两次是它（另一次 19:29 早于本次改动）。**结论：以后不要在 RichEditBox 上碰 `ITextRange.Link`，除非把异常兜死。**
+
+**「切换模式」改回默认折叠**（用户要求）：`DisplayModesExpander.IsExpanded="False"`；「关于」保持默认展开。
+
+**托盘点击无反应（未结案）**：给 `TrayHost` 加了诊断日志（创建成功/失败、左键、右键菜单、菜单构建异常），日志显示图标对象创建成功（`托盘图标已创建：id=332584`，id 就是主窗口 HWND）。自动化验证受阻，三条路都走不通，**需要人工配合**：
+
+1. Win11 把本应用的图标收进溢出区（`HKCU\Control Panel\NotifyIconSettings` 里 `IsPromoted` 为空），溢出窗口是 XAML 岛：UIA 读不到元素、窗口抓取是空白、`--capture-screen` 又要求目标在前台（该浮出窗口一失焦就自动关闭）。
+2. `Shell_NotifyIconGetRect` 对本进程所有窗口（含 message-only 窗口）都返回 `E_FAIL`——但该 API 对「收在溢出区里、当前不可见」的图标本来就失败，因此**无法用它区分「没注册」和「注册了但没收进托盘」**。
+3. 枚举本进程窗口只看到主窗口、`WithWindows.HotkeyWindow`、WinUI 内部窗口与 IME 窗口（WinUIEx 的托盘窗口是 message-only，`EnumWindows` 看不到）。
+
+**下一步的判断方法**：让应用跑着，右击一次托盘图标，然后看 `%APPDATA%\WithWindows\log.txt`——出现 `托盘：右键菜单` 说明点击已到达应用（问题在菜单弹出），没有任何新行说明点击根本没到应用（图标不是本实例的，或注册失败）。

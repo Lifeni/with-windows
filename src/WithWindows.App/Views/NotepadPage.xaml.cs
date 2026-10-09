@@ -19,8 +19,8 @@ using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 namespace WithWindows.Views;
 
 /// <summary>
-/// 记事页：顶部工具条（保存 / 复制 / 粘贴 / 自动换行 / 缩放）+ 占满整页的编辑器 + 底部状态栏（行列 / 字符数 / 缩放）。
-/// 纯文本、不做格式化。草稿仍按防抖自动写盘，复制粘贴一律手动——**关闭程序不自动复制到剪贴板**。
+/// 记事页：顶部工具条（查找替换 / 另存为 + 秒级时钟）+ 占满整页的编辑器 + 底部状态栏（行列 / 字符数 / 自动换行 / 缩放）。
+/// 不做格式化按钮组（加粗 / 斜体等用编辑器原生快捷键）。草稿按防抖自动写盘，复制粘贴一律手动——**关闭程序不自动复制到剪贴板**。
 /// 字号持久化在 <see cref="WindowStateConfig.NotepadFontSize"/>。
 /// </summary>
 public sealed partial class NotepadPage : Page
@@ -194,113 +194,6 @@ public sealed partial class NotepadPage : Page
         int lastBreak = before.LastIndexOf('\r');
         int column = start - lastBreak;
         StatusCaret.Text = $"行 {line}，列 {column}";
-    }
-
-    // ---- Markdown 格式（作用于当前选区；无选区时作用于随后输入的内容）----
-
-    private void OnBoldClick(object sender, RoutedEventArgs e)
-        => Editor.Document.Selection.CharacterFormat.Bold = FormatEffect.Toggle;
-
-    private void OnItalicClick(object sender, RoutedEventArgs e)
-        => Editor.Document.Selection.CharacterFormat.Italic = FormatEffect.Toggle;
-
-    private void OnStrikethroughClick(object sender, RoutedEventArgs e)
-        => Editor.Document.Selection.CharacterFormat.Strikethrough = FormatEffect.Toggle;
-
-    private void OnHeadingBodyClick(object sender, RoutedEventArgs e) => ApplyHeading(DefaultFontSize, bold: false);
-
-    private void OnHeading1Click(object sender, RoutedEventArgs e) => ApplyHeading(28, bold: true);
-
-    private void OnHeading2Click(object sender, RoutedEventArgs e) => ApplyHeading(24, bold: true);
-
-    private void OnHeading3Click(object sender, RoutedEventArgs e) => ApplyHeading(20, bold: true);
-
-    /// <summary>标题：设置段落的字号与粗细（RichEditBox 无内置标题样式，用字号 + 粗体表达）。</summary>
-    private void ApplyHeading(double size, bool bold)
-    {
-        ITextCharacterFormat format = Editor.Document.Selection.CharacterFormat;
-        format.Size = (float)size;
-        format.Bold = bold ? FormatEffect.On : FormatEffect.Off;
-    }
-
-    private void OnListNoneClick(object sender, RoutedEventArgs e) => ApplyList(MarkerType.None);
-
-    private void OnListBulletedClick(object sender, RoutedEventArgs e) => ApplyList(MarkerType.Bullet);
-
-    private void OnListNumberedClick(object sender, RoutedEventArgs e) => ApplyList(MarkerType.Arabic);
-
-    private void ApplyList(MarkerType markerType)
-    {
-        ITextParagraphFormat format = Editor.Document.Selection.ParagraphFormat;
-        format.ListType = markerType;
-        Editor.Document.Selection.ParagraphFormat = format;
-    }
-
-    /// <summary>插入链接：给选区设置链接地址；未选中内容时先提示（RichEditBox 需要选中文本才能加链接）。</summary>
-    private async void OnLinkClick(object sender, RoutedEventArgs e)
-    {
-        Editor.Document.Selection.GetText(TextGetOptions.None, out string selected);
-        if (string.IsNullOrEmpty(selected.TrimEnd('\r')))
-        {
-            StatusCount.Text = "请先选中要加链接的文字";
-            return;
-        }
-
-        var urlBox = new TextBox { Header = "链接地址", PlaceholderText = "https://" };
-        AutomationProperties.SetAutomationId(urlBox, "LinkUrlBox");
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "插入链接",
-            Content = urlBox,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-            return;
-
-        string url = urlBox.Text.Trim();
-        if (url.Length == 0)
-            return;
-
-        var selection = Editor.Document.Selection;
-        selection.Link = url;
-    }
-
-    /// <summary>清除格式：把选区的字符格式与段落格式恢复默认。</summary>
-    private void OnClearFormatClick(object sender, RoutedEventArgs e)
-    {
-        var selection = Editor.Document.Selection;
-
-        ITextCharacterFormat character = selection.CharacterFormat;
-        character.Bold = FormatEffect.Off;
-        character.Italic = FormatEffect.Off;
-        character.Strikethrough = FormatEffect.Off;
-        character.Underline = UnderlineType.None;
-        character.Size = (float)DefaultFontSize;
-        selection.CharacterFormat = character;
-
-        ITextParagraphFormat paragraph = selection.ParagraphFormat;
-        paragraph.ListType = MarkerType.None;
-        selection.ParagraphFormat = paragraph;
-
-        // 空选区（只有插入点）时给 ITextRange.Link 赋值会抛 ArgumentException——19:56 的
-        // 未处理异常日志里就是这一句把应用带崩的。既判空又兜底：清除格式是尽力而为的操作，
-        // 不该因为链接段处理失败而杀掉进程。
-        if (selection.StartPosition == selection.EndPosition)
-            return;
-
-        try
-        {
-            selection.Link = "";
-        }
-        catch (Exception ex)
-        {
-            App.Host?.Log.Error($"清除链接失败：{ex.Message}");
-        }
     }
 
     private void OnFindAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)

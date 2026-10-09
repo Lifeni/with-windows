@@ -60,7 +60,7 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
-                    IsExpanded="True">
+                    IsExpanded="False">
                     <Expander.Header>
                         <!--
                             与上方卡片行同构：图标 + 标题（+ 说明）。水平内边距必须给 0——
