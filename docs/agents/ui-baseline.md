@@ -109,3 +109,15 @@ Window > Pane > Pane > Custom > Window > Pane > Group
 - 默认页：`NotepadPlaceholder Text "记事本"`
 - `invoke NavItemHotkeys`（经 `SelectionItemPattern`）后：`HotkeysPlaceholder Text "快捷键"` 出现
 - 目视：左栏三项与设置置底正常，内容区无错乱，Mica 背景生效
+
+### 2026-10-09 生命周期服务组装（提交 `feat(宿主): 组装单实例、配置、日志与热键`）
+
+**改动**：`AppHost` 接管单实例、日志（`%APPDATA%\WithWindows\log.txt`）、配置（v1）与热键注册；`App` 用实例字段持有宿主。窗口与导航外观未变。
+
+**启动自检**（截图：`artifacts/ui/shell-apphost-2026-10-09.png`）：
+
+- `--smoke`：退出码 0，日志写入 `冒烟：notepad 未绑定热键` / `display_mode 未绑定热键` / `冒烟完成：配置 2 个工具，成功注册 0 个热键`（未预置默认热键，符合预期）
+- 正常启动：窗口 `"With Windows" (1920x997, foreground)` 出现，日志写入 `应用已启动`
+- 第二个实例：立即退出（退出码 0），首个实例继续存活——单实例守卫生效
+- 首次启动时 `%APPDATA%\WithWindows\config.json` 由旧 v3 重建为 v1（`tools[].hotkey` 全为 `null`），旧内容留在 `config.json.bak`
+- 界面：`NavItemNotepad` / `NavItemHotkeys` / `SettingsItem` 与默认页 `NotepadPlaceholder` 均正常
