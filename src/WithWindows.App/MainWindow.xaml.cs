@@ -4,6 +4,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using WithWindows.Services;
 using WithWindows.Tools;
 using WithWindows.Views;
 
@@ -13,6 +14,12 @@ public sealed partial class MainWindow : Window
 {
     /// <summary>导航项 Tag → 页面类型；由工具目录生成，不手写。</summary>
     private readonly Dictionary<string, Type> _routes = new(StringComparer.Ordinal);
+
+    // 托盘图标必须由字段持有，否则被 GC 回收后图标消失且无任何报错
+    private readonly TrayHost _tray;
+
+    /// <summary>true 表示正在真正退出（区分「关闭窗口 = 隐藏到托盘」）。</summary>
+    private bool _exiting;
 
     public MainWindow()
     {
@@ -26,6 +33,11 @@ public sealed partial class MainWindow : Window
 
         BuildNavigation();
         NavView.SelectedItem = NavView.MenuItems[0];
+
+        // 关闭（X 或热键）= 隐藏到托盘，不销毁窗口。
+        // Window.Closed 在 WinUI 3 里不可取消，必须用 AppWindow.Closing（AppWindowClosingEventArgs.Cancel）。
+        AppWindow.Closing += OnAppWindowClosing;
+        _tray = new TrayHost(this);
     }
 
     /// <summary>按工具目录生成左栏导航项；新增有页面的工具不需要改这里。</summary>
@@ -78,8 +90,7 @@ public sealed partial class MainWindow : Window
     /// <summary>显示主窗口并切到指定页面；托盘与热键共用（关闭窗口只是隐藏，需要重新显示）。</summary>
     public void ShowAndNavigate(string routeTag)
     {
-        AppWindow.Show();
-        Activate();
+        ShowWindow();
 
         NavigationViewItem? target = null;
         foreach (object menuItem in NavView.MenuItems)
@@ -91,10 +102,38 @@ public sealed partial class MainWindow : Window
             }
         }
 
+        // 设置页挂在 NavigationView 的特殊设置项上，不在 MenuItems 里
+        if (target is null && routeTag == SettingsPage.RouteTag && NavView.SettingsItem is NavigationViewItem settingsItem)
+            target = settingsItem;
+
         // 切换选中项会触发 SelectionChanged → Navigate；已是当前选中项时事件不触发，直接切页
         if (target is not null && !ReferenceEquals(NavView.SelectedItem, target))
             NavView.SelectedItem = target;
         else
             Navigate(routeTag);
+    }
+
+    /// <summary>仅显示并激活窗口，不改变当前页面。</summary>
+    public void ShowWindow()
+    {
+        AppWindow.Show();
+        Activate();
+    }
+
+    /// <summary>真正退出应用；绕过「关闭 = 隐藏」的拦截。</summary>
+    public void ExitApplication()
+    {
+        _exiting = true;
+        _tray.Dispose();
+        Application.Current.Exit();
+    }
+
+    private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (_exiting)
+            return;
+
+        args.Cancel = true;
+        AppWindow.Hide();
     }
 }
