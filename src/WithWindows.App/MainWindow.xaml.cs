@@ -46,7 +46,6 @@ public sealed partial class MainWindow : Window
             App.Host?.Log.Error($"托盘图标不可用：{_tray.FailureReason}");
 
         _windowState = new WindowStateStore(this, App.Host?.Config ?? new WithWindows.Core.Config.AppConfig(), () => App.Host?.SaveConfig());
-        _windowState.ApplyMinimumSize();
         AppWindow.Changed += OnAppWindowChanged;
 
         // 必须先激活再恢复：XamlRoot 要等窗口有内容后才可用，缩放率拿不到就会按 100% 误算尺寸

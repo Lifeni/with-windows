@@ -128,7 +128,7 @@ with-windows/
 ├── CHANGELOG.md            # 更新日志（Release 正文来源）
 ├── LICENSE                 # MIT 开源协议
 ├── WithWindows.sln         # 解决方案文件
-├── .github/workflows/      # ci.yml（PR 构建 + 测试 + 发布链路校验）、release.yml（出安装器与便携 exe）
+├── .github/workflows/      # ci.yml（PR 构建 + 测试 + 发布链路校验）、release.yml（出安装器与便携 zip）
 ├── config/                 # 配置示例（运行时配置在 %APPDATA%\WithWindows）
 ├── docs/                   # 素材与文档（agents 分册、设计文档、实现计划、界面基线）
 ├── installer/              # Inno Setup 脚本与说明
@@ -143,7 +143,7 @@ with-windows/
 发布由**版本号驱动**，不需要手动打 tag：
 
 1. 改 `src/WithWindows.App/WithWindows.App.csproj` 的 `<Version>`，并在 `CHANGELOG.md` 顶部加同版本号的 `## [vX.Y.Z] - 日期` 章节
-2. push 到 `main`：工作流发现该版本还没有对应的 `vX.Y.Z` tag，就自动跑测试 → 发布自包含单文件 → 编译安装器 → 产出安装器、便携 exe 与 `SHA256SUMS.txt` → 打 tag 并创建 Release
+2. push 到 `main`：工作流发现该版本还没有对应的 `vX.Y.Z` tag，就自动跑测试 → 发布自包含单文件 → 编译安装器 → 产出安装器、便携 zip 与 `SHA256SUMS.txt` → 打 tag 并创建 Release
 3. 版本号未变（tag 已存在）时只跑测试，不重复构建与发布；PR 由 `ci.yml` 负责构建 + 测试 + 单文件/安装器校验（两者触发条件不重叠）
 
 发布中途失败时，可在 Actions 里手动 Run workflow 并勾选 `force` 重新发布当前版本。

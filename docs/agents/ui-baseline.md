@@ -313,7 +313,7 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 
 | 级别 | 问题 | 处置 |
 |---|---|---|
-| P1 | 便携版只上传裸 exe，`Assets/` 不进 Release → 该下载途径丢托盘与窗口图标（托盘是唤回窗口/退出的唯一入口） | ① 便携版改为打包成 `WithWindows-<tag>-x64-portable.zip`（含 `Assets/`）；② csproj 加 `ApplicationIcon`，把图标嵌进 exe；③ 新增 `AppIcon.Resolve()`：`Assets` 缺失时退回 exe 自身图标，托盘与窗口图标都不再依赖外部文件是否存在 |
+| P1 | 便携版只上传裸 exe，`Assets/` 不进 Release → 该下载途径丢托盘与窗口图标（托盘是唤回窗口/退出的唯一入口） | ① 便携版改为打包成 `WithWindows-<tag>-x64-portable.zip`（含 `Assets/`）；② csproj 加 `ApplicationIcon`（资源管理器里显示图标）。**注意：没有运行期图标兜底**——`TrayIcon` 只接受 `.ico`/`.svg`，所以 `Assets` 必须随包分发，缺文件时按下方第 2 条处理 |
 | P3 | `installer/README` 把 Assets 分发错误归因于 `CopyToPublishDirectory` | 已改述为「`CopyToPublishDirectory` 单独无效，真正生效的是 `CopyAssetsToPublish` 目标」 |
 | P3 | `HANDOFF` 仍写「P5 计划还没写」 | 已改为指向 P5 计划文件 |
 

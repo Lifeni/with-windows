@@ -93,6 +93,10 @@ public sealed class WindowStateStore : IDisposable
         {
             _restoring = false;
         }
+
+        // 最小尺寸必须在窗口落到最终位置之后再设：PreferredMinimum* 也是物理像素，
+        // 用移动前那块显示器的 DPI 换算会在混合缩放的多屏上限制错（±50%）
+        ApplyMinimumSize();
     }
 
     /// <summary>配置里的 DIP 尺寸 + 最小尺寸约束 → 当前显示器上的物理像素尺寸。</summary>
@@ -110,6 +114,8 @@ public sealed class WindowStateStore : IDisposable
         if (_restoring)
             return;
 
+        // 移到缩放率不同的显示器后，最小尺寸需要按新 DPI 重算
+        ApplyMinimumSize();
         _debounce.Stop();
         _debounce.Start();
     }
