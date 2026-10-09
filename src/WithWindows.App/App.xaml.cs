@@ -93,9 +93,21 @@ public partial class App : Application
         _smokeLog = Logger.Open(AppPaths.DataRoot);
         Logger log = _smokeLog;
         var store = new ConfigStore(AppPaths.ConfigPath);
-        store.EnsureExists(log.Info);
 
-        AppConfig config = store.Load();
+        AppConfig config;
+        try
+        {
+            store.EnsureExists(log.Info);
+            config = store.Load();
+        }
+        catch (Exception ex)
+        {
+            // 冒烟路径同样要兜住配置损坏，否则会以未处理异常退出、连日志都没有
+            log.Error($"冒烟：配置加载失败——{ex.Message}");
+            Current.Exit();
+            return;
+        }
+
         _smokeHotkeys = new HotkeyManager();
         HotkeyManager hotkeys = _smokeHotkeys;
 

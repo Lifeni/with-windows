@@ -83,29 +83,33 @@ public sealed partial class SettingsPage : Page
             return;
 
         AppConfig config = Host.Config;
+        var desired = new List<string>(config.DisplayMode.Modes);
+
         if (isChecked)
         {
-            if (!config.DisplayMode.Modes.Contains(mode, StringComparer.Ordinal))
-                config.DisplayMode.Modes.Add(mode);
+            if (!desired.Contains(mode, StringComparer.Ordinal))
+                desired.Add(mode);
         }
         else
         {
-            // 至少保留一项：取消最后一项时回弹
-            if (config.DisplayMode.Modes.Count <= 1)
-            {
-                _initializing = true;
-                source.IsChecked = true;
-                _initializing = false;
-                return;
-            }
-
-            config.DisplayMode.Modes.RemoveAll(m => string.Equals(m, mode, StringComparison.Ordinal));
+            desired.RemoveAll(m => string.Equals(m, mode, StringComparison.Ordinal));
         }
 
-        // 统一按固定顺序排列，保证切换循环顺序稳定
+        // 至少保留一项：会清空时回弹复选框，且不改动配置
+        if (desired.Count == 0)
+        {
+            _initializing = true;
+            source.IsChecked = true;
+            _initializing = false;
+            return;
+        }
+
+        // 已知项按固定顺序排列（保证切换循环顺序稳定）；不在已知列表里的取值原样保留，
+        // 否则手工编辑过的 config.json 或大小写不同的旧值会被静默丢弃。
         config.DisplayMode.Modes = KnownModes
             .Select(m => m.Mode)
-            .Where(config.DisplayMode.Modes.Contains)
+            .Where(m => desired.Contains(m, StringComparer.Ordinal))
+            .Concat(desired.Where(m => !KnownModes.Any(k => string.Equals(k.Mode, m, StringComparison.Ordinal))))
             .ToList();
 
         Host.SaveConfig();

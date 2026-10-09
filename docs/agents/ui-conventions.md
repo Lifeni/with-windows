@@ -3,7 +3,7 @@
 ## 一、壳层结构
 
 - `MainWindow` 用 `NavigationView` + `Frame` 组成导航壳：左栏是工具列表，底部固定「设置」。
-- 内容路由由 `NavigationViewItem.Tag` 驱动，映射表在 `MainWindow` 里维护一份（`Routes` 字典）。新增工具页只需登记一处。
+- 内容路由由 `NavigationViewItem.Tag` 驱动，映射表**由工具目录生成**：`ToolCatalog.Tools` 里 `ShowInNav` 的项进左栏，`MainWindow.BuildNavigation` 据此建 `_routes`。新增有页面的工具 = 在 `ToolCatalog` 加一条 + 写一个页面，**不要改 `MainWindow`**。
 - 标题栏用 WinUI 3 的 `TitleBar` 控件，左栏折叠按钮交给它，不要自己画一个标题栏。
 - 窗口背景用 `MicaBackdrop`（`Window.SystemBackdrop`）。
 - 关闭主窗口 = 隐藏到托盘，不销毁窗口；因此不要依赖 `Closed` 事件做清理。
