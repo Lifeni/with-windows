@@ -225,13 +225,12 @@ public sealed partial class NotepadPage : Page
             return;
 
         Editor.TextWrapping = WrapToggle.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
+
+        // 纯文字样式：用颜色而不是填充表示开关状态
+        WrapToggle.Foreground = WrapToggle.IsChecked == true
+            ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"]
+            : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
     }
-
-    private void OnZoomOutClick(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize - 1, persist: true);
-
-    private void OnZoomInClick(object sender, RoutedEventArgs e) => ApplyFontSize(Editor.FontSize + 1, persist: true);
-
-    private void OnZoomResetClick(object sender, RoutedEventArgs e) => ApplyFontSize(DefaultFontSize, persist: true);
 
     private string ReadAllText()
     {

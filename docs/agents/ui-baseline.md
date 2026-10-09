@@ -382,6 +382,28 @@ Failed to assign to property 'Microsoft.UI.Xaml.Controls.Primitives.ToggleButton
 
 **修法**：事件处理器里对后定义的元素做空值保护（`if (Editor is null) return;`）。教训已补进 `known-pitfalls.md`。
 
+### 2026-10-09 记事页第二轮微调（按用户反馈）
+
+**改动**（提交 `fix(记事页): 工具栏收窄并调整状态栏`）：
+
+1. **编辑器去掉边框与聚焦高亮**：模板的 `BorderElement` 在 `Focused` 状态会切到 `TextControlBorderBrushFocused` / `TextControlBorderThemeThicknessFocused`，因此在本页 `Page.Resources` 里把这组键（含 `PointerOver`）覆盖为透明 / 0，并关掉系统焦点虚线（`UseSystemFocusVisuals="False"`）。
+2. **工具条按钮只留图标并收窄**：`CommandBar` 的命令容器有 68 DIP 固定最小宽度，`MinWidth` 压不下去（实测仍 102 物理像素），因此**改用自绘工具条**（`Grid` + 36×32 的透明 `Button` + `FontIcon`）。实测按钮宽度 54 物理像素 = 36 DIP。
+3. **去掉缩小 / 放大 / 重置缩放三个按钮**（缩放改为只保留 `Ctrl+滚轮`，状态栏仍显示比例）。
+4. **自动换行移到状态栏并改纯文字样式**：换成 `ToggleButton`（透明背景 / 无边框），并覆盖 `ToggleButtonBackground*Checked` 等键去掉勾选态实心填充，用**文字颜色**表示开关。
+5. **时钟字体加大并在工具条垂直居中**：`FontSize=18`、`FontWeight=SemiBold`、`VerticalAlignment=Center`，放在工具条左侧。
+
+实测（截图 `artifacts/ui/notepad-final-2026-10-09.png`）：
+
+```text
+NotepadSave Button "保存" (1485,125 54x48)
+NotepadCopy Button "复制" (1542,125 53x48)
+NotepadPaste Button "粘贴" (1598,125 54x48)
+NotepadWrap Button "自动换行" [on] (372,1068 95x30)   ← 状态栏内
+NotepadClock Text "15:52:23"（每秒刷新）
+```
+
+**注**：用户反馈「注入输入丢字符」的真因是**中文输入法**（见 `known-pitfalls.md` 已更正），不是应用缺陷。
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。
