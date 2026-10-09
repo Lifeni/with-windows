@@ -67,6 +67,9 @@ docs/superpowers/             设计文档与实现计划
 
 Conventional Commits，中文描述，祈使句，一次提交只做一件事：
 
+> 换行符：仓库规定 `*.cs` / `*.xaml` / `*.csproj` / `*.props` / `*.md` 用 CRLF，但 AI 写文件默认输出 LF，
+> 于是 `git add` 会反复提示「LF will be replaced by CRLF」。跑 `powershell -ExecutionPolicy Bypass -File scripts/normalize-eol.ps1` 对齐即可（索引里始终是 LF，不影响 diff）。
+
 `feat` 新功能 / `fix` 修复 / `docs` 文档 / `refactor` 重构 / `perf` 性能 / `test` 测试 / `chore` 杂务 / `ci` CI
 
 示例：`feat(记事本): 支持字体缩放`、`fix(设置): DisplayArea 校验失败不阻塞窗口打开`
