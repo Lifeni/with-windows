@@ -303,7 +303,7 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 1. 配置里的宽高语义改为 **DIP**（与 WinUI 一致），应用前按窗口 DPI 换算成物理像素——同一份配置在不同缩放的屏幕上视觉大小一致；
 2. 缩放率用 **CsWin32 的 `GetDpiForWindow`** 取（新增 `Core.Interop.DisplayScale`），**不要用 `XamlRoot.RasterizationScale`**：窗口首次激活、内容尚未完成布局时它返回 1.0，会按 100% 误算；
 3. 恢复尺寸改到首个 `Activated` 之后执行；
-4. 默认窗口改为 **1100×720 DIP**（> `ExpandedModeThresholdWidth` 的 1008），首启即展开左栏。
+4. 默认窗口改为 **1100×720 DIP**（当时的理由是让左栏展开；后来改成紧凑图标栏后，这个尺寸按「内容区不局促」保留）。
 
 实测（本机 150% 缩放）：窗口 1650×1080 物理 = 1100×720 DIP，导航项宽 467（展开态，含文字），`config.windowState` 落盘 `1100×720`。
 

@@ -46,7 +46,7 @@ public sealed class DisplayModeConfig
 /// <summary>窗口状态记忆（尺寸/位置/字号）。位置 null = 尚未保存，(0, 0) 是合法坐标。</summary>
 public sealed class WindowStateConfig
 {
-    // 默认宽度需不小于 NavigationView 的 ExpandedModeThresholdWidth（1008），否则首启左栏只显示汉堡按钮
+    // 左栏默认是紧凑图标栏（约 60 DIP），1100 DIP 是「内容区不局促」与「小屏也能放得下」的取舍
     public double Width { get; set; } = 1100;
     public double Height { get; set; } = 720;
     public double? X { get; set; }

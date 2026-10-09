@@ -92,11 +92,10 @@ public sealed class WindowStateStore : IDisposable
         finally
         {
             _restoring = false;
+            // 放在 finally 里：无论走「按保存位置恢复」「超屏回主屏」「仅恢复尺寸」哪条分支，
+            // 都要在窗口落位后按目标显示器的 DPI 换算最小尺寸（三个分支都有 return）
+            ApplyMinimumSize();
         }
-
-        // 最小尺寸必须在窗口落到最终位置之后再设：PreferredMinimum* 也是物理像素，
-        // 用移动前那块显示器的 DPI 换算会在混合缩放的多屏上限制错（±50%）
-        ApplyMinimumSize();
     }
 
     /// <summary>配置里的 DIP 尺寸 + 最小尺寸约束 → 当前显示器上的物理像素尺寸。</summary>
