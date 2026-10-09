@@ -5,7 +5,6 @@ using System.Reflection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WithWindows.Core.App;
-using WithWindows.Core.Diagnostics;
 using WithWindows.Services;
 
 namespace WithWindows.Views;
@@ -40,10 +39,6 @@ public sealed partial class SettingsPage : Page
             VersionText.Text = $"With Windows {CurrentVersion()}";
             BuildDateText.Text = BuildDate();
             AboutSummaryText.Text = $"With Windows {CurrentVersion()} · 构建于 {BuildDate()}";
-
-            // 未打包应用里 ms-appx:/// 解析不可靠（实测渲染成花屏），直接用绝对路径加载
-            if (AppIcon.PngExists)
-                AboutIconImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(AppIcon.PreferredPng));
         }
         finally
         {
@@ -72,10 +67,6 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    private void OnOpenConfigFolderClick(object sender, RoutedEventArgs e) => OpenPath(AppPaths.DataRoot);
-
-    private void OnOpenLogFileClick(object sender, RoutedEventArgs e) => OpenPath(AppPaths.LogPath, select: true);
-
     private void OnOpenRepositoryClick(object sender, RoutedEventArgs e)
         => OpenUrl("https://github.com/Lifeni/with-windows");
 
@@ -89,20 +80,6 @@ public sealed partial class SettingsPage : Page
         catch (Exception ex)
         {
             Host?.Log.Error($"打开链接失败（{url}）：{ex.Message}");
-        }
-    }
-
-    /// <summary>用资源管理器打开目录（或选中文件）。失败只记日志，不打断界面。</summary>
-    private static void OpenPath(string path, bool select = false)
-    {
-        try
-        {
-            string arguments = select ? $"/select,\"{path}\"" : $"\"{path}\"";
-            Process.Start(new ProcessStartInfo("explorer.exe", arguments) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            Host?.Log.Error($"打开路径失败（{path}）：{ex.Message}");
         }
     }
 

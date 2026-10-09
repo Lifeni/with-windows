@@ -64,14 +64,25 @@
                     CornerRadius="6"
                     IsExpanded="False">
                     <Expander.Header>
-                        <!-- 高度与上方卡片行一致（同样的 16,12 内边距） -->
-                        <Grid Padding="16,12" ColumnSpacing="16">
+                        <!--
+                            与上方卡片行同构：图标 + 标题（+ 说明）。水平内边距必须给 0——
+                            展开组件的头部本身会先留 16 DIP，再叠一层 16 就会比卡片行的图标右移一格。
+                        -->
+                        <Grid Padding="0,12" ColumnSpacing="16">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <StackPanel Grid.Column="0" Spacing="2">
+                            <!-- E7F9 = DeviceMonitorRightPic，与左栏「投影」项同一个字形 -->
+                            <FontIcon
+                                Grid.Column="0"
+                                FontSize="20"
+                                Glyph="&#xE7F9;"
+                                VerticalAlignment="Center" />
+
+                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                                 <TextBlock
                                     AutomationProperties.AutomationId="DisplayModesTitle"
                                     Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -87,10 +98,10 @@
                     </Expander.Header>
 
                     <!--
-                        模式选项比标题多缩进一段：展开组件的内容区左边缘比标题靠左 16 DIP，
-                        这里给 32 才能让复选项稳定地落在标题右侧（16 DIP 的层级感）。
+                        子选项与标题文字左对齐（展开组件的内容区左边缘即卡片左边缘，
+                        标题在图标之后 = 52 DIP），这样看起来是「切换模式」下的一层子项。
                     -->
-                    <StackPanel x:Name="ModesHost" Margin="32,4,16,12" Spacing="2" />
+                    <StackPanel x:Name="ModesHost" Margin="52,4,16,12" Spacing="2" />
                 </Expander>
             </StackPanel>
         </StackPanel>

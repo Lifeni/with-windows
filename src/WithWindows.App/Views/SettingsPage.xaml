@@ -65,19 +65,27 @@
                 CornerRadius="6"
                 IsExpanded="False">
                 <Expander.Header>
-                    <Grid Padding="16,12" ColumnSpacing="16">
+                    <!--
+                        水平内边距必须给 0：展开组件的头部本身会先留 16 DIP，再叠一层 16
+                        就比上面卡片行的图标整整右移一格（实测卡片图标 x=139、关于图标 x=170）。
+                    -->
+                    <Grid Padding="0,12" ColumnSpacing="16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <Image
-                            x:Name="AboutIconImage"
+                        <!--
+                            用字体图标而不是应用图标 PNG：PNG 是 256 的方图，中间的闪电只占一小块，
+                            20 DIP 显示时实际墨迹只有约 9×16 DIP，和别的图标摆一起又小又偏；
+                            E945 就是同一枚闪电的字体字形，尺寸与位置与其它图标完全一致。
+                        -->
+                        <FontIcon
                             Grid.Column="0"
-                            Width="20"
-                            Height="20"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="AboutIcon" />
+                            AutomationProperties.AutomationId="AboutIcon"
+                            FontSize="20"
+                            Glyph="&#xE945;"
+                            VerticalAlignment="Center" />
 
                         <StackPanel Grid.Column="1" Spacing="2">
                             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="关于" />

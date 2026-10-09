@@ -20,16 +20,13 @@ public sealed partial class DisplayPage : Page
     /// <summary>导航项 Tag 常量，供 MainWindow 路由表引用。</summary>
     public static string RouteTag => "display";
 
-    /// <summary>
-    /// 候选模式的固定顺序、显示名与图标；顺序即循环顺序。
-    /// 字形取自 WinUI Gallery 图标表：笔记本 / 双屏拼接 / 电视（外接屏）/ 双屏镜像。
-    /// </summary>
-    private static readonly (string Mode, string Title, string Glyph)[] KnownModes =
+    /// <summary>候选模式的固定顺序与显示名；顺序即循环顺序。</summary>
+    private static readonly (string Mode, string Title)[] KnownModes =
     {
-        ("internal", "仅当前屏幕", "\uE7F7"),
-        ("extend", "扩展模式", "\uE7F9"),
-        ("external", "仅外接屏幕", "\uE7F4"),
-        ("clone", "复制模式", "\uE7FA"),
+        ("internal", "仅当前屏幕"),
+        ("extend", "扩展模式"),
+        ("external", "仅外接屏幕"),
+        ("clone", "复制模式"),
     };
 
     private bool _initializing;
@@ -78,7 +75,7 @@ public sealed partial class DisplayPage : Page
     {
         AppConfig config = Host!.Config;
 
-        foreach ((string mode, string title, string glyph) in KnownModes)
+        foreach ((string mode, string title) in KnownModes)
         {
             var checkBox = new CheckBox
             {
@@ -87,7 +84,7 @@ public sealed partial class DisplayPage : Page
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 MinHeight = 36,
                 Margin = new Thickness(0, 2, 0, 2),
-                Content = BuildModeLabel(glyph, title),
+                Content = title,
             };
             AutomationProperties.SetAutomationId(checkBox, $"ModeCheckBox_{mode}");
             AutomationProperties.SetName(checkBox, title);
@@ -97,24 +94,6 @@ public sealed partial class DisplayPage : Page
             checkBox.Unchecked += (_, _) => OnModeToggled(capturedMode, isChecked: false, checkBox);
             ModesHost.Children.Add(checkBox);
         }
-    }
-
-    /// <summary>多选框内容：图标 + 名称（模式选项不需要说明文字）。</summary>
-    private static StackPanel BuildModeLabel(string glyph, string title)
-    {
-        var icon = new FontIcon
-        {
-            Glyph = glyph,
-            FontSize = 20,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        var text = new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center };
-
-        var label = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-        label.Children.Add(icon);
-        label.Children.Add(text);
-        return label;
     }
 
     private void OnEnabledToggled(object sender, RoutedEventArgs e)

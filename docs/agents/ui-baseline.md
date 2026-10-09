@@ -541,3 +541,19 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 | 工具条 | `NotepadFind`、`NotepadSave` 贴右边缘；`NotepadCopy` / `NotepadPaste` 已删除 |
 | 投影模式 | `ModeCheckBox_*` x=601、`DisplayModesTitle` x=577（净缩进 16 DIP），无说明文字 |
 | 关于图标 | 20×20，与「开机自启」「显示窗口」行图标同尺寸 |
+
+#### 同日追加（用户第二轮反馈）
+
+**投影页「切换模式」标题行加图标**：原先只有标题 + 当前模式，与上面的卡片行不同构；现在改成 `图标 + 标题/当前模式`（字形 `E7F9`，与左栏「投影」项同一个），展开后的**子选项不再带图标**（上一轮加的图标按用户反馈撤掉），只留模式名。
+
+**「关于」改用字体图标**：上一轮把 `Image` 从 32 改到 20 只是「凑尺寸」——应用图标 PNG 是 256 的方图、中间闪电只占一小块，20 DIP 显示时实际墨迹只有约 9×16 DIP，而且 `Stretch` 默认 `Uniform` 居中，看起来又小又偏。改为 `FontIcon` + `E945`（LightningBolt，就是画那枚 PNG 用的同一枚闪电）后尺寸与位置和其它卡片图标完全一致。顺带删掉 `AboutIconImage` 的加载代码与已成死代码的 `OpenPath` / `OnOpenConfigFolderClick` / `OnOpenLogFileClick`。
+
+**又踩一次的坑**：展开组件的头部（`Expander.Header` 里的 Grid）与内容区**都已经**被展开组件自身内缩了 16 DIP，所以给头部 Grid 再写 `Padding="16,12"` 会让图标比上面的卡片行图标右移整整一格（实测卡片图标 x=139、关于图标 x=170）。两处头部都改成 `Padding="0,12"`。
+
+**实测**（截图 `artifacts/ui/check-display-icon.png`、`check-settings-icon.png`，图标墨迹以亮度阈值测量）：
+
+| 检查 | 结果 |
+|---|---|
+| 设置页图标列 | 开机自启 x=139..166、显示窗口 x=138..167、关于 x=141..163（同行卡片图标同列同尺寸） |
+| 投影页图标列 | 启用投影 x=139..166、切换模式 x=138..167、投影快捷键 x=138..167 |
+| 子选项缩进 | `ModeCheckBox_*` x=216、标题 `DisplayModesTitle` x=192（净缩进 16 DIP），子选项无图标 |
