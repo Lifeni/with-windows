@@ -18,6 +18,9 @@ public sealed partial class MainWindow : Window
     // 托盘图标必须由字段持有，否则被 GC 回收后图标消失且无任何报错
     private readonly TrayHost _tray;
 
+    // 窗口尺寸/位置记忆；由字段持有到窗口销毁
+    private readonly WindowStateStore _windowState;
+
     /// <summary>true 表示正在真正退出（区分「关闭窗口 = 隐藏到托盘」）。</summary>
     private bool _exiting;
 
@@ -38,6 +41,17 @@ public sealed partial class MainWindow : Window
         // Window.Closed 在 WinUI 3 里不可取消，必须用 AppWindow.Closing（AppWindowClosingEventArgs.Cancel）。
         AppWindow.Closing += OnAppWindowClosing;
         _tray = new TrayHost(this);
+
+        _windowState = new WindowStateStore(this, App.Host?.Config ?? new WithWindows.Core.Config.AppConfig(), () => App.Host?.SaveConfig());
+        _windowState.ApplyMinimumSize();
+        _windowState.Restore();
+        AppWindow.Changed += OnAppWindowChanged;
+    }
+
+    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (args.DidSizeChange || args.DidPositionChange)
+            _windowState.OnWindowChanged();
     }
 
     /// <summary>按工具目录生成左栏导航项；新增有页面的工具不需要改这里。</summary>
@@ -124,6 +138,7 @@ public sealed partial class MainWindow : Window
     public void ExitApplication()
     {
         _exiting = true;
+        _windowState.Dispose();
         _tray.Dispose();
         // 显式释放热键、日志与单实例互斥体（AppHost 由 App 字段持有，这里主动收尾）
         App.Host?.Dispose();
