@@ -220,6 +220,7 @@ public sealed partial class NotepadPage : Page
     /// <summary>显示查找面板；展开替换时把焦点直接放到替换框。</summary>
     private void ShowFindPanel(bool expandReplace)
     {
+        Breadcrumb(expandReplace ? "打开面板（展开替换）" : "打开面板");
         FindPanel.Visibility = Visibility.Visible;
         SetReplaceRowExpanded(expandReplace);
 
@@ -231,7 +232,11 @@ public sealed partial class NotepadPage : Page
 
     /// <summary>左侧箭头：展开 / 收起替换行（对齐系统记事本：默认只有查找行）。</summary>
     private void OnFindExpandClick(object sender, RoutedEventArgs e)
-        => SetReplaceRowExpanded(ReplaceRow.Visibility != Visibility.Visible);
+    {
+        bool expanded = ReplaceRow.Visibility != Visibility.Visible;
+        Breadcrumb(expanded ? "展开替换行" : "收起替换行");
+        SetReplaceRowExpanded(expanded);
+    }
 
     private void SetReplaceRowExpanded(bool expanded)
     {
@@ -249,6 +254,7 @@ public sealed partial class NotepadPage : Page
 
     private void OnFindCloseClick(object sender, RoutedEventArgs e)
     {
+        Breadcrumb("关闭面板");
         FindPanel.Visibility = Visibility.Collapsed;
         Editor.Focus(FocusState.Programmatic);
     }
@@ -306,13 +312,21 @@ public sealed partial class NotepadPage : Page
 
         if (index < 0)
         {
+            Breadcrumb($"查找「{needle}」未命中");
             MarkFindMiss();
             return;
         }
 
+        Breadcrumb($"查找「{needle}」命中第 {index + 1} 个字符");
         ClearFindMiss();
         SelectMatch(index, needle.Length);
     }
+
+    /// <summary>
+    /// 「最后动作」面包屑：崩溃是原生层的（0xC000027B 不经过 App.UnhandledException），
+    /// 只能靠崩溃前最后一条日志判断用户点了什么。定位完可以按需删掉。
+    /// </summary>
+    private static void Breadcrumb(string action) => App.Host?.Log.Info($"记事：{action}");
 
     /// <summary>
     /// 选中命中项并滚进可视区。高亮靠 RichEditBox 的
@@ -367,6 +381,7 @@ public sealed partial class NotepadPage : Page
     /// <summary>替换当前选中的匹配项；没选中就当作「查找下一个」。</summary>
     private void ReplaceCurrent()
     {
+        Breadcrumb("替换当前项");
         string needle = FindBox.Text;
         if (string.IsNullOrEmpty(needle))
             return;
@@ -380,6 +395,7 @@ public sealed partial class NotepadPage : Page
 
     private void OnReplaceAllClick(object sender, RoutedEventArgs e)
     {
+        Breadcrumb("全部替换");
         string needle = FindBox.Text;
         if (string.IsNullOrEmpty(needle))
             return;
@@ -407,6 +423,7 @@ public sealed partial class NotepadPage : Page
     /// </summary>
     private async void OnSaveAsClick(object sender, RoutedEventArgs e)
     {
+        Breadcrumb("另存为");
         try
         {
             var picker = new FileSavePicker();
@@ -438,6 +455,7 @@ public sealed partial class NotepadPage : Page
         if (Editor is null)
             return;
 
+        Breadcrumb(WrapToggle.IsChecked == true ? "开启自动换行" : "关闭自动换行");
         Editor.TextWrapping = WrapToggle.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
 
         // 未开启时不显示对勾，但保留占位（用透明而不是折叠），避免文字位置跳变。

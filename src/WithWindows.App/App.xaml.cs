@@ -31,11 +31,14 @@ public partial class App : Application
     {
         InitializeComponent();
 
-        // 兜底记录托管异常（XAML 解析/绑定错误会经过这里），方便定位启动崩溃
+        // 兜底记录托管异常（XAML 解析/绑定错误会经过这里），方便定位崩溃。
+        // 标记 Handled 让进程活下去：这是常驻托盘的后台应用，一个按钮回调里的异常
+        // 不该把整个应用带走（「清除格式 / 插入链接」两次崩溃就是这么发生的）。
         UnhandledException += (_, e) =>
         {
             _host?.Log.Error($"未处理异常：{e.Exception}");
             System.Diagnostics.Debug.WriteLine($"未处理异常：{e.Exception}");
+            e.Handled = true;
         };
     }
 
