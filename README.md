@@ -109,7 +109,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
     { "id": "display_mode", "enabled": true, "hotkey": null }
   ],
   "displayMode": { "modes": ["internal", "extend"] },
-  "windowState": { "width": 900, "height": 640, "x": null, "y": null, "notepadFontSize": 14 }
+  "windowState": { "width": 1100, "height": 720, "x": null, "y": null, "notepadFontSize": 14 }
 }
 ```
 

@@ -4,6 +4,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Windows.Graphics;
 using WithWindows.Core.Config;
+using WithWindows.Core.Interop;
 
 namespace WithWindows.Services;
 
@@ -35,6 +36,9 @@ public sealed class WindowStateStore : IDisposable
         _debounce.Tick += (_, _) => Persist();
     }
 
+    /// <summary>当前 DPI 缩放（DIP → 物理像素）。</summary>
+    private double Scale => DisplayScale.ForWindow(Microsoft.UI.Win32Interop.GetWindowFromWindowId(_window.AppWindow.Id));
+
     /// <summary>设置最小尺寸（必须用 OverlappedPresenter 的 PreferredMinimum*，AppWindow 上没有这两个属性）。</summary>
     public void ApplyMinimumSize()
     {
@@ -45,18 +49,24 @@ public sealed class WindowStateStore : IDisposable
         }
     }
 
-    /// <summary>按配置恢复尺寸与位置。</summary>
+    /// <summary>
+    /// 按配置恢复尺寸与位置。配置里的宽高是 **DIP**（与 WinUI 一致），应用前按当前缩放换算成物理像素——
+    /// 否则同一份配置在不同缩放率的屏幕上视觉大小不同（150% 下 1100 物理像素只有约 733 DIP，
+    /// 会掉进 NavigationView 的紧凑区间，左栏只剩图标）。
+    /// </summary>
     public void Restore()
     {
         WindowStateConfig state = _config.WindowState;
         _restoring = true;
         try
         {
-            int width = (int)Math.Max(state.Width, MinWidth);
-            int height = (int)Math.Max(state.Height, MinHeight);
+            double scale = Scale;
+            int width = (int)Math.Round(Math.Max(state.Width, MinWidth) * scale);
+            int height = (int)Math.Round(Math.Max(state.Height, MinHeight) * scale);
 
             if (state.X is double x && state.Y is double y)
             {
+                // 位置本身按物理像素保存（屏幕坐标），这里不需要换算
                 var point = new PointInt32((int)x, (int)y);
                 if (IsVisible(point))
                 {
@@ -103,8 +113,9 @@ public sealed class WindowStateStore : IDisposable
             SizeInt32 size = appWindow.Size;
             PointInt32 position = appWindow.Position;
 
-            _config.WindowState.Width = size.Width;
-            _config.WindowState.Height = size.Height;
+            double scale = Scale;
+            _config.WindowState.Width = Math.Round(size.Width / scale);
+            _config.WindowState.Height = Math.Round(size.Height / scale);
             _config.WindowState.X = position.X;
             _config.WindowState.Y = position.Y;
             _save();

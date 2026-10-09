@@ -2,6 +2,7 @@ CreateWindowEx
 DefWindowProc
 DestroyWindow
 GetDisplayConfigBufferSizes
+GetDpiForWindow
 GetModuleHandle
 QueryDisplayConfig
 RegisterClassEx

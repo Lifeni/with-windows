@@ -46,8 +46,9 @@ public sealed class DisplayModeConfig
 /// <summary>窗口状态记忆（尺寸/位置/字号）。位置 null = 尚未保存，(0, 0) 是合法坐标。</summary>
 public sealed class WindowStateConfig
 {
-    public double Width { get; set; } = 900;
-    public double Height { get; set; } = 640;
+    // 默认宽度需不小于 NavigationView 的 ExpandedModeThresholdWidth（1008），否则首启左栏只显示汉堡按钮
+    public double Width { get; set; } = 1100;
+    public double Height { get; set; } = 720;
     public double? X { get; set; }
     public double? Y { get; set; }
     public double NotepadFontSize { get; set; } = 14;
