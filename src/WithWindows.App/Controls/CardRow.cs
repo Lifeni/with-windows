@@ -31,6 +31,10 @@ public sealed class CardRow : UserControl
         // 没设说明文字时不留空行：空 TextBlock 会占一行高度，把标题挤到偏上、行也比别人高
         _description.Visibility = Visibility.Collapsed;
 
+        // 中文字形在行盒里天生偏低（实测墨迹中心比行中心低约 1.5 DIP），往上挪 2 DIP 才是视觉居中。
+        // 用 RenderTransform 而不是内外边距：它不参与布局，图标与右侧控件的居中不受影响。
+        _title.RenderTransform = new TranslateTransform { Y = -2 };
+
         _root = new Grid
         {
             ColumnSpacing = 16,

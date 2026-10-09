@@ -88,8 +88,14 @@
                             Glyph="&#xE945;"
                             VerticalAlignment="Center" />
 
-                        <StackPanel Grid.Column="1">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="关于" />
+                        <!-- 必须显式居中：Grid 的子元素默认 Stretch，只有一行文字时会贴在行顶部 -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="关于">
+                                <!-- 与卡片行标题同样的像素级微调（中文字形在行盒里天生偏低） -->
+                                <TextBlock.RenderTransform>
+                                    <TranslateTransform Y="-2" />
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
                         </StackPanel>
                     </Grid>
                 </Expander.Header>
