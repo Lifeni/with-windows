@@ -38,7 +38,6 @@ public sealed partial class SettingsPage : Page
             AutoStartStateText.Text = AutoStartToggle.IsOn ? "开" : "关";
             VersionText.Text = $"With Windows {CurrentVersion()}";
             BuildDateText.Text = BuildDate();
-            AboutSummaryText.Text = $"With Windows {CurrentVersion()} · 构建于 {BuildDate()}";
         }
         finally
         {

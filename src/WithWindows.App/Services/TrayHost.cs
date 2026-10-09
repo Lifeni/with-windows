@@ -4,11 +4,12 @@ using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using WinUIEx;
 using WithWindows.Tools;
+using WithWindows.Views;
 
 namespace WithWindows.Services;
 
 /// <summary>
-/// 托盘宿主：左键唤出主窗口，右键给出「记事 / 投影 / 切换投影 / 设置 / 退出」（导航项由工具目录生成）。
+/// 托盘宿主：左键唤出主窗口，右键给出「记事 / 切换投影 · 设置 · 退出」（选项与分组对齐 main 分支）。
 /// 实例必须由字段持有——被 GC 回收后图标会消失且没有任何报错。
 /// </summary>
 public sealed class TrayHost : IDisposable
@@ -61,21 +62,19 @@ public sealed class TrayHost : IDisposable
             _trayIcon.Tooltip = text;
     }
 
+    /// <summary>
+    /// 菜单选项与分组对齐 main 分支：记事 / 切换投影 · 设置 · 退出。
+    /// 标题统一取自工具目录，避免改名后左栏与托盘叫法不一致。
+    /// </summary>
     private MenuFlyout BuildMenu()
     {
         var menu = new MenuFlyout();
 
-        // 标题统一取自工具目录，避免改名后左栏与托盘叫法不一致
-        foreach (ToolEntry tool in ToolCatalog.Tools.Where(t => t.ShowInNav))
-            menu.Items.Add(CreateItem(tool.Title, tool.Id));
+        menu.Items.Add(NavigateItem(TitleOf(ToolCatalog.NotepadId), ToolCatalog.NotepadId, "TrayItemNotepad"));
+        menu.Items.Add(ActionItem(TitleOf(ToolCatalog.DisplayModeId), ToolCatalog.DisplayModeId, "TrayItemSwitchDisplay"));
 
-        // 与 main 分支一致：托盘里提供「切换投影」的直接动作，不必先进页面
-        var switchDisplay = new MenuFlyoutItem { Text = "切换投影" };
-        AutomationId(switchDisplay, "TrayItemSwitchDisplay");
-        switchDisplay.Click += (_, _) => _window.RunTrayAction(ToolCatalog.DisplayModeId);
-        menu.Items.Add(switchDisplay);
-
-        menu.Items.Add(CreateItem("设置", "settings"));
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(NavigateItem("设置", SettingsPage.RouteTag, "TrayItemSettings"));
         menu.Items.Add(new MenuFlyoutSeparator());
 
         var exit = new MenuFlyoutItem { Text = "退出" };
@@ -86,11 +85,22 @@ public sealed class TrayHost : IDisposable
         return menu;
     }
 
-    private MenuFlyoutItem CreateItem(string text, string routeTag)
+    private static string TitleOf(string toolId)
+        => ToolCatalog.Tools.FirstOrDefault(t => t.Id == toolId)?.Title ?? toolId;
+
+    private MenuFlyoutItem NavigateItem(string text, string routeTag, string automationId)
     {
         var item = new MenuFlyoutItem { Text = text };
-        AutomationId(item, "TrayItem" + char.ToUpperInvariant(routeTag[0]) + routeTag[1..]);
+        AutomationId(item, automationId);
         item.Click += (_, _) => _window.ShowAndNavigate(routeTag);
+        return item;
+    }
+
+    private MenuFlyoutItem ActionItem(string text, string toolId, string automationId)
+    {
+        var item = new MenuFlyoutItem { Text = text };
+        AutomationId(item, automationId);
+        item.Click += (_, _) => _window.RunTrayAction(toolId);
         return item;
     }
 

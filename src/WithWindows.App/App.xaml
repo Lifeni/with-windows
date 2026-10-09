@@ -7,6 +7,13 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!--
+                设置类「一行」的最小高度（DIP）：卡片行与展开组件的标题行共用同一个值。
+                开关行天然比纯文字行高（ToggleSwitch 约 40 DIP），不统一最小值时
+                去掉说明文字的卡片与展开框会高矮不一。
+            -->
+            <x:Double x:Key="SettingCardMinHeight">64</x:Double>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

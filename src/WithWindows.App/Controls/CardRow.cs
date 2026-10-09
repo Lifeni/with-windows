@@ -28,7 +28,15 @@ public sealed class CardRow : UserControl
         text.Children.Add(_title);
         text.Children.Add(_description);
 
-        _root = new Grid { ColumnSpacing = 16, Padding = new Thickness(16, 12, 16, 12) };
+        // 没设说明文字时不留空行：空 TextBlock 会占一行高度，把标题挤到偏上、行也比别人高
+        _description.Visibility = Visibility.Collapsed;
+
+        _root = new Grid
+        {
+            ColumnSpacing = 16,
+            Padding = new Thickness(16, 12, 16, 12),
+            MinHeight = (double)Application.Current.Resources["SettingCardMinHeight"],
+        };
         _root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

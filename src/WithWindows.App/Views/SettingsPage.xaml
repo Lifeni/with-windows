@@ -23,7 +23,6 @@
 
             <controls:CardRow
                 AutomationProperties.AutomationId="AutoStartCard"
-                Description="登录 Windows 后自动启动并常驻托盘"
                 Glyph="&#xE7E8;"
                 Title="开机自启">
                 <controls:CardRow.Trailing>
@@ -48,7 +47,6 @@
             <!-- 呼出主窗口：全局热键，把隐藏到托盘的主窗口叫回来（打开记事页） -->
             <controls:HotkeyRow
                 x:Name="ShowWindowRow"
-                Description="按下组合键从托盘唤出主窗口并打开记事"
                 Glyph="&#xE765;"
                 Title="显示窗口"
                 ToolId="notepad" />
@@ -63,13 +61,16 @@
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
-                IsExpanded="False">
+                IsExpanded="True">
                 <Expander.Header>
                     <!--
                         水平内边距必须给 0：展开组件的头部本身会先留 16 DIP，再叠一层 16
                         就比上面卡片行的图标整整右移一格（实测卡片图标 x=139、关于图标 x=170）。
                     -->
-                    <Grid Padding="0,12" ColumnSpacing="16">
+                    <Grid
+                        MinHeight="{StaticResource SettingCardMinHeight}"
+                        Padding="0,12"
+                        ColumnSpacing="16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -87,13 +88,8 @@
                             Glyph="&#xE945;"
                             VerticalAlignment="Center" />
 
-                        <StackPanel Grid.Column="1" Spacing="2">
+                        <StackPanel Grid.Column="1">
                             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="关于" />
-                            <TextBlock
-                                x:Name="AboutSummaryText"
-                                AutomationProperties.AutomationId="AboutSummary"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}" />
                         </StackPanel>
                     </Grid>
                 </Expander.Header>

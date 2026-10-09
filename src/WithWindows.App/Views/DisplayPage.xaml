@@ -24,9 +24,8 @@
 
                 <controls:CardRow
                     AutomationProperties.AutomationId="DisplayEnabledCard"
-                    Description="关闭后不再注册投影热键"
                     Glyph="&#xE7E8;"
-                    Title="启用投影功能">
+                    Title="启用功能">
                     <controls:CardRow.Trailing>
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <TextBlock
@@ -47,9 +46,8 @@
 
                 <controls:HotkeyRow
                     x:Name="DisplayHotkeyRow"
-                    Description="按下组合键在「切换模式」里勾选的模式之间循环"
                     Glyph="&#xE765;"
-                    Title="投影快捷键"
+                    Title="快捷键"
                     ToolId="display_mode" />
 
                 <!-- 切换模式：默认折叠，展开后是原生多选框（PowerToys 的 SettingsExpander 风格） -->
@@ -62,13 +60,16 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
-                    IsExpanded="False">
+                    IsExpanded="True">
                     <Expander.Header>
                         <!--
                             与上方卡片行同构：图标 + 标题（+ 说明）。水平内边距必须给 0——
                             展开组件的头部本身会先留 16 DIP，再叠一层 16 就会比卡片行的图标右移一格。
                         -->
-                        <Grid Padding="0,12" ColumnSpacing="16">
+                        <Grid
+                            MinHeight="{StaticResource SettingCardMinHeight}"
+                            Padding="0,12"
+                            ColumnSpacing="16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />

@@ -557,3 +557,24 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 | 设置页图标列 | 开机自启 x=139..166、显示窗口 x=138..167、关于 x=141..163（同行卡片图标同列同尺寸） |
 | 投影页图标列 | 启用投影 x=139..166、切换模式 x=138..167、投影快捷键 x=138..167 |
 | 子选项缩进 | `ModeCheckBox_*` x=216、标题 `DisplayModesTitle` x=192（净缩进 16 DIP），子选项无图标 |
+
+#### 同日追加（用户第三轮反馈：去掉说明文字 / 行高一致 / 托盘菜单）
+
+**去掉说明文字后暴露的两个问题（都已修）**：
+
+1. **标题不垂直居中**：`CardRow` 的说明 `TextBlock` 默认是 `Visible`，没设说明文字时仍占一行高度，标题被挤到上半区（实测偏上 7.7 DIP）。修法：构造时把 `_description.Visibility` 置为 `Collapsed`（设了文字的行再置回 `Visible`）。
+2. **展开框比卡片矮一截**：开关行的 `ToggleSwitch` 约 40 DIP，纯文字行只有 20 DIP，去掉说明后两者天然高低不一。修法：新增应用级资源 `SettingCardMinHeight`（64 DIP），`CardRow` 的根 `Grid` 与两个展开组件的标题 `Grid` 都用它 —— 三处共用同一个值。
+
+实测（窗口 2267×1937，截图 `artifacts/ui/fix4-display-big.png`、`fix4-settings-big.png`，按像素色带量行高）：
+
+| 行 | 高度 |
+|---|---|
+| 投影·启用功能 / 投影·快捷键 / 投影·切换模式（标题行） | 均 100 px = 66.7 DIP |
+| 设置·开机自启 / 设置·显示窗口 / 设置·关于（标题行） | 均 100 px = 66.7 DIP |
+| 单行标题墨迹中心与行中心 | 相差 ≤ 2.5 px（约 1.7 DIP，是字体 ascent/descent 的固有偏差，非布局问题） |
+
+**托盘右键菜单对齐 `main`**：选项改为「记事 / 切换投影（分隔线）设置（分隔线）退出」，与 `main` 分支一致；标题仍取自工具目录。**未能自动化验证**：Win11 把新托盘图标收进溢出区（`HKCU\Control Panel\NotifyIconSettings` 里本应用的 `IsPromoted` 为空），溢出窗口是 XAML 岛（`TopLevelWindowForOverflowXamlIsland`），UIA 读不到元素、窗口截图也是空白，因此无法用 `winapp ui` 完成「右键 → 看到菜单」的端到端验证。**结论：这一条需要人工右击托盘图标确认。**
+
+**顺带修掉一个会杀进程的缺陷**：记事页「清除格式」在空选区（只有插入点）时 `ITextRange.Link = ""` 抛 `ArgumentException`，异常没人兜 → 应用直接退出（事件日志 19:56:15 的 `0xC000027B` 就是它，堆栈停在 `NotepadPage.OnClearFormatClick`）。现在空选区直接返回，赋值另外包 try/catch 并写日志。
+
+**未查明的一处**：今天共有三次同签名的原生崩溃（`0xC000027B`，`Microsoft.UI.Xaml.dll` 偏移 `0x3a9dbd`，19:29:34、19:56:15、22:12:31），其中 19:56 已确认是上面那个 bug；19:29 发生在本次改动之前，22:12 发生在记事页空闲时（日志里没有对应的托管异常）。同一偏移更像是 XAML 层「未处理异常」的统一收口点，而不是同一个根因。**待人工确认：22:12 前后是否点过托盘右键菜单 / 其它按钮。** 这也是本次把托盘菜单改动标记为「需人工确认」的原因。

@@ -5,14 +5,13 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using WithWindows.Core.Actions;
 using WithWindows.Core.Config;
 using WithWindows.Services;
 
 namespace WithWindows.Views;
 
 /// <summary>
-/// 投影页：功能开关、投影快捷键，以及展开组件里的原生多选框（候选模式；当前模式显示在展开组件标题下）。
+/// 投影页：功能开关、快捷键，以及展开组件里的原生多选框（候选模式；已勾选的项列在展开组件标题下）。
 /// 投影相关设置集中在这里（设置页不再重复）。
 /// </summary>
 public sealed partial class DisplayPage : Page
@@ -53,7 +52,7 @@ public sealed partial class DisplayPage : Page
             EnabledToggle.IsOn = DisplayBinding?.Enabled ?? true;
             EnabledStateText.Text = EnabledToggle.IsOn ? "开" : "关";
             BuildModeCheckBoxes();
-            RefreshCurrentMode();
+            UpdateModesSummary();
         }
         finally
         {
@@ -61,14 +60,18 @@ public sealed partial class DisplayPage : Page
         }
     }
 
-    /// <summary>展示当前拓扑；查询失败时给出说明而不是空白。</summary>
-    private void RefreshCurrentMode()
+    /// <summary>展开组件标题下的说明：列出当前勾选的候选模式，顺序即循环顺序。</summary>
+    private void UpdateModesSummary()
     {
-        string? mode = DisplayTopology.GetCurrentMode();
-        CurrentModeText.Text = mode is null
-            ? "当前模式：无法读取"
-            : $"当前模式：{KnownModes.FirstOrDefault(m => m.Mode == mode).Title ?? mode}";
+        List<string> modes = Host?.Config.DisplayMode.Modes ?? new List<string>();
+        CurrentModeText.Text = modes.Count == 0
+            ? "当前选择：无"
+            : "当前选择：" + string.Join(" + ", modes.Select(TitleOfMode));
     }
+
+    /// <summary>模式标识 → 中文名；不在候选表里的取值原样显示。</summary>
+    private static string TitleOfMode(string mode)
+        => KnownModes.FirstOrDefault(m => string.Equals(m.Mode, mode, StringComparison.Ordinal)).Title ?? mode;
 
     /// <summary>把候选模式渲染成原生多选框（放在「切换模式」展开组件里）。</summary>
     private void BuildModeCheckBoxes()
@@ -145,6 +148,7 @@ public sealed partial class DisplayPage : Page
             .Concat(desired.Where(m => !KnownModes.Any(k => string.Equals(k.Mode, m, StringComparison.Ordinal))))
             .ToList();
 
+        UpdateModesSummary();
         Host.SaveConfig();
         Host.ReloadBindings();
     }

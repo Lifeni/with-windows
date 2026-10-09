@@ -287,7 +287,20 @@ public sealed partial class NotepadPage : Page
         paragraph.ListType = MarkerType.None;
         selection.ParagraphFormat = paragraph;
 
-        selection.Link = "";
+        // 空选区（只有插入点）时给 ITextRange.Link 赋值会抛 ArgumentException——19:56 的
+        // 未处理异常日志里就是这一句把应用带崩的。既判空又兜底：清除格式是尽力而为的操作，
+        // 不该因为链接段处理失败而杀掉进程。
+        if (selection.StartPosition == selection.EndPosition)
+            return;
+
+        try
+        {
+            selection.Link = "";
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"清除链接失败：{ex.Message}");
+        }
     }
 
     private void OnFindAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
