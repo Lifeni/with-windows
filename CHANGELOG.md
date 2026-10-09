@@ -1,5 +1,20 @@
 # 更新日志
 
+## [未发布]
+
+### 变更
+- 项目重构为 WinUI 3 工具箱（进行中）：左侧 `NavigationView` 导航，每个工具一页，取代原「两个独立窗口 + 托盘」形态
+- 配置改为全新 schema v1（`tools[]` + `displayMode` + `windowState`），不与旧 v3 兼容；不预置任何默认热键
+- 逻辑内核迁移到 `WithWindows.Core` 纯逻辑类库；普通 P/Invoke 改由 CsWin32 生成
+- `README.md` 的功能与安装说明待重构完成后重写，当前仅做最小同步
+
+### 移除
+- 旧实现 `src/WithWindows.UI` 与 `tests/WithWindows.UI.Tests`（`main` 分支保留原样供查阅）
+
+### 其他
+- 平台要求提升为 Windows 11 21H2（`net10.0-windows10.0.22621.0`）
+- `ci.yml` 改为构建解决方案 + 跑核心测试；`release.yml` 暂只做版本判定与测试，产物发布待 P5 用 Inno Setup 重写
+
 ## [v0.4.0] - 2026-10-01
 
 ### 变更

@@ -5,9 +5,11 @@
 
 > 本项目由 AI 协作完成：代码、文档与迭代均经 AI 生成和优化。
 
+> ⚠️ **重构进行中**：项目正在从「两个独立窗口」重构为 WinUI 3 工具箱（左侧 `NavigationView` 导航，每个工具一页）。本文件的功能描述与安装说明仍对应重构前的实现，将在重构完成后重写；当前可用命令见「快速开始」。
+
 ## 功能
 
-Windows 常驻托盘的一键动作平台：全局热键 → 动作执行。无主界面，通过系统托盘管理，两个独立窗口：
+Windows 常驻托盘的全局热键 → 动作平台。重构前为「无主界面，通过系统托盘管理，两个独立窗口」：
 
 **快捷记事**：热键弹出置顶记事本，关闭时保存并复制到剪贴板。
 - 标题栏实时时钟（秒级刷新，窗口隐藏时停表）；Ctrl+滚轮 / Ctrl+加减号缩放字体（10-32px，Ctrl+0 重置）
@@ -28,21 +30,16 @@ Windows 常驻托盘的一键动作平台：全局热键 → 动作执行。无�
 ## 快速开始
 
 ```bash
-# 构建（需要 .NET 10 SDK；WinUI 3 需要 x64 平台）
-dotnet build src/WithWindows.UI/WithWindows.UI.csproj -p:Platform=x64
+# 构建解决方案（需要 .NET 10 SDK；WinUI 3 需要 x64 平台）
+dotnet build WithWindows.sln -p:Platform=x64
 
-# 测试（必须全绿）
-dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -p:Platform=x64
+# 核心逻辑测试（必须全绿）
+dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -p:Platform=x64
 
-# 冒烟检查（不常驻，验证配置加载与热键注册）
-dotnet run --project src/WithWindows.UI -- --smoke
+# 启动应用（调试用）
+dotnet run --project src/WithWindows.App/WithWindows.App.csproj -p:Platform=x64
 
-# 发布：单文件（内置运行库，约 167 MB，免装任何运行库）
-dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
-
-# 发布：单文件（框架依赖，约 38 MB，需预装 .NET 10 桌面运行时 + Windows App Runtime）
-dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-fd -p:Platform=x64 -p:SelfContained=false -p:WindowsAppSDKSelfContained=false -p:PublishSingleFile=true
-
+# 发布产物与 Inno Setup 安装器将在重构的 P5 阶段补回本文件
 # 开发辅助：一键构建并重启（Windows PowerShell）
 powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 ```
@@ -51,7 +48,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 
 ## 下载
 
-每个 Release 提供两个 x64 单文件 exe，双击即可运行，无需安装：
+安装包形态在重构中改为 **Inno Setup 安装器 + 便携 exe**（P5 落地）。在此之前，Release 与安装说明暂不更新；重构前的产物形态如下，仅供参考：
 
 | 文件 | 大小 | 说明 |
 | --- | --- | --- |
@@ -122,33 +119,18 @@ with-windows/
 ├── CHANGELOG.md            # 更新日志（Release 正文来源）
 ├── LICENSE                 # MIT 开源协议
 ├── WithWindows.sln         # 解决方案文件
-├── .github/workflows/      # ci.yml（push/PR 构建测试 + 单文件校验）、release.yml（打 tag 出两个单文件 exe）
+├── .github/workflows/      # ci.yml（PR 构建 + 核心测试）、release.yml（版本判定与测试；产物发布待 P5 重写）
 ├── config/                 # 配置示例（运行时配置在 %APPDATA%\WithWindows）
 ├── docs/                   # 图标与截图素材
 ├── scripts/                # 开发脚本（dev.ps1、IconGen 图标生成）
-├── src/WithWindows.UI/     # 主程序（WinUI 3）
-│   ├── App.xaml(.cs)       # 入口：单实例 → 配置 → 主窗口（托盘宿主）
-│   ├── MainWindow.xaml.cs  # 托盘、热键注册、动作分发
-│   ├── ToggleWindow.xaml   # 设置窗口（投屏/快捷键/自启/关于）
-│   ├── Notepad/            # 记事本窗口（编辑/时钟/缩放/置顶/记忆）
-│   ├── Controls/           # 热键录制控件（HotkeyInputBox）
-│   ├── Core/               # 热键解析/注册、单实例、动作框架
-│   ├── Config/             # ConfigStore（v3 + 旧格式迁移）
-│   ├── Actions/            # 投屏动作（DisplayModeAction）
-│   └── Interop/            # P/Invoke 集中地
-└── tests/WithWindows.UI.Tests/  # 单元测试
+├── src/WithWindows.App/    # 未打包 WinUI 3 应用（Shell/ Views/ ViewModels/ Services/ Controls/ Themes）
+├── src/WithWindows.Core/   # 纯逻辑类库（Hotkeys/ Config/ Actions/ Interop/ Diagnostics/ App）
+└── tests/WithWindows.Core.Tests/  # 核心逻辑单元测试
 ```
 
 ## 发布
 
-发布由**版本号驱动**，不需要手动打 tag：
-
-1. 改 `src/WithWindows.UI/WithWindows.UI.csproj` 里的 `<Version>`，并在 `CHANGELOG.md` 顶部加同版本号的 `## [vX.Y.Z] - 日期` 章节
-2. push 到 `main`：工作流发现该版本还没有对应的 `vX.Y.Z` tag，就自动跑测试 → 产出两个单文件 exe + 两个 zip + `SHA256SUMS.txt` → 打 tag 并发布 Release
-3. 版本号没变（tag 已存在）时，push 到 `main` 只跑一遍测试，**不会**重复构建与发布；PR 由 `ci.yml` 负责构建 + 测试 + 单文件发布校验（两者触发条件不重叠，不会重复跑）
-
-也可以手动 `git tag vX.Y.Z && git push origin vX.Y.Z` 直接发布；工作流会校验 tag 与 csproj 版本一致，不一致直接失败。
-发布中途失败时，可在 Actions 里手动 Run workflow 并勾选 `force` 重新发布当前版本。
+发布流程**正在重写**：产物形态改为 Inno Setup 安装器 + 便携 exe，`release.yml` 暂只做版本判定与测试，不再产出 Release（P5 落地后补全本节）。版本号驱动规则保留：改 `src/WithWindows.App/WithWindows.App.csproj` 里的 `<Version>` 并在 `CHANGELOG.md` 顶部加同版本号章节；push 到 `main` 时若该版本还没有对应 `vX.Y.Z` tag，即视为待发布。
 
 ## 更新日志
 

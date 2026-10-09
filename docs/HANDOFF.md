@@ -18,11 +18,11 @@ git log --oneline -12
 
 Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具一页。首版两个工具页（记事本、快捷键）+ 设置页。原先只有"切换投屏"和"快捷记事"两个独立窗口，正在重构成工具箱。
 
-**并行的旧实现没有删**：`main` 分支保持原样，`dev` 分支里旧代码也还在（`src/WithWindows.UI`），计划在 P2 结束时删除。
+**旧实现已退役**：`main` 分支保留原样供查阅；`dev` 分支已在 P2 删除 `src/WithWindows.UI` 与 `tests/WithWindows.UI.Tests`。
 
 ## 二、当前进度（截至 2026-10-09）
 
-分支 `dev`，HEAD 见 `git log`。已完成三个批次：
+分支 `dev`，HEAD 见 `git log`。已完成四个批次：
 
 **批次一 · P0 规范与环境**（提交 `b226f26`…`18a7655`）
 
@@ -44,6 +44,17 @@ Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具�
 - 关键改进：**Core 不再依赖 Win32 常量**——新定义了 `HotkeyModifiers` 枚举，映射留到注册边界。旧代码的 `HotkeyParser` 直接引用 `NativeMethods.MOD_*`，测试也被迫依赖互操作层
 - 行为契约完整保留：F1–F24 编解码、字母数字必须带修饰键、修饰键大小写不敏感、中文错误文案、按住不重复触发（改为注册层固定策略）
 - 标题栏修复：补齐 `ExtendsContentIntoTitleBar = true` / `SetTitleBar` / `PreferredHeightOption` / `SetIcon`，解决"两条标题栏"与图标渲染成棋盘格
+
+**批次四 · P2 Core 迁移与旧项目退役**（提交 `e3d3239`… 见 `git log`）
+
+- 计划：`docs/superpowers/plans/2026-10-09-core-migration.md`
+- **CsWin32 接入**：`src/WithWindows.Core/Interop/NativeMethods.txt` 声明，生成 `Windows.Win32.PInvoke`；核心层不再手写 `DllImport`
+- **`HotkeyManager`**：独立隐藏消息窗口（`MessageWindow`）+ 自持 `WNDPROC` 委托防 GC；注册失败回传错误码（1409 = 已占用）
+- **配置 v1**：`tools[]`（`id`/`enabled`/`hotkey`，默认 `null`）+ `displayMode` + `windowState`；原子写 + `.bak` 回退 + 自愈清理未知工具；旧 v3/数组格式直接重建
+- **显示拓扑**：`DisplayTopology`（`QDC_DATABASE_CURRENT` 权威拓扑）+ `DisplayModeAction`（`Changed=false` 语义、toggle 纯函数）
+- **平台服务**：`Logger`（1 MB 轮转）、`SingleInstance`（命名 Mutex）、`AutoStart`（`HKCU\...\Run`）迁到 Core
+- **旧项目退役**：删除 `src/WithWindows.UI` 与 `tests/WithWindows.UI.Tests`，从解决方案移除；CI/release 同步调整（产物发布待 P5）
+- Core 测试从 53 增至 **99**，全部通过；解决方案只剩 3 个工程
 
 ## 三、已定决策（不要重新讨论）
 
@@ -78,12 +89,11 @@ Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具�
 ## 五、验证命令（改动后必须全跑）
 
 ```powershell
-# 构建（6 个工程）
+# 构建解决方案（3 个工程：Core / App / Core.Tests）
 dotnet build WithWindows.sln -p:Platform=x64
 
-# 两套测试
+# 核心逻辑测试（唯一测试工程）
 dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -p:Platform=x64
-dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -p:Platform=x64
 
 # 启动（非阻塞！dotnet run 会挂住终端）
 $exe = "src/WithWindows.App/bin/x64/Debug/net10.0-windows10.0.22621.0/win-x64/WithWindows.exe"
@@ -99,28 +109,27 @@ winapp ui screenshot -a WithWindows --json
 Stop-Process -Id $p.Id -Force
 ```
 
-当前基线：Core 测试 **53/53**，旧项目回归 **78/78**，解决方案构建 **0 错误**。
+当前基线：Core 测试 **99/99**，解决方案构建 **0 错误**。
 
-## 六、下一步：P2 剩余部分
+## 六、下一步：P4 工具抽象 + P3 页面接线（P2 已完成）
+
+P2（Core 迁移）已完成，计划见 `docs/superpowers/plans/2026-10-09-core-migration.md`。`WithWindows.Core` 现已具备：热键解析/注册、配置 v1、显示拓扑切换、日志/单实例/自启、CsWin32 互操作。旧项目已删除。
 
 按依赖顺序：
 
-1. **CsWin32 接入**（包版本已在 `Directory.Packages.props` 预留为 `0.3.358`）：`Core/Interop/NativeMethods.txt` 声明，替代手写 `DllImport`
-2. **`HotkeyManager`**：注册/分发与 `WM_HOTKEY`。**必须用独立隐藏消息窗口接收**，禁止子类化 WinUI 窗口（已两次验证崩溃）；`WndProc` 委托由字段自持防 GC；注册失败回传错误码（1409 = 已占用）
-3. **`ConfigStore` + v1 schema**：`tools[]` 含 `id`/`enabled`/`hotkey`（默认 `null`）。保留旧实现的原子写（临时文件 + `File.Replace`）、`.bak` 回退、自愈式清理未知绑定
-4. **显示拓扑**：`DisplayTopology`（用 `QueryDisplayConfig(QDC_DATABASE_CURRENT)` 的权威 `DISPLAYCONFIG_TOPOLOGY_ID`）+ `DisplayModeAction`（同模式时返回"无变化"）
-5. **迁移 `Logger` / `SingleInstance` / `AutoStart`**：未打包下三者都沿用旧实现（命名 Mutex、`HKCU\...\Run`）
-6. **托盘宿主**：WinUIEx `TrayIcon`，**必须由字段持有引用**防 GC
-7. **页面接线**：快捷键页（列表 + 录制框 + 启用开关 + 立即执行）、设置页、记事本页
-8. **删除旧项目**：`src/WithWindows.UI` 与 `tests/WithWindows.UI.Tests`
+1. **P4 先做工具抽象**：`ITool` + `ToolRegistry`（Core 侧接口 + App 侧注册表），新增工具只注册、不改主窗口
+2. **P3 页面**：记事本页（编辑/时钟/缩放/置顶/草稿持久化）、快捷键页（列表 + 录制框 + 启用开关 + 立即执行）、设置页
+3. **托盘宿主**：WinUIEx `TrayIcon`，**必须由字段持有引用**防 GC
+4. **App 组装**：`App` 字段持有 `SingleInstance` / `Logger` / `ConfigStore` / `HotkeyManager`；托盘与热键分发；`--smoke` 参数
+5. **P5 打磨与打包**：深浅色、Inno Setup 安装器；`ci.yml` / `release.yml` 重写；README 完整重写
 
-**注意**：P2 的实现计划文档还没写（P0/P1 有，见 `docs/superpowers/plans/`）。按流程应先补 P2 计划再实施。
+**注意**：P3/P4 的实现计划文档同样还没写。按流程应先补计划再实施（P0/P1 与 P2 的计划见 `docs/superpowers/plans/`）。
 
 ## 七、操作注意事项（都是实际踩过的）
 
 1. **`.git` 在沙箱里是只读的**：所有 git 写操作（commit/add）都要用 `require_escalated`。
 2. **沙箱内 `dotnet restore` 会因断网失败**：需要 `require_escalated`。
-3. **解决方案并行构建在沙箱内会失败**（报 MSB5021、旧项目 XAML 编译器被取消），沙箱外正常。这是沙箱限制，**不是仓库缺陷**——别据此改仓库。
+3. **沙箱内构建解决方案会失败**（App 的 XAML 编译器无法启动；`--no-restore` 下同样失败且不带具体 error 行），沙箱外（提权）正常。这是沙箱限制，**不是仓库缺陷**——别据此改仓库。单独 `dotnet build src/WithWindows.Core/WithWindows.Core.csproj` 在沙箱内可以正常构建。
 4. **不要用 `git checkout -- .` / `git reset`**：会回退未提交的修复。要撤销改动用精确的 `dotnet sln remove` 这类命令，或先提交。
 5. **`dotnet run` 会阻塞**：验证界面一律用 `Start-Process` 非阻塞启动，验证完 `Stop-Process`。
 6. **验证命令不要一律加 `--no-restore`**：它会掩盖还原层的问题。P0/P1 就是这么漏掉了一个真实的 NU1008 缺陷（`Core.Tests` 违反集中包版本管理），直到终审才被发现。
