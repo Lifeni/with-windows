@@ -404,6 +404,28 @@ NotepadClock Text "15:52:23"（每秒刷新）
 
 **注**：用户反馈「注入输入丢字符」的真因是**中文输入法**（见 `known-pitfalls.md` 已更正），不是应用缺陷。
 
+### 2026-10-09 投屏页与设置页（去掉通用「快捷键」页）
+
+**改动**：
+
+- 左栏第二项「快捷键」→「**投屏**」，页面重写为 `DisplayPage`（`HotkeysPage` 已删除）
+- **投屏页**：投屏快捷键行（录制框 + 启用 + 立即执行）、当前模式（只读）、候选模式复选（从设置页迁来）
+- **设置页**：保留开机自启；新增「呼出主窗口」快捷键行（绑定 `notepad`，热键唤回主窗口并打开记事）；关于区改为版本 + 「打开配置目录」「打开日志文件」两个按钮（`explorer.exe` 打开）
+- 抽出可复用控件 `Controls/HotkeyRow`（标题 + 录制框 + 启用 + 立即执行 + 就地错误提示），投屏页与设置页共用
+- 托盘菜单标题改为取自 `ToolCatalog`，避免改名后左栏与托盘叫法不一致
+
+实测：
+
+```text
+NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsItem ListItem "设置"
+投屏页：HotkeyBox_display_mode / HotkeyEnabled_display_mode / HotkeyRunNow_display_mode / ModeCheckBox_*
+        当前模式：扩展模式
+设置页：AutoStartToggle / HotkeyBox_notepad / HotkeyEnabled_notepad / HotkeyRunNow_notepad
+        OpenConfigFolder / OpenLogFile
+```
+
+**修掉一个次序坑**：`HotkeyRow` 在自己的 `Loaded` 里才给子控件赋 `AutomationId`，而子控件的 `Loaded` 已经先跑过，导致录制框在可访问性树里没有 ID。改为在 `HotkeyInputBox` 里用 `RegisterPropertyChangedCallback` 监听 `AutomationId` 变化并即时转交给内部按钮，任何赋值顺序都成立。
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。

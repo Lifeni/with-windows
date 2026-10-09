@@ -1,33 +1,21 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
 using System.Reflection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using WithWindows.Core.App;
-using WithWindows.Core.Config;
 using WithWindows.Core.Diagnostics;
 using WithWindows.Services;
 
 namespace WithWindows.Views;
 
-/// <summary>设置页：开机自启、投屏候选模式、关于。改动即时保存并对热键做热重载。</summary>
+/// <summary>设置页：开机自启、呼出主窗口快捷键、关于（版本与路径入口）。</summary>
 public sealed partial class SettingsPage : Page
 {
     /// <summary>导航项 Tag 常量，供 MainWindow 路由表引用。</summary>
     public static string RouteTag => "settings";
 
-    /// <summary>候选模式的固定顺序与显示名。顺序即切换循环顺序。</summary>
-    private static readonly (string Mode, string Title)[] KnownModes =
-    {
-        ("internal", "仅当前屏幕"),
-        ("extend", "扩展模式"),
-        ("external", "仅外接屏幕"),
-        ("clone", "复制模式"),
-    };
-
-    /// <summary>初始化期间抑制写回，避免程序化赋值触发 Toggled/Checked。</summary>
+    /// <summary>初始化期间抑制写回，避免程序化赋值触发 Toggled。</summary>
     private bool _initializing;
 
     public SettingsPage()
@@ -47,73 +35,13 @@ public sealed partial class SettingsPage : Page
         try
         {
             AutoStartToggle.IsOn = AutoStart.IsEnabled();
-            BuildModeCheckBoxes();
             VersionText.Text = $"版本 {CurrentVersion()}";
-            ConfigPathBox.Text = AppPaths.ConfigPath;
-            LogPathBox.Text = AppPaths.LogPath;
+            PathsText.Text = $"配置目录：{AppPaths.DataRoot}\n日志文件：{AppPaths.LogPath}";
         }
         finally
         {
             _initializing = false;
         }
-    }
-
-    private void BuildModeCheckBoxes()
-    {
-        AppConfig config = Host!.Config;
-        foreach ((string mode, string title) in KnownModes)
-        {
-            var checkBox = new CheckBox
-            {
-                Content = title,
-                IsChecked = config.DisplayMode.Modes.Contains(mode, StringComparer.Ordinal),
-            };
-            AutomationProperties.SetAutomationId(checkBox, $"ModeCheckBox_{mode}");
-
-            string capturedMode = mode;
-            checkBox.Checked += (_, _) => OnModeToggled(capturedMode, isChecked: true, checkBox);
-            checkBox.Unchecked += (_, _) => OnModeToggled(capturedMode, isChecked: false, checkBox);
-            ModesHost.Children.Add(checkBox);
-        }
-    }
-
-    private void OnModeToggled(string mode, bool isChecked, CheckBox source)
-    {
-        if (_initializing || Host is null)
-            return;
-
-        AppConfig config = Host.Config;
-        var desired = new List<string>(config.DisplayMode.Modes);
-
-        if (isChecked)
-        {
-            if (!desired.Contains(mode, StringComparer.Ordinal))
-                desired.Add(mode);
-        }
-        else
-        {
-            desired.RemoveAll(m => string.Equals(m, mode, StringComparison.Ordinal));
-        }
-
-        // 至少保留一项：会清空时回弹复选框，且不改动配置
-        if (desired.Count == 0)
-        {
-            _initializing = true;
-            source.IsChecked = true;
-            _initializing = false;
-            return;
-        }
-
-        // 已知项按固定顺序排列（保证切换循环顺序稳定）；不在已知列表里的取值原样保留，
-        // 否则手工编辑过的 config.json 或大小写不同的旧值会被静默丢弃。
-        config.DisplayMode.Modes = KnownModes
-            .Select(m => m.Mode)
-            .Where(m => desired.Contains(m, StringComparer.Ordinal))
-            .Concat(desired.Where(m => !KnownModes.Any(k => string.Equals(k.Mode, m, StringComparison.Ordinal))))
-            .ToList();
-
-        Host.SaveConfig();
-        Host.ReloadBindings();
     }
 
     private void OnAutoStartToggled(object sender, RoutedEventArgs e)
@@ -133,6 +61,24 @@ public sealed partial class SettingsPage : Page
         catch (Exception ex)
         {
             Host?.Log.Error($"开机自启设置失败：{ex.Message}");
+        }
+    }
+
+    private void OnOpenConfigFolderClick(object sender, RoutedEventArgs e) => OpenPath(AppPaths.DataRoot);
+
+    private void OnOpenLogFileClick(object sender, RoutedEventArgs e) => OpenPath(AppPaths.LogPath, select: true);
+
+    /// <summary>用资源管理器打开目录（或选中文件）。失败只记日志，不打断界面。</summary>
+    private static void OpenPath(string path, bool select = false)
+    {
+        try
+        {
+            string arguments = select ? $"/select,\"{path}\"" : $"\"{path}\"";
+            Process.Start(new ProcessStartInfo("explorer.exe", arguments) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Host?.Log.Error($"打开路径失败（{path}）：{ex.Message}");
         }
     }
 

@@ -193,6 +193,16 @@ public sealed partial class NotepadPage : Page
         var package = new DataPackage();
         package.SetText(payload);
         Clipboard.SetContent(package);
+
+        try
+        {
+            // 不 Flush 的话数据由本进程延迟提供：退出应用后剪贴板就失效了
+            Clipboard.Flush();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"剪贴板 Flush 失败：{ex.Message}");
+        }
     }
 
     /// <summary>粘贴：把剪贴板文本插入到光标处（替换当前选区）。</summary>
@@ -225,11 +235,6 @@ public sealed partial class NotepadPage : Page
             return;
 
         Editor.TextWrapping = WrapToggle.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
-
-        // 纯文字样式：用颜色而不是填充表示开关状态
-        WrapToggle.Foreground = WrapToggle.IsChecked == true
-            ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"]
-            : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
     }
 
     private string ReadAllText()

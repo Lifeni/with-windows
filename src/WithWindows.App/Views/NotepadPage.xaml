@@ -18,6 +18,11 @@
         <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="Transparent" />
         <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="Transparent" />
         <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="Transparent" />
+        <!-- 勾选态前景必须一起覆盖：模板在 Checked 状态把文字设成「强调色上的文字」
+             （浅色主题为白、深色主题为黑），背景透明时会变成白字压白底 / 黑字压深灰 -->
+        <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="AccentTextFillColorPrimaryBrush" />
+        <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="AccentTextFillColorSecondaryBrush" />
+        <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="AccentTextFillColorTertiaryBrush" />
     </Page.Resources>
 
     <Grid>

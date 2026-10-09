@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using WinUIEx;
 using WithWindows.Tools;
@@ -63,8 +64,11 @@ public sealed class TrayHost : IDisposable
     private MenuFlyout BuildMenu()
     {
         var menu = new MenuFlyout();
-        menu.Items.Add(CreateItem("记事本", ToolCatalog.NotepadId));
-        menu.Items.Add(CreateItem("快捷键", ToolCatalog.HotkeysId));
+
+        // 标题统一取自工具目录，避免改名后左栏与托盘叫法不一致
+        foreach (ToolEntry tool in ToolCatalog.Tools.Where(t => t.ShowInNav))
+            menu.Items.Add(CreateItem(tool.Title, tool.Id));
+
         menu.Items.Add(CreateItem("设置", "settings"));
         menu.Items.Add(new MenuFlyoutSeparator());
 

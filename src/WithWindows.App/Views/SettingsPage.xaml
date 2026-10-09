@@ -1,7 +1,8 @@
 <Page
     x:Class="WithWindows.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WithWindows.Controls">
 
     <ScrollViewer Padding="24">
         <StackPanel Spacing="16">
@@ -19,26 +20,32 @@
                 OnContent="已开启"
                 Toggled="OnAutoStartToggled" />
 
-            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="投屏候选模式" />
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Text="「切换投屏」在这些模式之间循环；至少保留一项。"
-                TextWrapping="Wrap" />
-            <StackPanel x:Name="ModesHost" Spacing="4" />
+            <!-- 呼出主窗口：全局热键，把隐藏到托盘的主窗口叫回来（打开记事页） -->
+            <controls:HotkeyRow
+                x:Name="ShowWindowRow"
+                RunButtonText="打开主窗口"
+                Title="呼出主窗口"
+                ToolId="notepad" />
 
             <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="关于" />
             <StackPanel Spacing="8">
                 <TextBlock x:Name="VersionText" AutomationProperties.AutomationId="AboutVersion" />
-                <TextBox
-                    x:Name="ConfigPathBox"
-                    AutomationProperties.AutomationId="AboutConfigPath"
-                    Header="配置路径"
-                    IsReadOnly="True" />
-                <TextBox
-                    x:Name="LogPathBox"
-                    AutomationProperties.AutomationId="AboutLogPath"
-                    Header="日志路径"
-                    IsReadOnly="True" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        AutomationProperties.AutomationId="OpenConfigFolder"
+                        Click="OnOpenConfigFolderClick"
+                        Content="打开配置目录" />
+                    <Button
+                        AutomationProperties.AutomationId="OpenLogFile"
+                        Click="OnOpenLogFileClick"
+                        Content="打开日志文件" />
+                </StackPanel>
+                <TextBlock
+                    x:Name="PathsText"
+                    AutomationProperties.AutomationId="AboutPaths"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    TextWrapping="Wrap" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

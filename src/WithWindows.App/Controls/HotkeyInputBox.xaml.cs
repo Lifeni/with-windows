@@ -31,19 +31,22 @@ public sealed partial class HotkeyInputBox : UserControl
             new PointerEventHandler(OnBoxPointerPressed),
             handledEventsToo: true);
 
-        // UserControl 自身没有自动化节点：把页面设置的 AutomationId 转交到可聚焦的 BoxButton，
+        // UserControl 自身没有自动化节点：把外部设置的 AutomationId 转交到可聚焦的 BoxButton，
         // 否则录制框在可访问性树里既定位不到、也无法被键盘聚焦。
-        // 清除按钮的 ID 必须按实例派生——一页里有多个录制框，写死会出现重复 ID。
-        Loaded += (_, _) =>
-        {
-            string id = AutomationProperties.GetAutomationId(this);
-            if (!string.IsNullOrEmpty(id))
+        // 用属性变化回调而不是 Loaded：宿主（如 HotkeyRow）可能在子控件 Loaded 之后才赋 ID，
+        // 那时再复制就晚了。清除按钮与提示文本的 ID 必须按实例派生，避免同页重复。
+        RegisterPropertyChangedCallback(
+            AutomationProperties.AutomationIdProperty,
+            (_, _) =>
             {
+                string id = AutomationProperties.GetAutomationId(this);
+                if (string.IsNullOrEmpty(id))
+                    return;
+
                 AutomationProperties.SetAutomationId(BoxButton, id);
                 AutomationProperties.SetAutomationId(ClearButton, id + "Clear");
                 AutomationProperties.SetAutomationId(HintText, id + "Hint");
-            }
-        };
+            });
     }
 
     /// <summary>热键文本（规范形式，如 "Ctrl+Shift+F14"）；null 或空表示不绑定。</summary>
