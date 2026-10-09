@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -24,28 +25,22 @@ public sealed class HotkeyRow : UserControl
         Severity = InfoBarSeverity.Warning,
     };
 
-    private readonly HotkeyInputBox _box = new()
-    {
-        MinWidth = 160,
-        VerticalAlignment = VerticalAlignment.Center,
-    };
+    private readonly HotkeyChips _chips = new() { VerticalAlignment = VerticalAlignment.Center };
 
-    private readonly ToggleSwitch _enabled = new()
-    {
-        OnContent = "启用",
-        OffContent = "停用",
-        VerticalAlignment = VerticalAlignment.Center,
-    };
+    private readonly FontIcon _editIcon = new() { Glyph = "\uE70F", FontSize = 14 };
 
-    private readonly Button _run = new()
+    private readonly Button _edit = new()
     {
-        Content = "立即执行",
         VerticalAlignment = VerticalAlignment.Center,
+        Background = (Brush)Application.Current.Resources["ControlFillColorDefaultBrush"],
+        BorderBrush = (Brush)Application.Current.Resources["ControlStrokeColorDefaultBrush"],
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(4),
+        Padding = new Thickness(10, 6, 10, 6),
     };
 
     private readonly CardRow _card = new();
     private ToolBinding? _binding;
-    private string _runButtonText = "立即执行";
 
     public HotkeyRow()
     {
@@ -77,36 +72,17 @@ public sealed class HotkeyRow : UserControl
         set => _card.Glyph = value;
     }
 
-    /// <summary>「立即执行」按钮的文案。构造后才由 XAML 赋值，因此必须即时写进控件。</summary>
-    public string RunButtonText
-    {
-        get => _runButtonText;
-        set
-        {
-            _runButtonText = value;
-            _run.Content = value;
-        }
-    }
-
-    /// <summary>「立即执行」完成后触发，供宿主刷新页面上的状态（如当前模式）。</summary>
-    public event EventHandler? Executed;
-
     private static AppHost? Host => App.Host;
 
     private void Build()
     {
-        _run.Content = _runButtonText;
-
-        var trailing = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        trailing.Children.Add(_box);
-        trailing.Children.Add(_enabled);
-        trailing.Children.Add(_run);
-        _card.Trailing = trailing;
+        // 与 PowerToys 一致：次按钮里放按键方块 + 铅笔图标，点击后弹对话框录制
+        var editContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        editContent.Children.Add(_chips);
+        editContent.Children.Add(_editIcon);
+        _edit.Content = editContent;
+        _edit.Click += async (_, _) => await EditHotkeyAsync();
+        _card.Trailing = _edit;
 
         var content = new StackPanel { Spacing = 8 };
         content.Children.Add(_card);
@@ -120,57 +96,29 @@ public sealed class HotkeyRow : UserControl
             return;
 
         _binding = Host.Config.Tools.FirstOrDefault(t => t.Id == ToolId);
-        _box.HotkeyText = _binding?.Hotkey;
-        _enabled.IsOn = _binding?.Enabled ?? true;
+        _chips.SetHotkey(_binding?.Hotkey);
 
-        AutomationProperties.SetAutomationId(_box, $"HotkeyBox_{ToolId}");
-        AutomationProperties.SetAutomationId(_enabled, $"HotkeyEnabled_{ToolId}");
-        AutomationProperties.SetAutomationId(_run, $"HotkeyRunNow_{ToolId}");
+        AutomationProperties.SetAutomationId(_edit, $"HotkeyBox_{ToolId}");
+        AutomationProperties.SetName(_edit, "设置快捷键");
         AutomationProperties.SetAutomationId(_info, $"HotkeyInfo_{ToolId}");
-
-        _box.HotkeyChanged += (_, value) =>
-        {
-            if (_binding is null)
-                return;
-
-            _binding.Hotkey = value;
-            Host.SaveConfig();
-            ReportFailures(Host.ReloadBindings());
-        };
-
-        _enabled.Toggled += (_, _) =>
-        {
-            if (_binding is null)
-                return;
-
-            _binding.Enabled = _enabled.IsOn;
-            Host.SaveConfig();
-            ReportFailures(Host.ReloadBindings());
-        };
-
-        _run.Click += (_, _) => RunNow();
 
         ReportFailures(Host.ReloadBindings());
     }
 
-    private void RunNow()
+    /// <summary>打开录制对话框；确认后写回配置并热重载。</summary>
+    private async Task EditHotkeyAsync()
     {
-        try
-        {
-            var router = new HotkeyRouter((MainWindow)App.MainWindow!, Host!.Config);
-            ActionResult? result = router.Invoke(ToolId);
+        if (_binding is null || Host is null)
+            return;
 
-            _info.Severity = InfoBarSeverity.Success;
-            _info.Title = result?.Message ?? $"已打开{Title}";
-            _info.IsOpen = true;
-            Executed?.Invoke(this, EventArgs.Empty);
-        }
-        catch (Exception ex)
-        {
-            _info.Severity = InfoBarSeverity.Error;
-            _info.Title = $"执行失败：{ex.Message}";
-            _info.IsOpen = true;
-        }
+        HotkeyDialogResult result = await HotkeyDialog.ShowAsync(XamlRoot, Title, _binding.Hotkey);
+        if (!result.Confirmed)
+            return;
+
+        _binding.Hotkey = string.IsNullOrWhiteSpace(result.Hotkey) ? null : result.Hotkey;
+        _chips.SetHotkey(_binding.Hotkey);
+        Host.SaveConfig();
+        ReportFailures(Host.ReloadBindings());
     }
 
     /// <summary>把与本行工具相关的热重载失败原因显示出来；没有失败则收起提示。</summary>

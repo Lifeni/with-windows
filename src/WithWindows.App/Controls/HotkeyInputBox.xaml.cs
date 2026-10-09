@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -19,6 +20,13 @@ public sealed partial class HotkeyInputBox : UserControl
 {
     private bool _capturing;
     private string? _hotkeyText;
+
+    /// <summary>
+    /// 自己跟踪按下的修饰键。在弹窗（如 ContentDialog）里注入按键时，
+    /// <c>GetKeyStateForCurrentThread</c> 可能读不到修饰键状态，导致组合键录制失效；
+    /// 自持集合在真实键盘与注入输入下都成立。
+    /// </summary>
+    private readonly HashSet<VirtualKey> _pressedModifiers = new();
 
     public HotkeyInputBox()
     {
@@ -128,10 +136,14 @@ public sealed partial class HotkeyInputBox : UserControl
         // 捕获期间吞掉按键，避免触发页面导航等默认行为
         e.Handled = true;
 
+        if (IsModifierKey(e.Key))
+            _pressedModifiers.Add(e.Key);
+
         if (e.Key == VirtualKey.Escape)
         {
             // Esc 取消本次录入，保留原值
             _capturing = false;
+            _pressedModifiers.Clear();
             HideHint();
             RefreshDisplay();
             BoxButton.Focus(FocusState.Programmatic);
@@ -168,6 +180,13 @@ public sealed partial class HotkeyInputBox : UserControl
         HotkeyChanged?.Invoke(this, _hotkeyText);
     }
 
+    /// <summary>松开修饰键时更新自持的按下集合。</summary>
+    private void OnPreviewKeyUp(object sender, KeyRoutedEventArgs e)
+    {
+        if (IsModifierKey(e.Key))
+            _pressedModifiers.Remove(e.Key);
+    }
+
     private void RefreshDisplay()
         => ValueText.Text = _capturing
             ? "请按下组合键…"
@@ -192,13 +211,21 @@ public sealed partial class HotkeyInputBox : UserControl
     private static bool IsLetterOrDigit(uint virtualKey)
         => (virtualKey >= 'A' && virtualKey <= 'Z') || (virtualKey >= '0' && virtualKey <= '9');
 
-    private static HotkeyModifiers CurrentModifiers()
+    private HotkeyModifiers CurrentModifiers()
     {
         HotkeyModifiers modifiers = HotkeyModifiers.None;
         if (IsDown(VirtualKey.Control)) modifiers |= HotkeyModifiers.Control;
         if (IsDown(VirtualKey.Menu)) modifiers |= HotkeyModifiers.Alt;
         if (IsDown(VirtualKey.Shift)) modifiers |= HotkeyModifiers.Shift;
         if (IsDown(VirtualKey.LeftWindows) || IsDown(VirtualKey.RightWindows)) modifiers |= HotkeyModifiers.Windows;
+
+        // 叠加自持集合：注入输入下线程键状态可能为空
+        if (_pressedModifiers.Contains(VirtualKey.Control)) modifiers |= HotkeyModifiers.Control;
+        if (_pressedModifiers.Contains(VirtualKey.Menu)) modifiers |= HotkeyModifiers.Alt;
+        if (_pressedModifiers.Contains(VirtualKey.Shift)) modifiers |= HotkeyModifiers.Shift;
+        if (_pressedModifiers.Contains(VirtualKey.LeftWindows) || _pressedModifiers.Contains(VirtualKey.RightWindows))
+            modifiers |= HotkeyModifiers.Windows;
+
         return modifiers;
     }
 

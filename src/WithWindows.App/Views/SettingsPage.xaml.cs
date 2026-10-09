@@ -35,6 +35,7 @@ public sealed partial class SettingsPage : Page
         try
         {
             AutoStartToggle.IsOn = AutoStart.IsEnabled();
+            AutoStartStateText.Text = AutoStartToggle.IsOn ? "开" : "关";
             VersionText.Text = $"With Windows {CurrentVersion()}";
             PathsText.Text = $"配置目录：{AppPaths.DataRoot}\n日志文件：{AppPaths.LogPath}";
         }
@@ -56,6 +57,7 @@ public sealed partial class SettingsPage : Page
             else
                 AutoStart.Disable();
 
+            AutoStartStateText.Text = AutoStartToggle.IsOn ? "开" : "关";
             Host?.Log.Info($"开机自启已{(AutoStartToggle.IsOn ? "开启" : "关闭")}");
         }
         catch (Exception ex)

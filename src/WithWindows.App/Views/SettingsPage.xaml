@@ -5,10 +5,10 @@
     xmlns:controls="using:WithWindows.Controls">
 
     <ScrollViewer Padding="24">
-        <!-- 内容区限制最大宽度：参考系统记事本设置页，不要让文本横向铺满整个窗口 -->
+        <!-- 与 PowerToys 一致：内容限宽并水平居中 -->
         <StackPanel
-            MaxWidth="760"
-            HorizontalAlignment="Left"
+            MaxWidth="1000"
+            HorizontalAlignment="Center"
             Spacing="8">
             <TextBlock
                 Margin="0,0,0,8"
@@ -23,12 +23,21 @@
                 Glyph="&#xE7E8;"
                 Title="开机自启">
                 <controls:CardRow.Trailing>
-                    <ToggleSwitch
-                        x:Name="AutoStartToggle"
-                        AutomationProperties.AutomationId="AutoStartToggle"
-                        OffContent="关"
-                        OnContent="开"
-                        Toggled="OnAutoStartToggled" />
+                    <!-- 状态文字放左侧、开关贴右边缘（对齐 PowerToys 卡片行） -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock
+                            x:Name="AutoStartStateText"
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="关" />
+                        <ToggleSwitch
+                            x:Name="AutoStartToggle"
+                            AutomationProperties.AutomationId="AutoStartToggle"
+                            MinWidth="0"
+                            OffContent=""
+                            OnContent=""
+                            Toggled="OnAutoStartToggled" />
+                    </StackPanel>
                 </controls:CardRow.Trailing>
             </controls:CardRow>
 
@@ -38,7 +47,6 @@
                 x:Name="ShowWindowRow"
                 Description="按下组合键从托盘唤出主窗口并打开记事"
                 Glyph="&#xE765;"
-                RunButtonText="打开主窗口"
                 Title="呼出主窗口"
                 ToolId="notepad" />
 

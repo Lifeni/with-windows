@@ -6,6 +6,8 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 using Windows.System;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.Core;
@@ -190,14 +192,38 @@ public sealed partial class NotepadPage : Page
         StatusCaret.Text = $"行 {line}，列 {column}";
     }
 
-    /// <summary>保存：把防抖中的草稿立即写盘（关闭程序不会自动复制到剪贴板，复制是显式操作）。</summary>
-    private void OnSaveClick(object sender, RoutedEventArgs e)
+    private void OnUndoClick(object sender, RoutedEventArgs e) => Editor.Document.Undo();
+
+    private void OnRedoClick(object sender, RoutedEventArgs e) => Editor.Document.Redo();
+
+    /// <summary>
+    /// 另存为：正文本身自动保存（防抖写草稿），这个按钮用于把内容另存到用户选定的文件。
+    /// </summary>
+    private async void OnSaveAsClick(object sender, RoutedEventArgs e)
     {
-        Editor.Document.GetText(TextGetOptions.None, out string text);
-        _editorBaseline = text;
-        _draft?.QueueSave(text);
-        _draft?.Flush();
-        StatusCount.Text = $"{text.TrimEnd('\r').Length} 个字符（已保存）";
+        try
+        {
+            var picker = new FileSavePicker();
+            picker.FileTypeChoices.Add("文本文件", new List<string> { ".txt" });
+            picker.SuggestedFileName = "记事";
+
+            // 未打包应用必须先把选择器与窗口关联，否则 PickSaveFileAsync 会失败
+            WinRT.Interop.InitializeWithWindow.Initialize(
+                picker,
+                WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow!));
+
+            StorageFile? file = await picker.PickSaveFileAsync();
+            if (file is null)
+                return;
+
+            string content = ReadAllText();
+            await FileIO.WriteTextAsync(file, content);
+            StatusCount.Text = $"{content.Length} 个字符（已另存为 {file.Name}）";
+        }
+        catch (Exception ex)
+        {
+            StatusCount.Text = $"另存为失败：{ex.Message}";
+        }
     }
 
     /// <summary>复制：有选区就复制选区，否则复制全文。</summary>
@@ -254,9 +280,10 @@ public sealed partial class NotepadPage : Page
 
         Editor.TextWrapping = WrapToggle.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
 
-        // 未开启时不显示对勾（控件本身在解析期就会被调用，此时 WrapCheck 可能尚未构造）
+        // 未开启时不显示对勾，但保留占位（用透明而不是折叠），避免文字位置跳变。
+        // 控件在解析期就会被调用，此时 WrapCheck 可能尚未构造。
         if (WrapCheck is not null)
-            WrapCheck.Visibility = WrapToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            WrapCheck.Opacity = WrapToggle.IsChecked == true ? 1 : 0;
     }
 
     private string ReadAllText()

@@ -6,67 +6,78 @@
 
     <ScrollViewer Padding="24">
         <StackPanel Spacing="16">
-            <StackPanel MaxWidth="820" HorizontalAlignment="Left" Spacing="8">
+            <!-- 与 PowerToys 一致：内容限宽并水平居中 -->
+            <StackPanel
+                MaxWidth="1000"
+                HorizontalAlignment="Center"
+                Spacing="8">
                 <TextBlock
                     Margin="0,0,0,8"
                     AutomationProperties.AutomationId="DisplayTitle"
                     Style="{StaticResource TitleTextBlockStyle}"
                     Text="投影" />
 
-                <TextBlock
-                    x:Name="CurrentModeText"
-                    Margin="0,0,0,8"
-                    AutomationProperties.AutomationId="DisplayCurrentMode"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource BodyTextBlockStyle}" />
-
                 <controls:CardRow
                     AutomationProperties.AutomationId="DisplayEnabledCard"
-                    Description="关闭后不注册投影热键，也不能「立即执行」"
+                    Description="关闭后不再注册投影热键"
                     Glyph="&#xE7E8;"
                     Title="启用投影功能">
                     <controls:CardRow.Trailing>
-                        <ToggleSwitch
-                            x:Name="EnabledToggle"
-                            AutomationProperties.AutomationId="DisplayEnabledToggle"
-                            OffContent="关"
-                            OnContent="开"
-                            Toggled="OnEnabledToggled" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock
+                                x:Name="EnabledStateText"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="关" />
+                            <ToggleSwitch
+                                x:Name="EnabledToggle"
+                                AutomationProperties.AutomationId="DisplayEnabledToggle"
+                                MinWidth="0"
+                                OffContent=""
+                                OnContent=""
+                                Toggled="OnEnabledToggled" />
+                        </StackPanel>
                     </controls:CardRow.Trailing>
                 </controls:CardRow>
 
                 <controls:HotkeyRow
                     x:Name="DisplayHotkeyRow"
-                    Description="按下组合键在下面的候选模式之间循环"
+                    Description="按下组合键在「切换模式」里勾选的模式之间循环"
                     Glyph="&#xE765;"
-                    RunButtonText="立即执行"
                     Title="投影快捷键"
                     ToolId="display_mode" />
 
-                <TextBlock
+                <!-- 切换模式：默认折叠，展开后是原生多选框（PowerToys 的 SettingsExpander 风格） -->
+                <Expander
                     Margin="0,8,0,0"
-                    Style="{StaticResource SubtitleTextBlockStyle}"
-                    Text="切换模式" />
-                <TextBlock
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="点选参与循环的模式，至少保留一项。"
-                    TextWrapping="Wrap" />
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="DisplayModesExpander"
+                    IsExpanded="False">
+                    <Expander.Header>
+                        <Grid Padding="0,4" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                <Grid ColumnSpacing="12" RowSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <StackPanel x:Name="ModesHost" Grid.Row="0" Grid.Column="0" Spacing="12" />
-                    <StackPanel x:Name="ModesHost2" Grid.Row="0" Grid.Column="1" Spacing="12" />
-                    <StackPanel x:Name="ModesHost3" Grid.Row="1" Grid.Column="0" Spacing="12" />
-                    <StackPanel x:Name="ModesHost4" Grid.Row="1" Grid.Column="1" Spacing="12" />
-                </Grid>
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock
+                                    AutomationProperties.AutomationId="DisplayModesTitle"
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    Text="切换模式" />
+                                <TextBlock
+                                    x:Name="CurrentModeText"
+                                    AutomationProperties.AutomationId="DisplayCurrentMode"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="当前模式：读取中…" />
+                            </StackPanel>
+                        </Grid>
+                    </Expander.Header>
+
+                    <StackPanel x:Name="ModesHost" Margin="0,4,0,0" Spacing="2" />
+                </Expander>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

@@ -452,6 +452,32 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 - 投影页「立即执行」切换后「当前模式」不刷新：`HotkeyRow` 暴露 `Executed` 事件，页面收到后重读；
 - 记事页每次移动光标都整篇取文：拆成「字符数只在文本变化时算」，光标移动只取前缀算行列。
 
+### 2026-10-09 PowerToys 风格收敛（快捷键控件 / 展开组件 / 限宽居中）
+
+**调研**（按用户要求先看现成实现，不自己试错）：从 GitHub 拉取了 PowerToys 的 `ShortcutControl.xaml(.cs)`
+（`src/settings-ui/Settings.UI/SettingsXAML/Controls/ShortcutControl/`）。要点：
+
+- 快捷键控件 = **Subtle 按钮**里放 `ItemsControl`（每项一个 `KeyVisual` 按键方块，强调色）+ 无值时占位文案，点击**弹对话框**；
+- 对话框 = 说明文字（「快捷方式应以 Windows 键、Ctrl、Alt 或 Shift 开头」）+ 录制区 + 重置 / 清除 + 保存 / 取消。
+
+**改动**：
+
+1. **快捷键控件（PowerToys 式）**：`HotkeyChips`（按键方块）+ 铅笔图标装在次按钮里；点击弹出 `HotkeyDialog`（说明 + 录制区 + 重置 / 清除 + 保存 / 取消）。`HotkeyRow` 里原来的「启用开关」「立即执行」按钮**已移除**（用户要求），只剩标题/说明 + 快捷键按钮 + 注册失败提示。
+2. **录制更稳**：`HotkeyInputBox` 自己跟踪按下的修饰键（`HashSet<VirtualKey>`，KeyDown 加入、KeyUp 移除），并与 `GetKeyStateForCurrentThread` 取并集。原因：注入输入在弹窗里读不到线程键状态，只靠它会让组合键录制失效。
+3. **投影页「切换模式」**：改为 **`Expander`（默认折叠）+ 原生 `CheckBox`**（每项两行：图标 + 名称 / 说明），当前模式显示在展开组件标题下（原独立的「当前模式」行已合并）。
+4. **限宽居中**：设置页与投影页内容 `MaxWidth=1000` + `HorizontalAlignment=Center`。
+5. **记事工具条**：新增撤销（E7A7）/ 还原（E7A6）；「保存」改为「**另存为**」（正文本就自动保存，另存为走 `FileSavePicker`，按未打包应用要求先 `InitializeWithWindow`）；自动换行的对勾由「折叠」改为「透明占位」，避免文字位置跳变。
+6. **设置页开关**：状态文字（开 / 关）放在开关左侧、开关贴右边缘（原先开关右侧的 OnContent 文案造成右侧留白）。
+
+实测（截图 `artifacts/ui/notepad-undo-2026-10-09.png`、`projection-expander-2026-10-09.png`）：
+
+```text
+记事工具条：NotepadUndo "撤销" / NotepadRedo "还原" / NotepadSave "另存为" / NotepadCopy / NotepadPaste
+投影页：DisplayModesExpander [collapsed] → 展开后 ModeCheckBox_internal [on] / _extend [on] / _external [off] / _clone [off]
+```
+
+**测试分工**：快捷键录制涉及真实键盘与输入法，用户自行做界面验证；自动化只验证结构（控件存在、展开折叠、配置写入）。
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。

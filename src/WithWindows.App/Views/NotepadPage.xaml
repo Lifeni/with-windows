@@ -66,12 +66,38 @@
                     Width="36"
                     Height="32"
                     Padding="0"
-                    AutomationProperties.AutomationId="NotepadSave"
-                    AutomationProperties.Name="保存"
+                    AutomationProperties.AutomationId="NotepadUndo"
+                    AutomationProperties.Name="撤销"
                     Background="Transparent"
                     BorderThickness="0"
-                    Click="OnSaveClick"
-                    ToolTipService.ToolTip="保存">
+                    Click="OnUndoClick"
+                    ToolTipService.ToolTip="撤销（Ctrl+Z）">
+                    <FontIcon FontSize="16" Glyph="&#xE7A7;" />
+                </Button>
+
+                <Button
+                    Width="36"
+                    Height="32"
+                    Padding="0"
+                    AutomationProperties.AutomationId="NotepadRedo"
+                    AutomationProperties.Name="还原"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnRedoClick"
+                    ToolTipService.ToolTip="还原（Ctrl+Y）">
+                    <FontIcon FontSize="16" Glyph="&#xE7A6;" />
+                </Button>
+
+                <Button
+                    Width="36"
+                    Height="32"
+                    Padding="0"
+                    AutomationProperties.AutomationId="NotepadSave"
+                    AutomationProperties.Name="另存为"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnSaveAsClick"
+                    ToolTipService.ToolTip="另存为（正文自动保存）">
                     <FontIcon FontSize="16" Glyph="&#xE74E;" />
                 </Button>
 
@@ -165,6 +191,7 @@
                 IsChecked="True"
                 Unchecked="OnWrapToggled">
                 <StackPanel Orientation="Horizontal" Spacing="4">
+                    <!-- 未开启时保留占位（透明而不是折叠），否则文字会左右跳 -->
                     <FontIcon
                         x:Name="WrapCheck"
                         FontSize="12"

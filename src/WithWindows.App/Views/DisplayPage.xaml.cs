@@ -52,10 +52,9 @@ public sealed partial class DisplayPage : Page
         try
         {
             EnabledToggle.IsOn = DisplayBinding?.Enabled ?? true;
-            BuildModeCards();
+            EnabledStateText.Text = EnabledToggle.IsOn ? "开" : "关";
+            BuildModeCheckBoxes();
             RefreshCurrentMode();
-            // 「立即执行」切换后刷新当前模式，避免标签与实际状态互相矛盾
-            DisplayHotkeyRow.Executed += (_, _) => RefreshCurrentMode();
         }
         finally
         {
@@ -72,78 +71,58 @@ public sealed partial class DisplayPage : Page
             : $"当前模式：{KnownModes.FirstOrDefault(m => m.Mode == mode).Title ?? mode}";
     }
 
-    private void BuildModeCards()
+    /// <summary>把候选模式渲染成原生多选框（放在「切换模式」展开组件里）。</summary>
+    private void BuildModeCheckBoxes()
     {
         AppConfig config = Host!.Config;
-        StackPanel[] hosts = { ModesHost, ModesHost2, ModesHost3, ModesHost4 };
 
-        for (int i = 0; i < KnownModes.Length; i++)
+        foreach ((string mode, string title, string glyph, string description) in KnownModes)
         {
-            (string mode, string title, string glyph, string description) = KnownModes[i];
-
-            var card = new ToggleButton
+            var checkBox = new CheckBox
             {
                 IsChecked = config.DisplayMode.Modes.Contains(mode, StringComparer.Ordinal),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Left,
-                MinHeight = 88,
-                Padding = new Thickness(16, 12, 16, 12),
-                Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
-                BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 4, 0, 4),
+                Content = BuildModeLabel(glyph, title, description),
             };
-            AutomationProperties.SetAutomationId(card, $"ModeCard_{mode}");
-            AutomationProperties.SetName(card, title);
-
-            var check = new FontIcon
-            {
-                Glyph = "\uE73E",
-                FontSize = 14,
-                VerticalAlignment = VerticalAlignment.Center,
-                Visibility = card.IsChecked == true ? Visibility.Visible : Visibility.Collapsed,
-            };
-
-            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            header.Children.Add(new FontIcon
-            {
-                Glyph = glyph,
-                FontSize = 18,
-                VerticalAlignment = VerticalAlignment.Center,
-            });
-            header.Children.Add(new TextBlock
-            {
-                Text = title,
-                VerticalAlignment = VerticalAlignment.Center,
-                Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
-            });
-            header.Children.Add(check);
-
-            var content = new StackPanel { Spacing = 4 };
-            content.Children.Add(header);
-            content.Children.Add(new TextBlock
-            {
-                Text = description,
-                TextWrapping = TextWrapping.Wrap,
-                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-            });
-            card.Content = content;
+            AutomationProperties.SetAutomationId(checkBox, $"ModeCheckBox_{mode}");
+            AutomationProperties.SetName(checkBox, title);
 
             string capturedMode = mode;
-            card.Checked += (_, _) =>
-            {
-                check.Visibility = Visibility.Visible;
-                OnModeToggled(capturedMode, isChecked: true, card);
-            };
-            card.Unchecked += (_, _) =>
-            {
-                check.Visibility = Visibility.Collapsed;
-                OnModeToggled(capturedMode, isChecked: false, card);
-            };
-
-            hosts[i].Children.Add(card);
+            checkBox.Checked += (_, _) => OnModeToggled(capturedMode, isChecked: true, checkBox);
+            checkBox.Unchecked += (_, _) => OnModeToggled(capturedMode, isChecked: false, checkBox);
+            ModesHost.Children.Add(checkBox);
         }
+    }
+
+    /// <summary>多选框右侧的「图标 + 名称 + 说明」两行文本。</summary>
+    private static StackPanel BuildModeLabel(string glyph, string title, string description)
+    {
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        header.Children.Add(new FontIcon
+        {
+            Glyph = glyph,
+            FontSize = 16,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        header.Children.Add(new TextBlock
+        {
+            Text = title,
+            VerticalAlignment = VerticalAlignment.Center,
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+        });
+
+        var label = new StackPanel { Spacing = 2 };
+        label.Children.Add(header);
+        label.Children.Add(new TextBlock
+        {
+            Text = description,
+            TextWrapping = TextWrapping.Wrap,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+        });
+        return label;
     }
 
     private void OnEnabledToggled(object sender, RoutedEventArgs e)
@@ -156,11 +135,12 @@ public sealed partial class DisplayPage : Page
             return;
 
         binding.Enabled = EnabledToggle.IsOn;
+        EnabledStateText.Text = EnabledToggle.IsOn ? "开" : "关";
         Host.SaveConfig();
         Host.ReloadBindings();
     }
 
-    private void OnModeToggled(string mode, bool isChecked, ToggleButton source)
+    private void OnModeToggled(string mode, bool isChecked, CheckBox source)
     {
         if (_initializing || Host is null)
             return;
