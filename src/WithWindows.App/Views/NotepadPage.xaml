@@ -58,23 +58,18 @@
             Padding="16,8"
             AutomationProperties.AutomationId="NotepadToolbar"
             Background="{ThemeResource LayerFillColorDefaultBrush}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
             <TextBlock
                 x:Name="ClockText"
-                Grid.Column="0"
+                HorizontalAlignment="Left"
                 VerticalAlignment="Center"
                 AutomationProperties.AutomationId="NotepadClock"
                 FontSize="18"
                 FontWeight="SemiBold" />
 
+            <!-- 格式与动作按钮在工具条里居中（对齐系统记事本） -->
             <StackPanel
-                Grid.Column="2"
                 Orientation="Horizontal"
+                HorizontalAlignment="Center"
                 Spacing="2"
                 VerticalAlignment="Center">
 
@@ -283,22 +278,23 @@
         <Border
             x:Name="FindPanel"
             Grid.Row="1"
-            Margin="0,12,0,0"
-            Padding="12"
+            Margin="0,16,0,0"
+            Padding="16"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
             AutomationProperties.AutomationId="FindPanel"
-            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="8"
             Visibility="Collapsed">
-            <StackPanel Spacing="8">
-                <StackPanel Orientation="Horizontal" Spacing="8">
+            <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="10">
                     <TextBox
                         x:Name="FindBox"
-                        Width="280"
+                        Width="360"
                         AutomationProperties.AutomationId="FindBox"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
                         KeyDown="OnFindBoxKeyDown"
                         PlaceholderText="查找" />
 
@@ -348,11 +344,12 @@
                     </Button>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="10">
                     <TextBox
                         x:Name="ReplaceBox"
-                        Width="280"
+                        Width="360"
                         AutomationProperties.AutomationId="ReplaceBox"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
                         KeyDown="OnReplaceBoxKeyDown"
                         PlaceholderText="替换" />
 

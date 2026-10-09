@@ -21,7 +21,6 @@
                 Style="{StaticResource TitleTextBlockStyle}"
                 Text="设置" />
 
-            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="启动" />
             <controls:CardRow
                 AutomationProperties.AutomationId="AutoStartCard"
                 Description="登录 Windows 后自动启动并常驻托盘"
@@ -51,7 +50,7 @@
                 x:Name="ShowWindowRow"
                 Description="按下组合键从托盘唤出主窗口并打开记事"
                 Glyph="&#xE765;"
-                Title="呼出主窗口"
+                Title="显示窗口"
                 ToolId="notepad" />
 
             <!-- 关于：参考 WinUI Gallery 的写法——折叠成一项，展开后每个条目一行 -->
