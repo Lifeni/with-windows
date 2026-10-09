@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -37,7 +38,11 @@ public sealed partial class SettingsPage : Page
             AutoStartToggle.IsOn = AutoStart.IsEnabled();
             AutoStartStateText.Text = AutoStartToggle.IsOn ? "开" : "关";
             VersionText.Text = $"With Windows {CurrentVersion()}";
-            PathsText.Text = $"配置目录：{AppPaths.DataRoot}\n日志文件：{AppPaths.LogPath}";
+            BuildDateText.Text = $"构建日期 {BuildDate()}";
+
+            // 未打包应用里 ms-appx:/// 解析不可靠（实测渲染成花屏），直接用绝对路径加载
+            if (AppIcon.PngExists)
+                AboutIconImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(AppIcon.PreferredPng));
         }
         finally
         {
@@ -70,6 +75,22 @@ public sealed partial class SettingsPage : Page
 
     private void OnOpenLogFileClick(object sender, RoutedEventArgs e) => OpenPath(AppPaths.LogPath, select: true);
 
+    private void OnOpenRepositoryClick(object sender, RoutedEventArgs e)
+        => OpenUrl("https://github.com/Lifeni/with-windows");
+
+    /// <summary>用系统默认浏览器打开网址。</summary>
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Host?.Log.Error($"打开链接失败（{url}）：{ex.Message}");
+        }
+    }
+
     /// <summary>用资源管理器打开目录（或选中文件）。失败只记日志，不打断界面。</summary>
     private static void OpenPath(string path, bool select = false)
     {
@@ -90,4 +111,10 @@ public sealed partial class SettingsPage : Page
         Version? version = typeof(SettingsPage).Assembly.GetName().Version;
         return version is null ? "未知" : $"{version.Major}.{version.Minor}.{version.Build}";
     }
+
+    /// <summary>构建日期：由 csproj 在编译期写入 AssemblyMetadata。</summary>
+    private static string BuildDate()
+        => typeof(SettingsPage).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == "BuildDate")?.Value ?? "未知";
 }

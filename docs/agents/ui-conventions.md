@@ -35,6 +35,31 @@
 
 - 统一用 `FontIcon` + Segoe Fluent Icons 字形，不引入图片图标，除非是应用图标本身。
 - 纯图标按钮必须给 `AutomationProperties.Name`，否则读屏与自动化都定位不到。
+- **字形一律从 WinUI Gallery 的图标表里查**，不要凭记忆猜码点：
+
+  ```powershell
+  gh api "/repos/microsoft/WinUI-Gallery/contents/WinUIGallery/Samples/Iconography/IconsData.json" --jq '.content' |
+    ForEach-Object { [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($_ -replace '\s',''))) } |
+    ConvertFrom-Json | Where-Object { $_.Name -like '*Monitor*' } | Format-Table Name, Code, Tags
+  ```
+
+  例：投影用的 `DeviceMonitorRightPic` = `E7F9`（tags: projection/present），本项目导航与托盘都用它。
+
+## 七、参考实现（写代码前先看这两处）
+
+用户已明确要求**直接参考现成实现**，不要自己从头试错：
+
+| 参考库 | 看什么 |
+|---|---|
+| [microsoft/WinUI-Gallery](https://github.com/microsoft/WinUI-Gallery) | 控件用法与页面排版（设置页、关于页、示例页）；`WinUIGallery/Samples/Iconography/IconsData.json` 是**图标名 → 码点**的权威表；可直接照搬它的 XAML 结构 |
+| [microsoft/PowerToys](https://github.com/microsoft/PowerToys) | 设置页形态：`src/settings-ui/Settings.UI/SettingsXAML/` 下的 `SettingsExpander` 卡片行、`Controls/ShortcutControl/`（快捷键控件：按键方块 + 铅笔按钮 + 弹窗录制） |
+
+取代码用 `gh`（已登录）：
+
+```powershell
+gh search code --repo microsoft/WinUI-Gallery "关键词"
+gh api "/repos/<owner>/<repo>/contents/<path>" --jq '.content'   # base64，解码后即文件内容
+```
 
 ## 六、像素级细节由人决定
 

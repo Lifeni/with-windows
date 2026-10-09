@@ -84,7 +84,7 @@ public sealed partial class DisplayPage : Page
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 Margin = new Thickness(0, 4, 0, 4),
-                Content = BuildModeLabel(glyph, title, description),
+                Content = BuildModeLabel(title, description),
             };
             AutomationProperties.SetAutomationId(checkBox, $"ModeCheckBox_{mode}");
             AutomationProperties.SetName(checkBox, title);
@@ -96,25 +96,15 @@ public sealed partial class DisplayPage : Page
         }
     }
 
-    /// <summary>多选框右侧的「图标 + 名称 + 说明」两行文本。</summary>
-    private static StackPanel BuildModeLabel(string glyph, string title, string description)
+    /// <summary>多选框右侧的「名称 + 说明」两行文本。</summary>
+    private static StackPanel BuildModeLabel(string title, string description)
     {
-        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        header.Children.Add(new FontIcon
-        {
-            Glyph = glyph,
-            FontSize = 16,
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        header.Children.Add(new TextBlock
+        var label = new StackPanel { Spacing = 2 };
+        label.Children.Add(new TextBlock
         {
             Text = title,
-            VerticalAlignment = VerticalAlignment.Center,
             Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
         });
-
-        var label = new StackPanel { Spacing = 2 };
-        label.Children.Add(header);
         label.Children.Add(new TextBlock
         {
             Text = description,

@@ -34,6 +34,14 @@
     <ProjectReference Include="..\WithWindows.Core\WithWindows.Core.csproj" />
   </ItemGroup>
 
+  <!-- 把构建日期写进程序集，供「关于」里显示 -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BuildDate</_Parameter1>
+      <_Parameter2>$([System.DateTime]::Now.ToString("yyyy-MM-dd"))</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <ItemGroup>
     <!-- CopyToPublishDirectory 必须显式设置：单文件发布时 Content 不会被复制到 publish 目录，
          缺了 Assets 会导致托盘图标与窗口图标丢失 -->

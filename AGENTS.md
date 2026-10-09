@@ -59,6 +59,7 @@ docs/superpowers/             设计文档与实现计划
 | 任何 WinUI 3 / XAML 代码 | `docs/agents/winui3-hard-rules.md` |
 | 构建、运行、验证界面 | `docs/agents/development-workflow.md` |
 | 界面结构与视觉约定 | `docs/agents/ui-conventions.md` |
+| **写界面代码前**：参考库与图标名表（WinUI Gallery / PowerToys） | `docs/agents/ui-conventions.md` 第七节 |
 | P/Invoke、托盘、注册表、显示拓扑 | `docs/agents/interop-and-platform.md` |
 | 遇到奇怪的失败 | `docs/agents/known-pitfalls.md` |
 | **新会话接进度**（无对话记忆时先读） | `docs/HANDOFF.md` |
