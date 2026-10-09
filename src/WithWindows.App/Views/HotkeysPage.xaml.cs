@@ -24,10 +24,17 @@ public sealed partial class HotkeysPage : Page
 
     private readonly Dictionary<string, InfoBar> _infos = new(StringComparer.Ordinal);
 
+    /// <summary>窄宽度阈值（DIP）：低于它时行内控件改为两行排列，避免「立即执行」被挤出可视区。</summary>
+    private const double NarrowThreshold = 760;
+
+    private readonly List<RowLayout> _rows = new();
+    private bool _narrow;
+
     public HotkeysPage()
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        SizeChanged += OnSizeChanged;
     }
 
     private static AppHost? Host => App.Host;
@@ -40,7 +47,72 @@ public sealed partial class HotkeysPage : Page
         foreach (ToolEntry tool in ToolCatalog.Tools.Where(t => t.HasHotkey))
             RowsHost.Children.Add(BuildRow(tool));
 
+        ApplyRowLayouts(force: true);
         ReportFailures(Host.ReloadBindings());
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e) => ApplyRowLayouts(force: false);
+
+    /// <summary>按当前宽度决定每行是单行还是两行排列。</summary>
+    private void ApplyRowLayouts(bool force)
+    {
+        bool narrow = ActualWidth < NarrowThreshold;
+        if (!force && narrow == _narrow)
+            return;
+
+        _narrow = narrow;
+        foreach (RowLayout row in _rows)
+            row.Apply(narrow);
+    }
+
+    /// <summary>一行工具的可重排元素。</summary>
+    private sealed record RowLayout(
+        Grid Grid,
+        FrameworkElement Title,
+        FrameworkElement Input,
+        FrameworkElement Enabled,
+        FrameworkElement RunNow)
+    {
+        public void Apply(bool narrow)
+        {
+            Grid.ColumnDefinitions.Clear();
+            Grid.RowDefinitions.Clear();
+            Grid.Children.Clear();
+
+            if (narrow)
+            {
+                // 窄：第一行「标题 + 启用」，第二行「录制框（拉伸）+ 清除 + 立即执行」
+                Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                Grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                Grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                Grid.RowSpacing = 8;
+
+                Place(Title, 0, 0);
+                Place(Enabled, 0, 1);
+                Place(Input, 1, 0);
+                Place(RunNow, 1, 1);
+                return;
+            }
+
+            // 宽：标题 | 录制框 | 启用开关 | 立即执行
+            Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            Place(Title, 0, 0);
+            Place(Input, 0, 1);
+            Place(Enabled, 0, 2);
+            Place(RunNow, 0, 3);
+
+            void Place(FrameworkElement element, int row, int column)
+            {
+                Grid.SetRow(element, row);
+                Grid.SetColumn(element, column);
+                Grid.Children.Add(element);
+            }
+        }
     }
 
     private FrameworkElement BuildRow(ToolEntry tool)
@@ -57,7 +129,8 @@ public sealed partial class HotkeysPage : Page
         var input = new HotkeyInputBox
         {
             HotkeyText = binding?.Hotkey,
-            MinWidth = 220,
+            MinWidth = 160,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Center,
         };
         AutomationProperties.SetAutomationId(input, $"HotkeyBox_{tool.Id}");
@@ -109,19 +182,9 @@ public sealed partial class HotkeysPage : Page
 
         runNow.Click += (_, _) => RunNow(tool, info);
 
+        // 列定义与位置交给 RowLayout.Apply：宽一行、窄两行
         var grid = new Grid { ColumnSpacing = 12 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(title, 0);
-        Grid.SetColumn(input, 1);
-        Grid.SetColumn(enabled, 2);
-        Grid.SetColumn(runNow, 3);
-        grid.Children.Add(title);
-        grid.Children.Add(input);
-        grid.Children.Add(enabled);
-        grid.Children.Add(runNow);
+        _rows.Add(new RowLayout(grid, title, input, enabled, runNow));
 
         var content = new StackPanel { Spacing = 8 };
         content.Children.Add(grid);

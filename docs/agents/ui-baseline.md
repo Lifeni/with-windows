@@ -295,3 +295,19 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 | 配置写 300×200 后重启 | 被限制为 **640×480**（最小尺寸生效） |
 
 **注意**：`AppWindow` 的尺寸/位置是**物理像素**，而 DPI 不感知的进程（如普通 PowerShell 调 `GetWindowRect`）读到的是虚拟化坐标（本机 150% 缩放下相差 1.5 倍），排查时别误判成 bug。
+
+### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
+
+**硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。
+
+**浅色主题**（截图：`artifacts/ui/light-notepad-2026-10-09.png`、`light-hotkeys-…`、`light-settings-…`；验证后已把系统主题还原为深色）：
+
+目视确认白底深字、开关与勾选态正常、无「白底白字」；导航在 1000 像素宽时已自动折叠为图标。
+
+**窄宽度**（窗口 640×480，截图：`artifacts/ui/narrow-hotkeys-2026-10-09.png`）：
+
+发现并修复一个真实问题：快捷键行原为四列单行布局，窄窗口下「立即执行」被挤出可视区（`winapp ui inspect` 报 `[offscreen]`）。改为按宽度自适应——**宽（≥760 DIP）单行、窄两行**：第一行「工具名 + 启用开关」，第二行「录制框 + 清除 + 立即执行」。
+
+修复后实测同一窗口宽度下：`HotkeyBox_notepad`、`HotkeyBox_notepadClear`、`HotkeyEnabled_notepad`、`HotkeyRunNow_notepad` 全部在可视区内；第二行工具位于垂直视口外（页面本身可滚动，属预期）。
+
+**注意**：窄窗口下 `NavigationView` 处于折叠态，菜单项不在 UIA 树里；自检脚本需先 `invoke PART_PaneToggleButton` 展开左栏再 `invoke NavItem*`。
