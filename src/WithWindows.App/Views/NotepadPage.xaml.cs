@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
@@ -270,6 +271,9 @@ public sealed partial class NotepadPage : Page
         ReplaceCurrent();
     }
 
+    /// <summary>改了查找词就把「未命中」的标红清掉，避免旧状态留在界面上。</summary>
+    private void OnFindBoxTextChanged(object sender, TextChangedEventArgs e) => ClearFindMiss();
+
     private void OnFindNextClick(object sender, RoutedEventArgs e) => FindNext(forward: true);
 
     private void OnFindPrevClick(object sender, RoutedEventArgs e) => FindNext(forward: false);
@@ -301,9 +305,61 @@ public sealed partial class NotepadPage : Page
         }
 
         if (index < 0)
+        {
+            MarkFindMiss();
+            return;
+        }
+
+        ClearFindMiss();
+        SelectMatch(index, needle.Length);
+    }
+
+    /// <summary>
+    /// 选中命中项并滚进可视区。高亮靠 RichEditBox 的
+    /// <c>SelectionHighlightColorWhenNotFocused</c>（见 XAML）——焦点在查找框上时选区照样可见，
+    /// 这正是「用选区当高亮」的前提；RichEdit 不支持字符背景色，别去走 ITextCharacterFormat.BackgroundColor。
+    /// </summary>
+    private void SelectMatch(int index, int length)
+    {
+        ITextRange match = Editor.Document.Selection;
+        match.SetRange(index, index + length);
+        ScrollToSelection(match);
+    }
+
+    /// <summary>
+    /// 没命中时把查找框描边标红（对齐系统记事本：有反馈但不额外占一行文案）。
+    /// 结果文本行已按用户要求去掉，没有这个提示时「找不到」和「没反应」分不出来。
+    /// </summary>
+    private void MarkFindMiss()
+    {
+        FindBox.BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+        FindBox.BorderThickness = new Thickness(0, 0, 0, 2);
+    }
+
+    private void ClearFindMiss()
+    {
+        if (FindBox.ReadLocalValue(TextBox.BorderBrushProperty) == DependencyProperty.UnsetValue)
             return;
 
-        Editor.Document.Selection.SetRange(index, index + needle.Length);
+        FindBox.ClearValue(TextBox.BorderBrushProperty);
+        FindBox.ClearValue(TextBox.BorderThicknessProperty);
+    }
+
+    /// <summary>
+    /// 把命中位置滚进可视区。RichEditBox 在**没有键盘焦点**时不会自己跟随选区滚动，
+    /// 而查找时焦点一直在查找框上——不显式调用就会「找到了但看不到」，像是没跳转。
+    /// </summary>
+    private static void ScrollToSelection(ITextRange range)
+    {
+        try
+        {
+            range.ScrollIntoView(PointOptions.None);
+        }
+        catch (Exception ex)
+        {
+            // 定位失败不该影响查找本身（选区已经设好），记日志即可
+            App.Host?.Log.Error($"滚动到命中位置失败：{ex.Message}");
+        }
     }
 
     private void OnReplaceClick(object sender, RoutedEventArgs e) => ReplaceCurrent();

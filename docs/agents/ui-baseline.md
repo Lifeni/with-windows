@@ -617,3 +617,18 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 3. 枚举本进程窗口只看到主窗口、`WithWindows.HotkeyWindow`、WinUI 内部窗口与 IME 窗口（WinUIEx 的托盘窗口是 message-only，`EnumWindows` 看不到）。
 
 **下一步的判断方法**：让应用跑着，右击一次托盘图标，然后看 `%APPDATA%\WithWindows\log.txt`——出现 `托盘：右键菜单` 说明点击已到达应用（问题在菜单弹出），没有任何新行说明点击根本没到应用（图标不是本实例的，或注册失败）。
+
+#### 同日追加（第六轮反馈：搜索跳转与命中高亮）
+
+**症状**：用户反馈「搜索没法跳转到对应位置」「能不能给命中处加高亮 / 选中」。
+
+**根因（两条，都是 RichEditBox 的既有行为）**：
+
+1. **无焦点不滚动**：命中的选区设好了（状态栏行列会变），但焦点一直在查找框上，RichEditBox 不会把选区滚进可视区 → 看着像「没跳转」。修法：显式 `ITextRange.ScrollIntoView(PointOptions.None)`（异常只记日志，不影响查找本身）。
+2. **无焦点不显示选区**：RichEditBox 失焦时不画选区高亮 → 命中了也看不见。修法：`SelectionHighlightColorWhenNotFocused="{ThemeResource AccentFillColorDefaultBrush}"`，未聚焦的选区保持强调色高亮（实测截图中命中项有 713 个强调色像素）。
+
+**走过一次弯路（记下来别重犯）**：先试的是给命中区间刷 `ITextCharacterFormat.BackgroundColor` 当高亮——**RichEdit 不支持字符背景色**，写完读回没变化、界面也不变（WinRT 的格式对象还是快照，改完必须写回 `range.CharacterFormat` 才可能生效；这条对前景色等支持的属性才成立）。改用未聚焦选区高亮后一次成功。
+
+**顺带补的反馈**：结果文本行早前按用户要求删掉了，于是「找不到」变成完全静默（例如输入法把 `$` 打成全角 `￥` 时）。现在没命中会把查找框底边描红（对齐系统记事本），改了查找词就清掉。
+
+实测（截图 `artifacts/ui/find-highlight4.png`）：查找词 `US`，连按三次「下一个」→ 状态栏 `行 414，列 9`，视图滚到该行，命中项以强调色高亮。

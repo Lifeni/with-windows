@@ -118,6 +118,7 @@
             Padding="16,12"
             ScrollViewer.VerticalScrollBarVisibility="Auto"
             SelectionChanged="OnEditorSelectionChanged"
+            SelectionHighlightColorWhenNotFocused="{ThemeResource AccentFillColorDefaultBrush}"
             TextChanged="OnEditorTextChanged"
             TextWrapping="Wrap"
             UseSystemFocusVisuals="False">
@@ -180,6 +181,7 @@
                         Grid.Column="1"
                         AutomationProperties.AutomationId="FindBox"
                         KeyDown="OnFindBoxKeyDown"
+                        TextChanged="OnFindBoxTextChanged"
                         PlaceholderText="查找" />
 
                     <StackPanel
