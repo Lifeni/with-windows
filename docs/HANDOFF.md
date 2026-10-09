@@ -22,7 +22,7 @@ Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具�
 
 ## 二、当前进度（截至 2026-10-09）
 
-分支 `dev`，HEAD 见 `git log`。已完成四个批次：
+分支 `dev`，HEAD 见 `git log`。已完成五个批次：
 
 **批次一 · P0 规范与环境**（提交 `b226f26`…`18a7655`）
 
@@ -55,6 +55,17 @@ Windows 常驻托盘的工具箱应用：`NavigationView` 导航，每个工具�
 - **平台服务**：`Logger`（1 MB 轮转）、`SingleInstance`（命名 Mutex）、`AutoStart`（`HKCU\...\Run`）迁到 Core
 - **旧项目退役**：删除 `src/WithWindows.UI` 与 `tests/WithWindows.UI.Tests`，从解决方案移除；CI/release 同步调整（产物发布待 P5）
 - Core 测试从 53 增至 **99**，全部通过；解决方案只剩 3 个工程
+
+**批次五 · P4 工具目录 + P3 页面与托盘**（提交 `4c6ca2f`… 见 `git log`）
+
+- 计划：`docs/superpowers/plans/2026-10-09-shell-pages-and-tray.md`
+- **工具目录**：`ToolCatalog`（`notepad` / `hotkeys` / `display_mode`）驱动左栏导航与快捷键行；`HotkeyRouter` 统一分派托盘、热键与「立即执行」
+- **生命周期**：`AppHost` 由 `App` 字段持有，负责单实例、日志、配置、热键注册与热重载；支持 `--smoke`（加载配置 + 注册热键后退出，不抢单实例）
+- **托盘**：WinUIEx `TrayIcon`（字段持引用防 GC）；关闭窗口 = 隐藏到托盘（`Window.Closed` 不可取消，必须用 `AppWindow.Closing`）
+- **快捷键页**：`HotkeyInputBox` 录入 + 启用开关 + 立即执行，注册失败就地提示
+- **设置页**：开机自启、投屏候选模式（至少保留一项）、关于
+- **记事本页**：`RichEditBox` + 防抖草稿（`%APPDATA%\WithWindows\notepad.txt`）+ 秒级时钟 + 缩放 + 置顶
+- Core 测试增至 **100**，全部通过
 
 ## 三、已定决策（不要重新讨论）
 
@@ -109,21 +120,23 @@ winapp ui screenshot -a WithWindows --json
 Stop-Process -Id $p.Id -Force
 ```
 
-当前基线：Core 测试 **99/99**，解决方案构建 **0 错误**。
+当前基线：Core 测试 **100/100**，解决方案构建 **0 错误**。界面基线与截图见 `docs/agents/ui-baseline.md`。
 
-## 六、下一步：P4 工具抽象 + P3 页面接线（P2 已完成）
+## 六、下一步：P5 打磨与打包（P2/P3/P4 已完成）
 
-P2（Core 迁移）已完成，计划见 `docs/superpowers/plans/2026-10-09-core-migration.md`。`WithWindows.Core` 现已具备：热键解析/注册、配置 v1、显示拓扑切换、日志/单实例/自启、CsWin32 互操作。旧项目已删除。
+三个工具页与托盘已可用：记事本（编辑/草稿/时钟/缩放/置顶）、快捷键（录制/启用/立即执行）、设置（自启/投屏候选/关于）。
 
 按依赖顺序：
 
-1. **P4 先做工具抽象**：`ITool` + `ToolRegistry`（Core 侧接口 + App 侧注册表），新增工具只注册、不改主窗口
-2. **P3 页面**：记事本页（编辑/时钟/缩放/置顶/草稿持久化）、快捷键页（列表 + 录制框 + 启用开关 + 立即执行）、设置页
-3. **托盘宿主**：WinUIEx `TrayIcon`，**必须由字段持有引用**防 GC
-4. **App 组装**：`App` 字段持有 `SingleInstance` / `Logger` / `ConfigStore` / `HotkeyManager`；托盘与热键分发；`--smoke` 参数
-5. **P5 打磨与打包**：深浅色、Inno Setup 安装器；`ci.yml` / `release.yml` 重写；README 完整重写
+1. **深浅色与自适应**：浅色主题截图验证；宽/中/窄三档布局
+2. **窗口状态记忆**：尺寸/位置/字号持久化到 `windowState`（含可见性校验，(0, 0) 合法、用 null 表示未保存）
+3. **Inno Setup 安装器**：`installer/WithWindows.iss`；`release.yml` 恢复产出（安装器 + 便携 exe + SHA256SUMS）
+4. **README 重写**：功能、命令、目录结构、安装说明全部对齐新实现
+5. **端到端复核**：干净机器安装、常驻、热键与托盘
 
-**注意**：P3/P4 的实现计划文档同样还没写。按流程应先补计划再实施（P0/P1 与 P2 的计划见 `docs/superpowers/plans/`）。
+**注意**：P5 的实现计划文档还没写。按流程应先补计划再实施（P0/P1、P2、P3/P4 的计划见 `docs/superpowers/plans/`）。
+
+**验证前置**：本机 `%APPDATA%` 与命名互斥体 `Local\WithWindows.SingleInstance` 是全局资源，验证前先确认没有陈旧 `WithWindows.exe` 常驻（否则新实例会静默退出、日志也写不进去），详见 `docs/agents/known-pitfalls.md`。
 
 ## 七、操作注意事项（都是实际踩过的）
 

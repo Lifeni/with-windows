@@ -197,3 +197,17 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 
 - `ITextParagraphFormat.LineSpacing` 是**只读**的，必须用 `SetLineSpacing(LineSpacingRule.Multiple, 1.05f)`；且载入文本会重置段落格式，只设默认值对**已有内容**不生效，要对选区 `(0, int.MaxValue)` 再应用一次。
 - `DispatcherQueueTimer` 在 `Microsoft.UI.Dispatching` 与 `Windows.System` 下同名，同时 `using` 会报 CS0104，需明确别名。
+
+### 2026-10-09 工具箱整体基线（P3/P4 收尾）
+
+三个工具页与托盘全部就位后的整体自检（截图：`artifacts/ui/final-check-2026-10-09.png`，1902×988，深色）：
+
+| 检查 | 结果 |
+|---|---|
+| 解决方案构建 | 0 错误 0 警告 |
+| Core 测试 | 100/100 通过 |
+| 记事本页 | `NotepadEditor Edit` 可见，时钟秒级刷新，草稿读回正确 |
+| 快捷键页 | `HotkeyBox_notepad` / `HotkeyBox_display_mode` + 启用开关 + 立即执行 |
+| 设置页 | `AutoStartToggle` / `ModeCheckBox_*` / `AboutVersion` / `AboutConfigPath` / `AboutLogPath` |
+| 托盘 | `NotifyIconSettings` 有本 exe 条目（提示 `With Windows`）；关闭窗口后进程存活 |
+| 全局热键 | 录制 → 注册 → 触发 → 路由到对应页面，全链路实测通过 |
