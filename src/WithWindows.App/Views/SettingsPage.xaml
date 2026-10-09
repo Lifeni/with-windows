@@ -74,8 +74,8 @@
                         <Image
                             x:Name="AboutIconImage"
                             Grid.Column="0"
-                            Width="32"
-                            Height="32"
+                            Width="20"
+                            Height="20"
                             VerticalAlignment="Center"
                             AutomationProperties.AutomationId="AboutIcon" />
 

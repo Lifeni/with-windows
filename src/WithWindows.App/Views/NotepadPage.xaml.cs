@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
@@ -10,7 +9,6 @@ using Microsoft.UI.Xaml.Input;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
-using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.Core;
 using WithWindows.Core.Config;
 using WithWindows.Services;
@@ -40,11 +38,6 @@ public sealed partial class NotepadPage : Page
     private NotepadDraft? _draft;
     private DispatcherQueueTimer? _clock;
     private bool _loading;
-
-    // 查找替换的上次输入与选项
-    private string _lastFindText = "";
-    private string _lastReplaceText = "";
-    private bool _matchCase;
 
     // 当前行距（切换字号时保持）
     private float _lastLineSpacing = 1.05f;
@@ -300,7 +293,13 @@ public sealed partial class NotepadPage : Page
     private void OnFindAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
-        _ = ShowFindReplaceAsync();
+        ShowFindPanel(expandReplace: false);
+    }
+
+    private void OnReplaceAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        ShowFindPanel(expandReplace: true);
     }
 
     private void OnSaveAsAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
@@ -309,17 +308,36 @@ public sealed partial class NotepadPage : Page
         OnSaveAsClick(this, new RoutedEventArgs());
     }
 
-    private void OnFindClick(object sender, RoutedEventArgs e) => ShowFindPanel(focusReplace: false);
+    private void OnFindClick(object sender, RoutedEventArgs e) => ShowFindPanel(expandReplace: false);
 
-    private void ShowFindPanel(bool focusReplace)
+    /// <summary>显示查找面板；展开替换时把焦点直接放到替换框。</summary>
+    private void ShowFindPanel(bool expandReplace)
     {
         FindPanel.Visibility = Visibility.Visible;
-        FindPanel.Opacity = 1;
+        SetReplaceRowExpanded(expandReplace);
 
-        if (focusReplace)
+        if (expandReplace)
             ReplaceBox.Focus(FocusState.Programmatic);
         else
             FindBox.Focus(FocusState.Programmatic);
+    }
+
+    /// <summary>左侧箭头：展开 / 收起替换行（对齐系统记事本：默认只有查找行）。</summary>
+    private void OnFindExpandClick(object sender, RoutedEventArgs e)
+        => SetReplaceRowExpanded(ReplaceRow.Visibility != Visibility.Visible);
+
+    private void SetReplaceRowExpanded(bool expanded)
+    {
+        ReplaceRow.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        // 与系统记事本一致：折叠时箭头朝上、展开后朝下
+        FindExpandIcon.Glyph = expanded ? "\uE70D" : "\uE70E";
+
+        string text = expanded ? "收起替换" : "展开替换";
+        AutomationProperties.SetName(FindExpandButton, text);
+        ToolTipService.SetToolTip(FindExpandButton, text);
+
+        if (expanded)
+            ReplaceBox.Focus(FocusState.Programmatic);
     }
 
     private void OnFindCloseClick(object sender, RoutedEventArgs e)
@@ -359,10 +377,7 @@ public sealed partial class NotepadPage : Page
     {
         string needle = FindBox.Text;
         if (string.IsNullOrEmpty(needle))
-        {
-            FindStatus.Text = "请输入查找内容";
             return;
-        }
 
         string text = ReadAllText();
         int caretStart = Math.Clamp(Editor.Document.Selection.StartPosition, 0, text.Length);
@@ -380,13 +395,9 @@ public sealed partial class NotepadPage : Page
         }
 
         if (index < 0)
-        {
-            FindStatus.Text = "没有找到匹配内容";
             return;
-        }
 
         Editor.Document.Selection.SetRange(index, index + needle.Length);
-        FindStatus.Text = $"已选中第 {index + 1} 个字符处";
     }
 
     private void OnReplaceClick(object sender, RoutedEventArgs e) => ReplaceCurrent();
@@ -396,21 +407,11 @@ public sealed partial class NotepadPage : Page
     {
         string needle = FindBox.Text;
         if (string.IsNullOrEmpty(needle))
-        {
-            FindStatus.Text = "请输入查找内容";
             return;
-        }
 
         Editor.Document.Selection.GetText(TextGetOptions.None, out string selected);
         if (string.Equals(selected.TrimEnd('\r'), needle, Comparison))
-        {
             Editor.Document.Selection.SetText(TextSetOptions.None, ReplaceBox.Text);
-            FindStatus.Text = "已替换";
-        }
-        else
-        {
-            FindStatus.Text = "当前未选中匹配内容，已为你查找下一个";
-        }
 
         FindNext(forward: true);
     }
@@ -419,15 +420,11 @@ public sealed partial class NotepadPage : Page
     {
         string needle = FindBox.Text;
         if (string.IsNullOrEmpty(needle))
-        {
-            FindStatus.Text = "请输入查找内容";
             return;
-        }
 
         string text = ReadAllText();
         string replacement = ReplaceBox.Text;
         var builder = new System.Text.StringBuilder();
-        int count = 0;
         int cursor = 0;
         int index = text.IndexOf(needle, 0, Comparison);
         while (index >= 0)
@@ -435,138 +432,12 @@ public sealed partial class NotepadPage : Page
             builder.Append(text, cursor, index - cursor);
             builder.Append(replacement);
             cursor = index + needle.Length;
-            count++;
             index = text.IndexOf(needle, cursor, Comparison);
         }
         builder.Append(text, cursor, text.Length - cursor);
 
         Editor.Document.SetText(TextSetOptions.None, builder.ToString());
         UpdateStatus();
-        FindStatus.Text = $"已替换 {count} 处";
-    }
-
-    /// <summary>查找替换对话框：纯文本查找，支持逐个替换与全部替换。</summary>
-    private async Task ShowFindReplaceAsync()
-    {
-        var findBox = new TextBox { Header = "查找内容", Text = _lastFindText };
-        var replaceBox = new TextBox { Header = "替换为", Text = _lastReplaceText };
-        var caseCheck = new CheckBox { Content = "区分大小写", IsChecked = _matchCase };
-        var status = new TextBlock
-        {
-            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-        };
-
-        AutomationProperties.SetAutomationId(findBox, "FindBox");
-        AutomationProperties.SetAutomationId(replaceBox, "ReplaceBox");
-        AutomationProperties.SetAutomationId(caseCheck, "FindMatchCase");
-        AutomationProperties.SetAutomationId(status, "FindStatus");
-
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        var findNext = new Button { Content = "查找下一个" };
-        var replaceOne = new Button { Content = "替换" };
-        var replaceAll = new Button { Content = "全部替换" };
-        AutomationProperties.SetAutomationId(findNext, "FindNextButton");
-        AutomationProperties.SetAutomationId(replaceOne, "ReplaceButton");
-        AutomationProperties.SetAutomationId(replaceAll, "ReplaceAllButton");
-        buttons.Children.Add(findNext);
-        buttons.Children.Add(replaceOne);
-        buttons.Children.Add(replaceAll);
-
-        var content = new StackPanel { Spacing = 12, MinWidth = 360 };
-        content.Children.Add(findBox);
-        content.Children.Add(replaceBox);
-        content.Children.Add(caseCheck);
-        content.Children.Add(buttons);
-        content.Children.Add(status);
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "查找和替换",
-            Content = content,
-            CloseButtonText = "关闭",
-        };
-
-        bool MatchCase() => caseCheck.IsChecked == true;
-        string Text() => ReadAllText();
-        void Remember()
-        {
-            _lastFindText = findBox.Text;
-            _lastReplaceText = replaceBox.Text;
-            _matchCase = MatchCase();
-        }
-        findNext.Click += (_, _) =>
-        {
-            Remember();
-            string needle = findBox.Text;
-            if (string.IsNullOrEmpty(needle))
-            {
-                status.Text = "请输入查找内容";
-                return;
-            }
-
-            string text = Text();
-            var comparison = MatchCase() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-            int from = Math.Clamp(Editor.Document.Selection.EndPosition, 0, text.Length);
-
-            // 先从光标向后找，找不到再回绕到开头
-            int index = text.IndexOf(needle, from, comparison);
-            if (index < 0)
-                index = text.IndexOf(needle, 0, comparison);
-
-            if (index < 0)
-            {
-                status.Text = "没有找到匹配内容";
-                return;
-            }
-
-            Editor.Document.Selection.SetRange(index, index + needle.Length);
-            Editor.Focus(FocusState.Programmatic);
-            status.Text = $"已选中第 {index + 1} 个字符处";
-        };
-
-        replaceOne.Click += (_, _) =>
-        {
-            Remember();
-            Editor.Document.Selection.GetText(TextGetOptions.None, out string selected);
-            if (!string.IsNullOrEmpty(findBox.Text)
-                && string.Equals(selected.TrimEnd('\r'), findBox.Text,
-                    MatchCase() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase))
-            {
-                Editor.Document.Selection.SetText(TextSetOptions.None, replaceBox.Text);
-            }
-
-            status.Text = "已替换当前选中项（如未选中匹配内容则先点「查找下一个」）";
-        };
-
-        replaceAll.Click += (_, _) =>
-        {
-            Remember();
-            if (string.IsNullOrEmpty(findBox.Text))
-                return;
-
-            string text = Text();
-            var comparison = MatchCase() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-            int count = 0;
-            int index = text.IndexOf(findBox.Text, 0, comparison);
-            var builder = new System.Text.StringBuilder();
-            int cursor = 0;
-            while (index >= 0)
-            {
-                builder.Append(text, cursor, index - cursor);
-                builder.Append(replaceBox.Text);
-                cursor = index + findBox.Text.Length;
-                count++;
-                index = text.IndexOf(findBox.Text, cursor, comparison);
-            }
-            builder.Append(text, cursor, text.Length - cursor);
-
-            Editor.Document.SetText(TextSetOptions.None, builder.ToString());
-            status.Text = $"已替换 {count} 处";
-        };
-
-        await dialog.ShowAsync();
     }
 
     /// <summary>
@@ -596,52 +467,6 @@ public sealed partial class NotepadPage : Page
         catch (Exception ex)
         {
             StatusCount.Text = $"另存为失败：{ex.Message}";
-        }
-    }
-
-    /// <summary>复制：有选区就复制选区，否则复制全文。</summary>
-    private void OnCopyClick(object sender, RoutedEventArgs e)
-    {
-        Editor.Document.Selection.GetText(TextGetOptions.None, out string selected);
-        string payload = string.IsNullOrEmpty(selected)
-            ? ReadAllText()
-            : selected.TrimEnd('\r');
-
-        var package = new DataPackage();
-        package.SetText(payload);
-        Clipboard.SetContent(package);
-
-        try
-        {
-            // 不 Flush 的话数据由本进程延迟提供：退出应用后剪贴板就失效了
-            Clipboard.Flush();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"剪贴板 Flush 失败：{ex.Message}");
-        }
-    }
-
-    /// <summary>粘贴：把剪贴板文本插入到光标处（替换当前选区）。</summary>
-    private async void OnPasteClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            DataPackageView view = Clipboard.GetContent();
-            if (!view.Contains(StandardDataFormats.Text))
-                return;
-
-            string pasted = await view.GetTextAsync();
-            Editor.Document.Selection.SetText(TextSetOptions.None, pasted);
-            Editor.Document.Selection.SetRange(
-                Editor.Document.Selection.EndPosition,
-                Editor.Document.Selection.EndPosition);
-            Editor.Focus(FocusState.Programmatic);
-        }
-        catch (Exception ex)
-        {
-            // 剪贴板被其他程序占用等情况：忽略即可，不打断编辑
-            System.Diagnostics.Debug.WriteLine($"粘贴失败：{ex.Message}");
         }
     }
 

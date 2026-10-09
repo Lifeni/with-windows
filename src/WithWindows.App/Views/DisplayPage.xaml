@@ -86,7 +86,11 @@
                         </Grid>
                     </Expander.Header>
 
-                    <StackPanel x:Name="ModesHost" Margin="0,4,0,0" Spacing="2" />
+                    <!--
+                        模式选项比标题多缩进一段：展开组件的内容区左边缘比标题靠左 16 DIP，
+                        这里给 32 才能让复选项稳定地落在标题右侧（16 DIP 的层级感）。
+                    -->
+                    <StackPanel x:Name="ModesHost" Margin="32,4,16,12" Spacing="2" />
                 </Expander>
             </StackPanel>
         </StackPanel>

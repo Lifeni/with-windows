@@ -4,14 +4,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Page.Resources>
-        <!-- 编辑器不要边框、也不要聚焦时的高亮下划线：把模板用到的这几个键在本页覆盖掉 -->
-        <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
-        <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
-        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
-        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-        <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
-        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+        <!--
+            注意：编辑器那组 TextControl* 覆盖**不能放在页面级**——那样连查找面板里的 TextBox
+            聚焦时背景也会变成透明、与面板糊在一起（实际踩过）。它们放在下面 RichEditBox 自己的 Resources 里。
+        -->
         <!-- 「自动换行」用纯文字样式：去掉 ToggleButton 勾选态的实心填充与边框 -->
         <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
         <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="Transparent" />
@@ -40,7 +36,7 @@
                 Modifiers="Control" />
             <KeyboardAccelerator
                 Key="H"
-                Invoked="OnFindAccelerator"
+                Invoked="OnReplaceAccelerator"
                 Modifiers="Control" />
             <KeyboardAccelerator
                 Key="S"
@@ -49,7 +45,7 @@
         </Grid.KeyboardAccelerators>
 
         <!--
-            顶部工具条：左侧秒级时间，右侧三个窄图标按钮（保存 / 复制 / 粘贴）。
+            顶部工具条：左侧秒级时间、中间格式按钮、右侧实用按钮（查找替换 / 另存为）。
             不用 CommandBar：它的命令容器有 68 DIP 的固定最小宽度，压不下去。
         -->
         <Grid
@@ -58,16 +54,23 @@
             Padding="16,8"
             AutomationProperties.AutomationId="NotepadToolbar"
             Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
             <TextBlock
                 x:Name="ClockText"
-                HorizontalAlignment="Left"
+                Grid.Column="0"
                 VerticalAlignment="Center"
                 AutomationProperties.AutomationId="NotepadClock"
                 FontSize="18"
                 FontWeight="SemiBold" />
 
-            <!-- 格式与动作按钮在工具条里居中（对齐系统记事本） -->
+            <!-- 格式按钮居中（对齐系统记事本） -->
             <StackPanel
+                Grid.Column="1"
                 Orientation="Horizontal"
                 HorizontalAlignment="Center"
                 Spacing="2"
@@ -202,6 +205,15 @@
                     ToolTipService.ToolTip="清除格式">
                     <FontIcon FontSize="16" Glyph="&#xEC34;" />
                 </Button>
+            </StackPanel>
+
+            <!-- 实用按钮右对齐：查找替换 / 另存为 -->
+            <StackPanel
+                Grid.Column="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="2"
+                VerticalAlignment="Center">
 
                 <!-- 查找替换 -->
                 <Button
@@ -229,32 +241,6 @@
                     ToolTipService.ToolTip="另存为（正文自动保存）">
                     <FontIcon FontSize="16" Glyph="&#xE74E;" />
                 </Button>
-
-                <Button
-                    Width="36"
-                    Height="32"
-                    Padding="0"
-                    AutomationProperties.AutomationId="NotepadCopy"
-                    AutomationProperties.Name="复制"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Click="OnCopyClick"
-                    ToolTipService.ToolTip="复制">
-                    <FontIcon FontSize="16" Glyph="&#xE8C8;" />
-                </Button>
-
-                <Button
-                    Width="36"
-                    Height="32"
-                    Padding="0"
-                    AutomationProperties.AutomationId="NotepadPaste"
-                    AutomationProperties.Name="粘贴"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Click="OnPasteClick"
-                    ToolTipService.ToolTip="粘贴">
-                    <FontIcon FontSize="16" Glyph="&#xE77F;" />
-                </Button>
             </StackPanel>
         </Grid>
 
@@ -272,103 +258,171 @@
             SelectionChanged="OnEditorSelectionChanged"
             TextChanged="OnEditorTextChanged"
             TextWrapping="Wrap"
-            UseSystemFocusVisuals="False" />
+            UseSystemFocusVisuals="False">
+            <RichEditBox.Resources>
+                <!-- 只作用于编辑器：无边框、聚焦时也不要高亮下划线（原先放页面级，误伤了查找面板的输入框） -->
+                <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+                <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+            </RichEditBox.Resources>
+        </RichEditBox>
 
-        <!-- 查找替换：浮动面板（模仿系统记事本：查找行 + 替换行） -->
+        <!--
+            查找替换：浮动面板（对齐系统记事本）——默认只有查找行，点最左侧的箭头才展开替换行。
+            底色用「三级固体填充」、边框用控件描边，取值与系统记事本一致；
+            输入框不额外指定背景色，走主题默认（未聚焦是浅色填充、聚焦是输入态深色底），不会和面板糊在一起。
+        -->
         <Border
             x:Name="FindPanel"
             Grid.Row="1"
             Margin="0,16,0,0"
-            Padding="16"
+            Padding="12"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
             AutomationProperties.AutomationId="FindPanel"
-            Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
+            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="8"
             Visibility="Collapsed">
-            <StackPanel Spacing="10">
-                <StackPanel Orientation="Horizontal" Spacing="10">
+            <StackPanel Spacing="8">
+                <!-- 查找行：展开箭头 / 输入框 / 下一个 / 上一个 / 选项 / 关闭 -->
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button
+                        x:Name="FindExpandButton"
+                        Grid.Column="0"
+                        Width="32"
+                        Height="32"
+                        Padding="0"
+                        AutomationProperties.AutomationId="FindExpandButton"
+                        AutomationProperties.Name="展开替换"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnFindExpandClick"
+                        ToolTipService.ToolTip="展开替换">
+                        <FontIcon x:Name="FindExpandIcon" FontSize="12" Glyph="&#xE70E;" />
+                    </Button>
+
                     <TextBox
                         x:Name="FindBox"
-                        Width="360"
+                        Grid.Column="1"
                         AutomationProperties.AutomationId="FindBox"
-                        Background="{ThemeResource ControlFillColorDefaultBrush}"
                         KeyDown="OnFindBoxKeyDown"
                         PlaceholderText="查找" />
 
-                    <Button
-                        Width="36"
-                        Height="32"
-                        Padding="0"
-                        AutomationProperties.AutomationId="FindPrevButton"
-                        AutomationProperties.Name="上一个"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnFindPrevClick"
-                        ToolTipService.ToolTip="上一个">
-                        <FontIcon FontSize="14" Glyph="&#xE70E;" />
-                    </Button>
+                    <StackPanel
+                        Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        VerticalAlignment="Center">
 
-                    <Button
-                        Width="36"
-                        Height="32"
-                        Padding="0"
-                        AutomationProperties.AutomationId="FindNextButton"
-                        AutomationProperties.Name="下一个"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnFindNextClick"
-                        ToolTipService.ToolTip="下一个">
-                        <FontIcon FontSize="14" Glyph="&#xE70D;" />
-                    </Button>
+                        <Button
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            AutomationProperties.AutomationId="FindNextButton"
+                            AutomationProperties.Name="下一个"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnFindNextClick"
+                            ToolTipService.ToolTip="下一个">
+                            <FontIcon FontSize="16" Glyph="&#xE74B;" />
+                        </Button>
 
-                    <CheckBox
-                        x:Name="FindMatchCase"
-                        VerticalAlignment="Center"
-                        AutomationProperties.AutomationId="FindMatchCase"
-                        Content="区分大小写" />
+                        <Button
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            AutomationProperties.AutomationId="FindPrevButton"
+                            AutomationProperties.Name="上一个"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnFindPrevClick"
+                            ToolTipService.ToolTip="上一个">
+                            <FontIcon FontSize="16" Glyph="&#xE74A;" />
+                        </Button>
 
-                    <Button
-                        Width="36"
-                        Height="32"
-                        Padding="0"
-                        AutomationProperties.AutomationId="FindCloseButton"
-                        AutomationProperties.Name="关闭查找"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnFindCloseClick"
-                        ToolTipService.ToolTip="关闭">
-                        <FontIcon FontSize="14" Glyph="&#xE711;" />
-                    </Button>
-                </StackPanel>
+                        <!-- 选项：系统记事本放在条上的「滑块」图标里，点开是区分大小写等开关 -->
+                        <Button
+                            x:Name="FindOptionsButton"
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            AutomationProperties.AutomationId="FindOptionsButton"
+                            AutomationProperties.Name="查找选项"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            ToolTipService.ToolTip="查找选项">
+                            <FontIcon FontSize="16" Glyph="&#xE9E9;" />
+                            <Button.Flyout>
+                                <MenuFlyout Placement="Bottom">
+                                    <ToggleMenuFlyoutItem
+                                        x:Name="FindMatchCase"
+                                        AutomationProperties.AutomationId="FindMatchCase"
+                                        Text="区分大小写" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
 
-                <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            AutomationProperties.AutomationId="FindCloseButton"
+                            AutomationProperties.Name="关闭查找"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnFindCloseClick"
+                            ToolTipService.ToolTip="关闭">
+                            <FontIcon FontSize="16" Glyph="&#xE711;" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 替换行：默认折叠，点最左侧箭头展开 -->
+                <Grid x:Name="ReplaceRow" ColumnSpacing="8" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 占位：让替换框与查找框左边缘对齐 -->
+                    <Border Grid.Column="0" Width="32" />
+
                     <TextBox
                         x:Name="ReplaceBox"
-                        Width="360"
+                        Grid.Column="1"
                         AutomationProperties.AutomationId="ReplaceBox"
-                        Background="{ThemeResource ControlFillColorDefaultBrush}"
                         KeyDown="OnReplaceBoxKeyDown"
                         PlaceholderText="替换" />
 
-                    <Button
-                        AutomationProperties.AutomationId="ReplaceButton"
-                        Click="OnReplaceClick"
-                        Content="替换" />
+                    <StackPanel
+                        Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        VerticalAlignment="Center">
+                        <Button
+                            AutomationProperties.AutomationId="ReplaceButton"
+                            Click="OnReplaceClick"
+                            Content="替换" />
 
-                    <Button
-                        AutomationProperties.AutomationId="ReplaceAllButton"
-                        Click="OnReplaceAllClick"
-                        Content="全部替换" />
-                </StackPanel>
-
-                <TextBlock
-                    x:Name="FindStatus"
-                    AutomationProperties.AutomationId="FindStatus"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}" />
+                        <Button
+                            AutomationProperties.AutomationId="ReplaceAllButton"
+                            Click="OnReplaceAllClick"
+                            Content="全部替换" />
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Border>
 

@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Media;
 using WithWindows.Core.Actions;
 using WithWindows.Core.Config;
 using WithWindows.Services;
@@ -21,13 +20,16 @@ public sealed partial class DisplayPage : Page
     /// <summary>导航项 Tag 常量，供 MainWindow 路由表引用。</summary>
     public static string RouteTag => "display";
 
-    /// <summary>候选模式的固定顺序、显示名、图标与说明；顺序即循环顺序。</summary>
-    private static readonly (string Mode, string Title, string Glyph, string Description)[] KnownModes =
+    /// <summary>
+    /// 候选模式的固定顺序、显示名与图标；顺序即循环顺序。
+    /// 字形取自 WinUI Gallery 图标表：笔记本 / 双屏拼接 / 电视（外接屏）/ 双屏镜像。
+    /// </summary>
+    private static readonly (string Mode, string Title, string Glyph)[] KnownModes =
     {
-        ("internal", "仅当前屏幕", "\uE7F4", "只在电脑屏幕显示"),
-        ("extend", "扩展模式", "\uE7F8", "两块屏幕拼成一个桌面"),
-        ("external", "仅外接屏幕", "\uE8B2", "只在投影仪或外接屏显示"),
-        ("clone", "复制模式", "\uE8C4", "两块屏幕显示相同内容"),
+        ("internal", "仅当前屏幕", "\uE7F7"),
+        ("extend", "扩展模式", "\uE7F9"),
+        ("external", "仅外接屏幕", "\uE7F4"),
+        ("clone", "复制模式", "\uE7FA"),
     };
 
     private bool _initializing;
@@ -76,15 +78,16 @@ public sealed partial class DisplayPage : Page
     {
         AppConfig config = Host!.Config;
 
-        foreach ((string mode, string title, string glyph, string description) in KnownModes)
+        foreach ((string mode, string title, string glyph) in KnownModes)
         {
             var checkBox = new CheckBox
             {
                 IsChecked = config.DisplayMode.Modes.Contains(mode, StringComparer.Ordinal),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 4, 0, 4),
-                Content = BuildModeLabel(title, description),
+                MinHeight = 36,
+                Margin = new Thickness(0, 2, 0, 2),
+                Content = BuildModeLabel(glyph, title),
             };
             AutomationProperties.SetAutomationId(checkBox, $"ModeCheckBox_{mode}");
             AutomationProperties.SetName(checkBox, title);
@@ -96,22 +99,21 @@ public sealed partial class DisplayPage : Page
         }
     }
 
-    /// <summary>多选框右侧的「名称 + 说明」两行文本。</summary>
-    private static StackPanel BuildModeLabel(string title, string description)
+    /// <summary>多选框内容：图标 + 名称（模式选项不需要说明文字）。</summary>
+    private static StackPanel BuildModeLabel(string glyph, string title)
     {
-        var label = new StackPanel { Spacing = 2 };
-        label.Children.Add(new TextBlock
+        var icon = new FontIcon
         {
-            Text = title,
-            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
-        });
-        label.Children.Add(new TextBlock
-        {
-            Text = description,
-            TextWrapping = TextWrapping.Wrap,
-            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-        });
+            Glyph = glyph,
+            FontSize = 20,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        var text = new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center };
+
+        var label = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        label.Children.Add(icon);
+        label.Children.Add(text);
         return label;
     }
 

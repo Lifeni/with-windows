@@ -509,3 +509,35 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 | 静默卸载 | 退出码 0；目录与开始菜单项均被清理 |
 
 **发现的打包缺陷（已修）**：单文件发布**不会**把 `Assets/` 复制到 publish 目录（只靠 `CopyToPublishDirectory` 无效，与旧项目记录的「WASDK publish 不复制 XBF/PRI」同类）。后果是安装后托盘图标与窗口图标丢失。修法：csproj 增加 `CopyAssetsToPublish` 目标，在 `Publish` 之后显式复制 `Assets\**`。
+
+### 2026-10-09 查找面板按系统记事本重做 + 工具条右对齐 + 投影模式图标与缩进
+
+**用户反馈**：工具条里的查找替换 / 另存为要右对齐；查找面板背景色不对、输入框聚焦背景与面板「融为一体」、输入框下方与右侧有大片空白；投影的模式选项要加图标、缩进再多一些、不需要说明文字；关于的图标太大。
+
+**参考实现**：直接用 `winapp ui screenshot` 抓本机系统记事本（`Microsoft.WindowsNotepad 11.2607.14.0`）的查找条，逐像素取样后套用同一套主题资源。
+
+| 取样点 | 系统记事本 | 改动前（本应用） | 改动后 |
+|---|---|---|---|
+| 面板底色 | `#282828` | `#1C1C1C`（比页面还暗，故「背景色不对」） | `#282828` |
+| 输入框（未聚焦） | `#353535` | `#292929` | `#353535` |
+| 输入框（聚焦） | — | `#1D1D1D`（≈ 面板底色，即「融为一体」） | `#212121` |
+
+**改动**：
+
+1. **记事工具条**：三列网格（左侧秒级时钟 / 中间格式按钮 / 右侧实用按钮右对齐），右侧只留「查找替换」「另存为」——复制粘贴按钮删除（`Ctrl+C` / `Ctrl+V` 由编辑器原生提供）。
+2. **查找面板重做**：底色改 `SolidBackgroundFillColorTertiaryBrush`，边框改 `ControlStrokeColorDefaultBrush`（与系统记事本一致）；输入框不再自定背景，走主题默认填充（未聚焦浅填充、聚焦输入态深色底）；结构对齐系统记事本——默认只有查找行（展开箭头 / 查找框 / 下一个 / 上一个 / 选项 / 关闭），点最左侧箭头展开替换行（替换框 + 替换 / 全部替换）；「区分大小写」收进「选项」菜单；删掉结果文本行，输入框宽度 360 → 300 DIP，面板由约 662×131 DIP 收到约 524×56 DIP，右下不再有大片空白。
+3. **投影页模式选项**：加图标（`E7F7` 笔记本 / `E7F9` 双屏拼接 / `E7F4` 电视 / `E7FA` 双屏镜像——原 `E8B2`、`E8C4` 查图标表后确认是 `Movies`、`ShowBcc`，本来就是错码点），去掉说明文字，缩进 32 DIP（展开组件内容区比标题左 16 DIP，净缩进 16 DIP）。
+4. **关于图标** 32 → 20 px，与卡片行图标同尺寸。
+
+**顺带修掉的重复**：`Ctrl+F` / `Ctrl+H` 原先打开的是与浮动面板功能重复的 `ContentDialog`（`ShowFindReplaceAsync`），而且它和面板用了同一批 `AutomationId`（`FindBox`、`ReplaceBox`、`FindMatchCase`…），在可访问性树里是重复 ID。现在统一打开浮动面板（`Ctrl+H` 直接展开替换行），对话框、`_lastFindText` / `_lastReplaceText` / `_matchCase` 字段一并删除。
+
+**实测**（截图 `artifacts/ui/final-find-collapsed.png`、`final-find-expanded.png`、`final-display.png`、`after-settings.png`）：
+
+| 检查 | 结果 |
+|---|---|
+| 构建 / 测试 | 0 错误 0 警告；Core 测试 100/100 |
+| 面板配色 | 面板 `#282828`、查找框 `#353535`、聚焦替换框 `#212121`（与系统记事本同位置取样一致） |
+| 面板结构 | 折叠：`FindExpandButton` / `FindBox` / `FindNextButton` / `FindPrevButton` / `FindOptionsButton` / `FindCloseButton`；展开后 `ReplaceBox` / `ReplaceButton` / `ReplaceAllButton` 可见 |
+| 工具条 | `NotepadFind`、`NotepadSave` 贴右边缘；`NotepadCopy` / `NotepadPaste` 已删除 |
+| 投影模式 | `ModeCheckBox_*` x=601、`DisplayModesTitle` x=577（净缩进 16 DIP），无说明文字 |
+| 关于图标 | 20×20，与「开机自启」「显示窗口」行图标同尺寸 |
