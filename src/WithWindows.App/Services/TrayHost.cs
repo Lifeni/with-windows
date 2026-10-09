@@ -19,7 +19,7 @@ public sealed class TrayHost : IDisposable
     {
         _window = window;
 
-        string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "with-windows.ico");
+        string iconPath = AppIcon.Resolve();
         // TrayIcon 的窗口标识是 uint（AppWindow.Id.Value 是 ulong）
         _trayIcon = new TrayIcon((uint)window.AppWindow.Id.Value, iconPath, "With Windows");
         // 显式置为可见：默认值不可依赖，且 Win11 会先把新图标收进溢出区

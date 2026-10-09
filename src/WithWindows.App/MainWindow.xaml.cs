@@ -32,7 +32,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
-        AppWindow.SetIcon("Assets/with-windows.ico");
+        AppWindow.SetIcon(AppIcon.Resolve());
 
         BuildNavigation();
         NavView.SelectedItem = NavView.MenuItems[0];

@@ -5,6 +5,8 @@
     <TargetPlatformMinVersion>10.0.22621.0</TargetPlatformMinVersion>
     <RootNamespace>WithWindows</RootNamespace>
     <AssemblyName>WithWindows</AssemblyName>
+    <!-- 把应用图标嵌进 exe：资源管理器可见，同时也是 Assets 缺失时的托底图标来源 -->
+    <ApplicationIcon>Assets\with-windows.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>

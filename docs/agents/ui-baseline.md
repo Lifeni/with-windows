@@ -307,6 +307,16 @@ NotepadClock Text（get-value 取到 09:10:38，2 秒后为 09:10:41，秒级刷
 
 实测（本机 150% 缩放）：窗口 1650×1080 物理 = 1100×720 DIP，导航项宽 467（展开态，含文字），`config.windowState` 落盘 `1100×720`。
 
+### 2026-10-09 P5 最终审查（`codex exec review --base 080eac8`）与修复
+
+审查结论：应用侧改动自洽，但发布产物有一处阻塞问题。逐条处置：
+
+| 级别 | 问题 | 处置 |
+|---|---|---|
+| P1 | 便携版只上传裸 exe，`Assets/` 不进 Release → 该下载途径丢托盘与窗口图标（托盘是唤回窗口/退出的唯一入口） | ① 便携版改为打包成 `WithWindows-<tag>-x64-portable.zip`（含 `Assets/`）；② csproj 加 `ApplicationIcon`，把图标嵌进 exe；③ 新增 `AppIcon.Resolve()`：`Assets` 缺失时退回 exe 自身图标，托盘与窗口图标都不再依赖外部文件是否存在 |
+| P3 | `installer/README` 把 Assets 分发错误归因于 `CopyToPublishDirectory` | 已改述为「`CopyToPublishDirectory` 单独无效，真正生效的是 `CopyAssetsToPublish` 目标」 |
+| P3 | `HANDOFF` 仍写「P5 计划还没写」 | 已改为指向 P5 计划文件 |
+
 ### 2026-10-09 浅色主题与窄宽度适配（提交 `fix(界面): 适配浅色主题与窄窗口`）
 
 **硬编码色值检查**：`rg -n "#[0-9A-Fa-f]{6}" src/WithWindows.App` → 无结果（全部走 `ThemeResource`）。
