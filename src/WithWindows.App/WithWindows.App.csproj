@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.22621.0</TargetPlatformMinVersion>
+    <RootNamespace>WithWindows</RootNamespace>
+    <AssemblyName>WithWindows</AssemblyName>
+    <!-- 把应用图标嵌进 exe（资源管理器里可见）。注意：运行期图标仍从 Assets\with-windows.ico 读取，
+         没有运行时兜底，所以安装包与便携包都必须带上 Assets -->
+    <ApplicationIcon>Assets\with-windows.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <!-- 未打包：不使用 MSIX，无包身份 -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
+    <!-- 单文件发布时 WASDK 强制要求开启 MSIX 工具链（已知坑） -->
+    <EnableMsixTooling Condition="'$(PublishSingleFile)' == 'true'">true</EnableMsixTooling>
+    <EnableMsixTooling Condition="'$(PublishSingleFile)' != 'true'">false</EnableMsixTooling>
+    <Version>0.5.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="WinUIEx" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WithWindows.Core\WithWindows.Core.csproj" />
+  </ItemGroup>
+
+  <!-- 把构建日期写进程序集，供「关于」里显示 -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BuildDate</_Parameter1>
+      <_Parameter2>$([System.DateTime]::Now.ToString("yyyy-MM-dd"))</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CopyToPublishDirectory 必须显式设置：单文件发布时 Content 不会被复制到 publish 目录，
+         缺了 Assets 会导致托盘图标与窗口图标丢失 -->
+    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- WindowsAppSDK 的应用内容在 publish 阶段不会随单文件一起复制（已知坑，与旧项目的 XBF/PRI 同类）。
+       仅靠上面的 CopyToPublishDirectory 不生效，这里显式补齐，否则安装后托盘与窗口图标会丢失。 -->
+  <Target Name="CopyAssetsToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <AssetsToPublish Include="Assets\**" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(AssetsToPublish)"
+      DestinationFolder="$(PublishDir)Assets\%(RecursiveDir)"
+      SkipUnchangedFiles="true" />
+  </Target>
+</Project>

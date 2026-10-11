@@ -38,3 +38,9 @@ TestResults/
 
 # git worktree（开发隔离工作区，不入库）
 .worktrees/
+
+# SDD 执行工作区（任务简报、报告、进度账本）
+.superpowers/
+
+# 界面自检截图
+artifacts/

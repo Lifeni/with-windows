@@ -1,0 +1,17 @@
+# 统一策略：所有文本文件在检出时使用 CRLF（本仓库只面向 Windows）。
+# 只写这两行也够，下面按类型列出的规则是显式冗余，便于读者一眼看到约束。
+* text=auto eol=crlf
+
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.csproj text eol=crlf
+*.props text eol=crlf
+*.targets text eol=crlf
+*.sln text eol=crlf
+*.slnx text eol=crlf
+*.md text eol=crlf
+*.ps1 text eol=crlf
+
+*.png binary
+*.ico binary
+*.pfx binary

@@ -1,17 +1,17 @@
 {
-  "version": 3,
-  "bindings": {
-    "notepad": "F13",
-    "display_mode": "F14"
-  },
+  "version": 1,
+  "tools": [
+    { "id": "notepad", "enabled": true, "hotkey": null },
+    { "id": "display_mode", "enabled": true, "hotkey": null }
+  ],
   "displayMode": {
     "modes": [ "internal", "extend" ]
   },
   "windowState": {
-    "notepadFontSize": 14,
-    "notepadWidth": 520,
-    "notepadHeight": 780,
-    "settingsWidth": 520,
-    "settingsHeight": 780
+    "width": 1100,
+    "height": 720,
+    "x": null,
+    "y": null,
+    "notepadFontSize": 14
   }
 }

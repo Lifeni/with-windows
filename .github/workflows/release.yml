@@ -1,8 +1,9 @@
 name: 构建并发布 Release
 
 # 只在"版本更新"时构建发布：
-#   - push 到 main：csproj 的 <Version> 若还没有对应的 vX.Y.Z tag，则自动打 tag 并发布；已有 tag 直接跳过（不构建）
+#   - push 到 main：csproj 的 <Version> 若还没有对应的 vX.Y.Z tag，则自动打 tag 并发布；已有 tag 直接跳过
 #   - push v* tag：直接发布，并校验 tag 与 csproj 版本一致
+# 产物：Inno Setup 安装器 + 便携 zip（内含 exe 与 Assets）+ SHA256SUMS.txt
 on:
   push:
     branches: [ main ]
@@ -28,7 +29,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $version = [regex]::Match((Get-Content src/WithWindows.UI/WithWindows.UI.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
+          $version = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
           $tag = "v$version"
 
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) {
@@ -48,27 +49,35 @@ jobs:
         run: Write-Host "版本 ${{ steps.version.outputs.tag }} 已发布过：本次只跑测试，不构建发布产物（改 <Version> 后 push 即自动发布）"
 
       - name: 测试
-        run: dotnet test tests/WithWindows.UI.Tests/WithWindows.UI.Tests.csproj -c Release -p:Platform=x64
+        run: dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -c Release -p:Platform=x64
 
-      - name: 生成单文件（含运行库）
+      - name: 生成便携载荷（自包含单文件）
         if: steps.version.outputs.need_release == 'true'
-        run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-selfcontained -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+        run: dotnet publish src/WithWindows.App/WithWindows.App.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
 
-      - name: 生成单文件（不含运行库）
+      - name: 安装 Inno Setup
         if: steps.version.outputs.need_release == 'true'
-        run: dotnet publish src/WithWindows.UI/WithWindows.UI.csproj -c Release -o dist-frameworkdependent -p:Platform=x64 -p:SelfContained=false -p:WindowsAppSDKSelfContained=false -p:PublishSingleFile=true
+        run: choco install innosetup --no-progress -y
 
-      - name: 整理产物、打包 zip 与校验和
+      - name: 编译安装器
+        if: steps.version.outputs.need_release == 'true'
+        shell: pwsh
+        run: |
+          $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\WithWindows.iss
+          if (-not (Test-Path "dist-installer/WithWindows-$ver-x64-setup.exe")) { Write-Error "未生成安装器" }
+
+      - name: 整理产物与校验和
         if: steps.version.outputs.need_release == 'true'
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.tag }}"
-          Copy-Item dist-selfcontained/WithWindows.exe "WithWindows-$tag-x64-selfcontained.exe"
-          Copy-Item dist-frameworkdependent/WithWindows.exe "WithWindows-$tag-x64-frameworkdependent.exe"
-          # 单文件 exe 未压缩约 167 MB，再提供 zip 给慢网络（约 66 MB）
-          Compress-Archive -Path "WithWindows-$tag-x64-selfcontained.exe" -DestinationPath "WithWindows-$tag-x64-selfcontained.zip"
-          Compress-Archive -Path "WithWindows-$tag-x64-frameworkdependent.exe" -DestinationPath "WithWindows-$tag-x64-frameworkdependent.zip"
-          Get-ChildItem *.exe, *.zip | ForEach-Object {
+          # 安装器文件名用的是不带 v 的版本号（ISCC /DAppVersion=$ver），tag 才带 v 前缀
+          $ver = $tag.TrimStart('v')
+          Copy-Item "dist-installer/WithWindows-$ver-x64-setup.exe" "WithWindows-$tag-x64-setup.exe"
+          # 只打包 exe 与 Assets：不要 dist/*，否则会把 PDB 调试符号一起发到 Release
+          Compress-Archive -Path dist/WithWindows.exe, dist/Assets -DestinationPath "WithWindows-$tag-x64-portable.zip" -Force
+          Get-ChildItem "WithWindows-$tag-x64-*.exe", "WithWindows-$tag-x64-*.zip" | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Set-Content SHA256SUMS.txt -Encoding utf8
 
@@ -89,9 +98,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
-            WithWindows-*-x64-selfcontained.exe
-            WithWindows-*-x64-frameworkdependent.exe
-            WithWindows-*-x64-selfcontained.zip
-            WithWindows-*-x64-frameworkdependent.zip
+            WithWindows-*-x64-setup.exe
+            WithWindows-*-x64-portable.zip
             SHA256SUMS.txt
           body_path: release_body.md
