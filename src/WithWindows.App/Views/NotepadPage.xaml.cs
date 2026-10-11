@@ -33,12 +33,21 @@ public sealed partial class NotepadPage : Page
     private const double MinFontSize = 10;
     private const double MaxFontSize = 32;
 
+    /// <summary>聚焦重试轮数：窗口尚未激活时 Focus 不生效，需要等焦点真正落下再校准光标。</summary>
+    private const int FocusRetryLimit = 5;
+
     /// <summary>重置缩放时回到的字号。</summary>
     private const double DefaultFontSize = 14;
 
     private NotepadDraft? _draft;
     private DispatcherQueueTimer? _clock;
     private bool _loading;
+
+    /// <summary>监听激活的窗口；页面离开时解除订阅，避免窗口反过来持有已废弃的页面。</summary>
+    private Window? _focusWindow;
+
+    /// <summary>本页加载后是否已校准过光标位置；见 <see cref="FocusEditor"/>。</summary>
+    private bool _caretPlaced;
 
     // 当前行距（切换字号时保持）
     private float _lastLineSpacing = 1.05f;
@@ -82,6 +91,17 @@ public sealed partial class NotepadPage : Page
         {
             App.Host?.Log.Error($"记事页加载失败：{ex}");
         }
+
+        // 切到本页就把焦点交给编辑器，用户可以直接开始输入。
+        // 启动时本页在窗口激活之前就加载完，那时 Focus 会被紧随其后的激活流程覆盖，
+        // 所以再挂一次窗口 Activated，等窗口真正拿到焦点后补一次。
+        if (_focusWindow is null && App.MainWindow is { } window)
+        {
+            _focusWindow = window;
+            _focusWindow.Activated += OnWindowActivated;
+        }
+
+        FocusEditor();
     }
 
     private void LoadCore()
@@ -114,8 +134,57 @@ public sealed partial class NotepadPage : Page
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        if (_focusWindow is not null)
+        {
+            _focusWindow.Activated -= OnWindowActivated;
+            _focusWindow = null;
+        }
+
         _clock?.Stop();
         _draft?.Flush();
+    }
+
+    /// <summary>
+    /// 窗口重新激活且本页仍在时把焦点交还编辑器（「切到记事就能直接打字」的那一步）。
+    /// 参数类型必须写全限定名：Windows.UI.Core 里也有同名的 WindowActivatedEventArgs（本文件为取
+    /// CoreVirtualKeyStates 引了该命名空间）。
+    /// </summary>
+    private void OnWindowActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState != WindowActivationState.Deactivated)
+            FocusEditor();
+    }
+
+    /// <summary>
+    /// 把键盘焦点移到编辑器。Loaded 阶段页面刚进可视树，此时直接调用 Focus 会被紧随其后的布局与窗口激活覆盖，
+    /// 因此排到队列末尾执行；焦点还没落下时再排一轮重试（最多 <see cref="FocusRetryLimit"/> 轮）。
+    /// </summary>
+    private void FocusEditor(int attemptsLeft = FocusRetryLimit)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!IsLoaded)
+                return;
+
+            Editor.Focus(FocusState.Programmatic);
+
+            if (_caretPlaced)
+                return;
+
+            // 焦点确实落在编辑器上之后再校准光标：RichEditBox 首次获得焦点会把光标放到文末段落标记之后，
+            // 不校准的话空记事会显示「行 2，列 1」（多算了那个段落标记）。
+            if (!ReferenceEquals(FocusManager.GetFocusedElement(XamlRoot), Editor))
+            {
+                if (attemptsLeft > 0)
+                    FocusEditor(attemptsLeft - 1);
+                return;
+            }
+
+            _caretPlaced = true;
+            Editor.Document.GetText(TextGetOptions.None, out string text);
+            int end = text.TrimEnd('\r').Length;   // 与字符数同一口径：结尾段落标记不算正文
+            Editor.Document.Selection.SetRange(end, end);
+        });
     }
 
     /// <summary>工具条左侧的秒级时钟；页面离开时停表。</summary>
