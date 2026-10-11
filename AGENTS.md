@@ -8,7 +8,7 @@ Windows 常驻托盘的工具箱应用：配置驱动的全局热键 → 动作�
 - 仅 x64：构建与测试必须带 `-p:Platform=x64`，RID 固定 `win-x64`
 - 未打包（`WindowsPackageType=None`）；分发用 Inno Setup 安装器
 - C# `latest` + nullable + implicit usings；测试用 xunit
-- 第三方依赖白名单：WindowsAppSDK、WinUIEx、CommunityToolkit.Mvvm、Microsoft.Windows.CsWin32。白名单外一律先问
+- 第三方依赖白名单：WindowsAppSDK、WinUIEx、Microsoft.Windows.CsWin32。白名单外一律先问
 - 明确禁止：WPF、Windows Forms、UWP `Windows.UI.*`、WinUI 2、.NET MAUI、Reactor
 
 ## 硬性约束
@@ -19,6 +19,16 @@ Windows 常驻托盘的工具箱应用：配置驱动的全局热键 → 动作�
 - `Logger` 与单实例互斥体必须由 `App` 字段持有到进程退出，禁止写成局部 `using`
 - 每次改动后复查 README 与 CHANGELOG；文档与代码不一致视为缺陷
 - **界面改动做完后直接启动应用并保持运行**，让用户立刻看到效果；不要验证完就关掉，也不要等用户自己启动（用户明确要求）
+
+## MVVM（当前不引入）
+
+页面保持 code-behind，第三方白名单里也没有 MVVM 库。出现下面任一情形，再考虑引入 ViewModel（`CommunityToolkit.Mvvm`），并先在本文件记下决定：
+
+- 页面主体成了「一份状态 ↔ 一组控件」的映射（设置页 / 投影页这类配置型页面），手工回写配置已经开始漏 bug；
+- 多个页面共享同一份可变状态；
+- 派生显示文本或列表多到手工刷新写不过来。
+
+记事页这类**编辑器内部机制**（RichEdit 适配、IME、焦点与光标）不要改成 MVVM。
 
 ## 文案规范
 
@@ -44,8 +54,8 @@ winapp ui screenshot
 ## 目录地图
 
 ```text
-src/WithWindows.App/          未打包 WinUI 3 可执行项目（Shell/ Views/ ViewModels/ Services/ Controls/ Themes/）
-src/WithWindows.Core/         纯逻辑类库（Hotkey/ Config/ Actions/ Interop/ Tools/ Diagnostics/）
+src/WithWindows.App/          未打包 WinUI 3 可执行项目（Views/ Controls/ Services/ Tools/ 与 Assets/）
+src/WithWindows.Core/         纯逻辑类库（Actions/ App/ Config/ Diagnostics/ Hotkeys/ Interop/）
 tests/WithWindows.Core.Tests/ 纯 xunit，只引用 Core
 installer/                    Inno Setup 脚本
 docs/agents/                  项目约定分册（见下）
@@ -59,7 +69,7 @@ docs/superpowers/             设计文档与实现计划
 | 任何 WinUI 3 / XAML 代码 | `docs/agents/winui3-hard-rules.md` |
 | 构建、运行、验证界面 | `docs/agents/development-workflow.md` |
 | 界面结构与视觉约定 | `docs/agents/ui-conventions.md` |
-| **写界面代码前**：参考库与图标名表（WinUI Gallery / PowerToys） | `docs/agents/ui-conventions.md` 第七节 |
+| **写界面代码前**：参考库与图标名表（WinUI Gallery / PowerToys） | `docs/agents/ui-conventions.md` 第六节 |
 | P/Invoke、托盘、注册表、显示拓扑 | `docs/agents/interop-and-platform.md` |
 | 遇到奇怪的失败 | `docs/agents/known-pitfalls.md` |
 | **新会话接进度**（无对话记忆时先读） | `docs/HANDOFF.md` |

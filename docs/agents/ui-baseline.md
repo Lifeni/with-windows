@@ -37,9 +37,9 @@ Stop-Process -Id $p.Id -Force
 - 截图默认落在当前工作目录的 `screenshot.png`，需移到 `artifacts/ui/` 下改名（`artifacts/` 已加入 `.gitignore`）。
 - `winapp` 仍是公共预览版，命令可能变动；执行前用 `winapp ui --help` 核对。
 
-## 二、基线（2026-10-09，提交 d69fa20）
+## 二、基线（2026-10-11，提交 538f72d / v0.5.0）
 
-窗口：`"With Windows" (window, 1920x997, foreground) [WinUIDesktopWin32WindowClass]`
+窗口：`"With Windows" (window, 1161x818) [WinUIDesktopWin32WindowClass]`
 
 `winapp ui inspect -a WithWindows -i` 的关键输出：
 
@@ -47,23 +47,26 @@ Stop-Process -Id $p.Id -Force
 Window > Pane > Pane > TitleBar
         PART_PaneToggleButton Button "切换导航"
 Window > Pane > Pane > Custom > Window > Pane > Group
-              NavItemNotepad ListItem "记事本"
-              NavItemHotkeys ListItem "快捷键"
+              NavItemNotepad ListItem "记事"
+              NavItemDisplay ListItem "投影"
               SettingsItem ListItem "设置"
-Window > TitleBar
-    Minimize-Restore Button "最小化"
-    Maximize-Restore Button "最大化"
-    Close Button "关闭"
+Window > Pane > Pane > Custom
+        NotepadFind Button "查找替换"
+        NotepadSave Button "另存为"
+        NotepadEditor Edit
+        NotepadWrap Button "自动换行" [on]
 ```
 
-页面内容（用 `search` 验证）：
+页面内容（用 `search` / `get-value` 验证）：
 
-- 启动后默认页为记事本：`NotepadPlaceholder Text "记事本"`
-- `invoke NavItemHotkeys` 之后出现：`HotkeysPlaceholder Text "快捷键"`
+- 启动后默认页为记事，`NotepadEditor` 自动获得键盘焦点（`winapp ui get-focused` 返回该 Edit，状态栏为「行 1，列 1」）
+- `invoke NavItemDisplay` 切到投影页；`invoke SettingsItem` 切到设置页
 
-截图：`artifacts/ui/shell-hotkeys-2026-10-09.png`（1902×988，深色主题）
+截图：本次改基线未留图（`artifacts/` 已于 2026-10-11 随开发工作区清理）；需要对照时按上面「一、可复现流程」重拍。
 
-目视结论：标题栏、左栏导航（记事本 / 快捷键 / 设置置底）、内容区标题均正常渲染，中文无乱码，Mica 背景生效，无布局错乱。
+目视结论：标题栏、左栏导航（记事 / 投影 / 设置置底）、记事工具条与状态栏均正常渲染，中文无乱码，Mica 背景生效，无布局错乱。
+
+> 下面保留各次 UI 改动的历史记录（按时间先后追加），其中的控件名与结论只代表当时的状态，不要当成当前基线。
 
 ## 三、已知的视觉待确认项
 

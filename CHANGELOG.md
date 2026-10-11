@@ -1,5 +1,19 @@
 # 更新日志
 
+## [未发布]
+
+### 新增
+- 记事页：切换到「记事」时自动聚焦编辑器，光标停在正文末尾可直接输入；导航切换、托盘与热键唤出都生效
+
+### 变更
+- 移除未使用的 `CommunityToolkit.Mvvm` 依赖：全仓库没有任何 ViewModel，它只是让单文件 exe 多背约 180 KB。页面暂时保持 code-behind，何时引入 MVVM 的判断准则写进了 `AGENTS.md`
+
+### 文档
+- README 系统要求改为 **Windows 11 22H2（22621）**：`TargetPlatformMinVersion` 是 `10.0.22621.0`，此前误写为 21H2（22000）；`v0.5.0` 章节里同样的笔误一并订正
+- README 目录结构与 AGENTS 目录地图改为实际布局（App 的 `Views/ Controls/ Services/ Tools/`、Core 的 `Actions/ App/ Config/ Diagnostics/ Hotkeys/ Interop/`），此前列的是已退役旧实现的目录名
+- `docs/HANDOFF.md` 重写：工作分支就是 `main`，dev 已合并、开发工作区已清理（旧版还在教新会话去 `.worktrees/dev` 干活）
+- `docs/agents/development-workflow.md` 补全发布流程（原先写着「P5 阶段补全」）；`ui-baseline.md` 基线更新到当前导航项与控件；`ui-conventions.md` 修正小节顺序与不在白名单的包；设计文档顶部标注实现偏差
+
 ## [v0.5.0] - 2026-10-09
 
 ### 变更
@@ -7,7 +21,7 @@
 - 配置改为全新 schema v1（`tools[]` + `displayMode` + `windowState`），**不与旧 v3 兼容**（识别到旧格式即重建默认值）；不预置任何默认热键
 - 逻辑内核迁移到 `WithWindows.Core` 纯逻辑类库；P/Invoke 一律改由 CsWin32 生成，不再手写 `DllImport`
 - 发布产物改为 **Inno Setup 安装器 + 便携 zip**（自包含，免装运行库；便携包解压即用）
-- 目标平台提升为 **Windows 11 21H2+（`net10.0-windows10.0.22621.0`）**，不再支持 Windows 10
+- 目标平台提升为 **Windows 11 22H2（22621）及以上（`net10.0-windows10.0.22621.0`）**，不再支持 Windows 10
 
 ### 新增
 - 工具目录：导航项与快捷键行由目录生成，新增工具不再改主窗口

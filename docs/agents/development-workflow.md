@@ -88,12 +88,26 @@ $prompt | codex exec -C <worktree> -s read-only -
 
 ## 四、发布
 
-发布产物是 Inno Setup 安装器（未打包 + 自包含单文件 exe 作为载荷）。完整发布流程在 P5 阶段确定，届时本节补全命令。
+发布由**版本号驱动**，日常不需要手动打 tag：
+
+1. 改 `src/WithWindows.App/WithWindows.App.csproj` 的 `<Version>`，并在 `CHANGELOG.md` 顶部加同版本号的 `## [vX.Y.Z] - 日期` 章节；
+2. push 到 `main`：`release.yml` 发现该版本还没有对应的 `vX.Y.Z` tag，就自动跑测试 → 发布自包含单文件 → 编译安装器 → 产出安装器、便携 zip 与 `SHA256SUMS.txt` → 打 tag 并创建 Release。版本号没变时只跑测试，不重复构建；`ci.yml` 只负责 PR 上的构建 + 测试 + 发布链路校验，两者触发条件不重叠。
+
+本地手动出产物（Inno Setup 6；本机是**用户级安装**，不在 `C:\Program Files (x86)`）：
+
+```powershell
+dotnet publish src/WithWindows.App/WithWindows.App.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
+
+$ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\WithWindows.iss
+```
 
 已知约束：
 
 - 常驻实例会锁住 exe，构建前必须关闭应用（否则报 MSB3021 / MSB3027，那是文件被占用而不是代码错误）；
 - 未签名安装器首次运行会有 SmartScreen「未知发布者」提示，属预期行为。
+
+产物清单与安装器行为见 `installer/README.md`。
 
 ## 五、完成定义（DoD）
 

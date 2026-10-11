@@ -19,7 +19,7 @@
 按这个顺序取第一个能满足需求的：
 
 1. WinUI 3 内置控件与系统资源
-2. CommunityToolkit.WinUI 的控件与助手（设置项优先用 `SettingsControls`）
+2. CommunityToolkit.WinUI 的控件与助手（**不在第三方白名单里，引入前先问**；设置项优先用 `SettingsControls`）
 3. 自己写
 
 不要为了视觉定制就替换标准控件的交互；需要定制时，先尝试**组合、模板化或重设样式**内置控件。
@@ -45,7 +45,7 @@
 
   例：投影用的 `DeviceMonitorRightPic` = `E7F9`（tags: projection/present），本项目导航与托盘都用它。
 
-## 七、参考实现（写代码前先看这两处）
+## 六、参考实现（写代码前先看这两处）
 
 用户已明确要求**直接参考现成实现**，不要自己从头试错：
 
@@ -61,6 +61,6 @@ gh search code --repo microsoft/WinUI-Gallery "关键词"
 gh api "/repos/<owner>/<repo>/contents/<path>" --jq '.content'   # base64，解码后即文件内容
 ```
 
-## 六、像素级细节由人决定
+## 七、像素级细节由人决定
 
 间距微调、配色选择、动效曲线这类视觉判断**不要由 AI 自行拍板**。研究显示模型面对重复 UI 模式时会"按模式补全"而非按像素还原。这类决策请标为「待人工确认」再交付。

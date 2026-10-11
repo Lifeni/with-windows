@@ -12,6 +12,7 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关
 **记事**（打开即编辑器，纯文本）
 
 - 顶部工具条：左侧秒级时钟 + 右侧查找替换、另存为（不做格式化按钮组；加粗 / 斜体等用编辑器原生快捷键）
+- 切到「记事」时自动聚焦编辑器（光标停在正文末尾，可直接开始输入）：导航切换、托盘与热键唤出都生效
 - 工具条右侧：查找替换、另存为（`Ctrl+F` 查找、`Ctrl+H` 直接打开替换行、`Ctrl+S` 另存为；`Ctrl+B`/`Ctrl+I` 加粗斜体与 `Ctrl+C`/`Ctrl+V` 复制粘贴由编辑器原生提供，工具条上不再重复放按钮）
 - 底部状态栏：行列号、字符数、自动换行（文字开关，开启时前面带对勾）、缩放比例；文字统一垂直居中
 - 编辑器无边框、聚焦无高亮；正文**自动保存**草稿（500 ms 防抖）到 `%APPDATA%\WithWindows\notepad.txt`，重开自动读回，工具条上的「另存为」用于导出到文件
@@ -85,7 +86,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 
 ## 系统要求
 
-- **Windows 11 21H2（22000）及以上，x64**——目标框架 `net10.0-windows10.0.22621.0`，不背 Windows 10
+- **Windows 11 22H2（22621）及以上，x64**——目标框架与 `TargetPlatformMinVersion` 都是 `10.0.22621.0`，不背 Windows 10
 - Release 产物为**自包含**：无需预装 .NET 运行时与 Windows App Runtime
 - 自行构建框架依赖版本时，需 .NET 10 桌面运行时 + Windows App Runtime
 
@@ -93,7 +94,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 
 - .NET 10 + WinUI 3（Windows App SDK）：未打包（`WindowsPackageType=None`），目标框架 `net10.0-windows10.0.22621.0`
 - 仅 x64；`PublishTrimmed` 固定 `false`（WinUI 3 不支持裁剪）；单文件发布依赖 `EnableMsixTooling`（csproj 按条件开启）
-- WinUIEx：托盘 `TrayIcon`；CommunityToolkit.Mvvm：页面视图模型
+- WinUIEx：托盘 `TrayIcon`
 - **P/Invoke 一律 CsWin32 生成**（`src/WithWindows.Core/Interop/NativeMethods.txt`），不手写 `DllImport`
 - 全局热键用**独立隐藏消息窗口**接收 `WM_HOTKEY`（绝不子类化 WinUI 窗口，项目已验证两次会原生崩溃）
 - 配置用 `System.Text.Json`（原子替换 + `config.json.bak` 回退 + 自愈清理未知工具）；测试用 xunit
@@ -139,8 +140,8 @@ with-windows/
 ├── docs/                   # 素材与文档（agents 分册、设计文档、实现计划、界面基线）
 ├── installer/              # Inno Setup 脚本与说明
 ├── scripts/                # 开发脚本（dev.ps1、IconGen 图标生成）
-├── src/WithWindows.App/    # 未打包 WinUI 3 应用（Shell/ Views/ ViewModels/ Services/ Controls/ Themes）
-├── src/WithWindows.Core/   # 纯逻辑类库（Hotkeys/ Config/ Actions/ Interop/ Diagnostics/ App）
+├── src/WithWindows.App/    # 未打包 WinUI 3 应用（Views/ Controls/ Services/ Tools/ 与 Assets/）
+├── src/WithWindows.Core/   # 纯逻辑类库（Actions/ App/ Config/ Diagnostics/ Hotkeys/ Interop/）
 └── tests/WithWindows.Core.Tests/  # 核心逻辑单元测试
 ```
 

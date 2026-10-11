@@ -5,6 +5,15 @@
 - 状态：待评审
 - 依据：Windows App SDK 2.5 官方文档、`openai/skills` 的 `winui-app` skill、微软 `winui` 插件与 `winapp` CLI、`PowerToys` / `Files` / `DeskBox` 等项目的实际工程实践
 
+> **实现偏差（2026-10-11 补注）**：本文是 2026-10-09 的设计稿，落地时有两处偏离，读的时候以代码与 `AGENTS.md` 为准：
+>
+> 1. **没有 `ViewModels/` 层**：三个页面都是 code-behind（配置与控件的双向同步靠手工回写），`CommunityToolkit.Mvvm` 依赖也已移除。何时再考虑引入，见 `AGENTS.md` 的「MVVM（当前不引入）」。
+> 2. **目录结构**：实际是 `App/Views|Controls|Services|Tools|Assets` 与 `Core/Actions|App|Config|Diagnostics|Hotkeys|Interop`，没有 `Shell/`、`Themes/`。
+>
+> 另外本文表格里「面向 Win11 21H2 及以上」有误：`TargetPlatformMinVersion` 是 `10.0.22621.0`，即 **Win11 22H2（22621）及以上**。
+>
+> 工作区也变了：`dev` 分支与 `.worktrees/dev` 已合并进 `main` 并清理，当前只有 `main`（见 `docs/HANDOFF.md`）。
+
 ## 1. 目标
 
 把当前"两个独立窗口 + 托盘"的形态，重构为一个 WinUI 3 工具箱应用：左侧 `NavigationView` 导航，每个工具是一页。首版含「记事本」「快捷键」两个工具页与「设置」页；此后新增工具只需注册，不改主窗口。
