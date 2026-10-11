@@ -1,5 +1,7 @@
 # With Windows 工具箱 · P5 打磨与打包 Implementation Plan
 
+> **⚠️ 历史记录**：本文是 2026-10-09 的实现计划，只描述当时怎么做；其中的第三方依赖白名单、平台版本与目录结构等已被后续改动取代（例如 `CommunityToolkit.Mvvm` 已移除、目标平台为 Win11 22H2），以 `AGENTS.md` 与代码为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 把可用状态做到可分发状态：窗口状态记忆、浅色/窄宽度适配、Inno Setup 安装器、CI/Release 产出安装器、README 重写。

@@ -1,5 +1,7 @@
 # With Windows 工具箱 · P2 Core 迁移 Implementation Plan
 
+> **⚠️ 历史记录**：本文是 2026-10-09 的实现计划，只描述当时怎么做；其中的第三方依赖白名单、平台版本与目录结构等已被后续改动取代（例如 `CommunityToolkit.Mvvm` 已移除、目标平台为 Win11 22H2），以 `AGENTS.md` 与代码为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 把旧实现（`src/WithWindows.UI`）的逻辑内核迁移到 `WithWindows.Core`，接入 CsWin32 生成互操作代码，落地新配置 schema v1，并删除旧项目，为 P3 页面接线准备好全部纯逻辑能力。

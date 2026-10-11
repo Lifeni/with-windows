@@ -1,5 +1,7 @@
 # With Windows · P6 界面重构 Implementation Plan
 
+> **⚠️ 历史记录**：本文是 2026-10-09 的实现计划，只描述当时怎么做；其中的第三方依赖白名单、平台版本与目录结构等已被后续改动取代（例如 `CommunityToolkit.Mvvm` 已移除、目标平台为 Win11 22H2），以 `AGENTS.md` 与代码为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 按用户反馈重构界面：记事页只做编辑（对齐系统记事本）、快捷键页改为投屏页、设置页保留自启并新增呼出快捷键与路径按钮、导航栏更窄，整体排版对齐系统应用与主流开源 WinUI 工具箱。

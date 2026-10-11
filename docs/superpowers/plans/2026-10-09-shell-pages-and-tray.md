@@ -1,5 +1,7 @@
 # With Windows 工具箱 · P4 工具目录 + P3 页面与托盘 Implementation Plan
 
+> **⚠️ 历史记录**：本文是 2026-10-09 的实现计划，只描述当时怎么做；其中的第三方依赖白名单、平台版本与目录结构等已被后续改动取代（例如 `CommunityToolkit.Mvvm` 已移除、目标平台为 Win11 22H2），以 `AGENTS.md` 与代码为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 把 P1 的占位导航壳接上真实能力：工具目录驱动导航与快捷键列表、生命周期服务组装、托盘宿主、快捷键页、设置页、记事本页。

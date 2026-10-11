@@ -1,5 +1,7 @@
 # With Windows 工具箱骨架（P0+P1）Implementation Plan
 
+> **⚠️ 历史记录**：本文是 2026-10-09 的实现计划，只描述当时怎么做；其中的第三方依赖白名单、平台版本与目录结构等已被后续改动取代（例如 `CommunityToolkit.Mvvm` 已移除、目标平台为 Win11 22H2），以 `AGENTS.md` 与代码为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在 `dev` 分支建立 WinUI 3 工具箱的可运行骨架：仓库规范文件齐全、`AGENTS.md` 分层可用、`WithWindows.Core` 类库与测试工程可编译、`WithWindows.App` 以未打包方式启动并显示带 Mica 的 `NavigationView` 导航壳。

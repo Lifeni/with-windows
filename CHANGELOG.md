@@ -12,7 +12,7 @@
 - README 系统要求改为 **Windows 11 22H2（22621）**：`TargetPlatformMinVersion` 是 `10.0.22621.0`，此前误写为 21H2（22000）；`v0.5.0` 章节里同样的笔误一并订正
 - README 目录结构与 AGENTS 目录地图改为实际布局（App 的 `Views/ Controls/ Services/ Tools/`、Core 的 `Actions/ App/ Config/ Diagnostics/ Hotkeys/ Interop/`），此前列的是已退役旧实现的目录名
 - `docs/HANDOFF.md` 重写：工作分支就是 `main`，dev 已合并、开发工作区已清理（旧版还在教新会话去 `.worktrees/dev` 干活）
-- `docs/agents/development-workflow.md` 补全发布流程（原先写着「P5 阶段补全」）；`ui-baseline.md` 基线更新到当前导航项与控件；`ui-conventions.md` 修正小节顺序与不在白名单的包；设计文档顶部标注实现偏差
+- `docs/agents/development-workflow.md` 补全发布流程（原先写着「P5 阶段补全」）；`ui-baseline.md` 基线更新到当前导航项与控件；`ui-conventions.md` 修正小节顺序与不在白名单的包；设计文档与 5 份实现计划顶部标注实现偏差 / 历史记录
 
 ## [v0.5.0] - 2026-10-09
 
