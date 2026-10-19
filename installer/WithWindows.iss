@@ -1,5 +1,5 @@
 ; With Windows 安装器（Inno Setup 6）
-; 编译：ISCC.exe /DAppVersion=0.5.0 WithWindows.iss
+; 编译：ISCC.exe /DAppVersion=0.5.1 WithWindows.iss
 ; 载荷：dist\WithWindows.exe（自包含单文件）与 dist\Assets\*
 
 #ifndef AppVersion
@@ -28,7 +28,8 @@ DefaultGroupName=With Windows
 DisableProgramGroupPage=yes
 OutputDir=..\dist-installer
 OutputBaseFilename=WithWindows-{#AppVersion}-x64-setup
-Compression=lzma2/max
+; 64 MB 字典；比默认 max（8 MB）略小，代价是压缩时约需 742 MB 内存
+Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
@@ -57,9 +58,10 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Registry]
-; 与设置页的「开机自启」开关写同一个位置，保证两处一致
+; 与设置页的「开机自启」开关写同一个位置、同一份命令行（含 --tray），保证两处一致；
+; --tray 是隐藏启动参数：开机拉起后只驻留托盘，不打开主窗口
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; \
-  ValueName: "WithWindows"; ValueData: """{app}\{#AppExeName}"""; Tasks: autostart; Flags: uninsdeletevalue
+  ValueName: "WithWindows"; ValueData: """{app}\{#AppExeName}"" --tray"; Tasks: autostart; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "启动 {#AppName}"; Flags: nowait postinstall skipifsilent

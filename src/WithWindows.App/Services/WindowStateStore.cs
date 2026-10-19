@@ -3,6 +3,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Windows.Graphics;
+using WithWindows.Core.App;
 using WithWindows.Core.Config;
 using WithWindows.Core.Interop;
 
@@ -127,12 +128,23 @@ public sealed class WindowStateStore : IDisposable
         try
         {
             AppWindow appWindow = _window.AppWindow;
+
+            // 最小化 / 最大化时 AppWindow 报的是系统占位矩形（最小化是 -32000,-32000 与极小尺寸，
+            // 最大化接近整屏），写回会把用户真正记住的窗口状态冲掉；只在「还原」状态持久化。
+            if (appWindow.Presenter is OverlappedPresenter { State: not OverlappedPresenterState.Restored })
+                return;
+
             SizeInt32 size = appWindow.Size;
             PointInt32 position = appWindow.Position;
 
             double scale = Scale;
-            _config.WindowState.Width = Math.Round(size.Width / scale);
-            _config.WindowState.Height = Math.Round(size.Height / scale);
+            int width = (int)Math.Round(size.Width / scale);
+            int height = (int)Math.Round(size.Height / scale);
+            if (!WindowPlacement.IsUsable(position.X, position.Y, width, height))
+                return;
+
+            _config.WindowState.Width = width;
+            _config.WindowState.Height = height;
             _config.WindowState.X = position.X;
             _config.WindowState.Y = position.Y;
             _save();

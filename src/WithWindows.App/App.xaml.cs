@@ -2,10 +2,12 @@ using System;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using WithWindows.Core.App;
 using WithWindows.Core.Config;
 using WithWindows.Core.Diagnostics;
 using WithWindows.Core.Hotkeys;
 using WithWindows.Services;
+using WithWindows.Tools;
 
 namespace WithWindows;
 
@@ -50,7 +52,10 @@ public partial class App : Application
             return;
         }
 
-        AppHostStartResult start = AppHost.Start();
+        bool trayLaunch = AutoStartCommand.IsTrayLaunch(Environment.GetCommandLineArgs());
+
+        // 手动再次启动 = 唤出已有实例；开机自启重复触发则安静退出，不擅自弹窗
+        AppHostStartResult start = AppHost.Start(activateExisting: !trayLaunch);
         if (start.AlreadyRunning)
         {
             Exit();
@@ -62,16 +67,54 @@ public partial class App : Application
         Host = _host;
 
         MainWindow = new MainWindow();
-        MainWindow.Activate();
+        var mainWindow = (MainWindow)MainWindow;
 
         if (start.Host is null)
         {
-            ShowStartupError((MainWindow)MainWindow, start.Error ?? "未知错误");
+            // 启动失败必须让窗口可见，否则错误对话框藏在托盘后面没人看得到
+            mainWindow.Activate();
+            ShowStartupError(mainWindow, start.Error ?? "未知错误");
             return;
         }
 
         AppHost host = start.Host;
-        host.ToolInvoker = toolId => new HotkeyRouter((MainWindow)MainWindow!, host.Config).Invoke(toolId);
+        host.ToolInvoker = toolId => new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
+
+        // 再次双击 exe / 点开始菜单：已有实例把窗口叫出来（只显示，不切换成隐藏）
+        host.ActivationRequested = () => mainWindow.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (host.IsShuttingDown)
+                return;
+
+            host.Log.Info("再次启动：唤出主窗口");
+            mainWindow.ShowAndNavigate(ToolCatalog.NotepadId);
+        });
+        host.StartActivationListener();
+
+        // 开机自启项补上隐藏启动参数（旧版本 / 安装器写的是裸路径）
+        try
+        {
+            if (AutoStart.EnsureUpToDate())
+                host.Log.Info("开机自启项已更新为隐藏启动（补上了 --tray）");
+        }
+        catch (Exception ex)
+        {
+            // 注册表被组策略 / ACL 挡住时只记日志，不能拦着窗口启动
+            host.Log.Error($"开机自启项升级失败（不影响启动）：{ex.Message}");
+        }
+
+        // 开机自启带 --tray：只驻留托盘，不打开主窗口——用户点托盘图标或按热键再唤出
+        if (trayLaunch && mainWindow.IsTrayAvailable)
+        {
+            mainWindow.StartHidden();
+            host.Log.Info("以 --tray 启动：隐藏到托盘，不打开主窗口");
+        }
+        else
+        {
+            if (trayLaunch)
+                host.Log.Error("托盘不可用，--tray 启动回退为显示主窗口");
+            mainWindow.Activate();
+        }
     }
 
     /// <summary>启动失败：在当前窗口上弹对话框后退出。</summary>

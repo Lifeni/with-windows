@@ -48,7 +48,8 @@ public sealed partial class MainWindow : Window
         _windowState = new WindowStateStore(this, App.Host?.Config ?? new WithWindows.Core.Config.AppConfig(), () => App.Host?.SaveConfig());
         AppWindow.Changed += OnAppWindowChanged;
 
-        // 必须先激活再恢复：XamlRoot 要等窗口有内容后才可用，缩放率拿不到就会按 100% 误算尺寸
+        // 普通启动在首次激活后恢复：此时窗口有内容、DPI 已就绪，不会按 100% 误算尺寸；
+        // 隐藏启动（--tray）不激活窗口，由 StartHidden() 在创建后立即恢复。
         Activated += OnFirstActivated;
     }
 
@@ -140,8 +141,62 @@ public sealed partial class MainWindow : Window
     /// <summary>仅显示并激活窗口，不改变当前页面。</summary>
     public void ShowWindow()
     {
+        // 最小化的窗口光 Show + Activate 是回不来的（托盘左键与热键唤出共用这条路径）
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+            presenter.Restore();
+
         AppWindow.Show();
         Activate();
+
+        // Activate() 对「已可见但在别的窗口后面」不可靠（再次启动 / 托盘左键都会走到这里），补一次显式前置
+        Core.Interop.WindowInterop.BringToFront(WinRT.Interop.WindowNative.GetWindowHandle(this));
+    }
+
+    /// <summary>托盘图标是否可用；隐藏启动前必须确认，否则窗口藏起来后应用就没有任何入口。</summary>
+    public bool IsTrayAvailable => _tray.IsAvailable;
+
+    /// <summary>
+    /// 以「隐藏到托盘」方式启动（开机自启带 <c>--tray</c>）：不激活窗口，主窗口只待在托盘里，
+    /// 用户点托盘图标或按热键时再唤出。
+    /// 尺寸/位置在这里就恢复好：窗口一直没激活过，等首次唤出才恢复会先按默认尺寸闪一下再跳成保存的尺寸。
+    /// </summary>
+    public void StartHidden()
+    {
+        _windowState.Restore();
+    }
+
+    /// <summary>
+    /// 「显示 / 隐藏窗口」热键：按一次唤出（并切到指定页面），再按一次收起。
+    /// 判定放 Core（纯逻辑，可测）：隐藏 → 显示；前台可见 → 隐藏；可见但被别的窗口挡住 → 只前置聚焦，
+    /// 否则用户正要找的窗口会被一把藏起来；最小化也算「要显示」。托盘左键与托盘菜单不经过这里，仍然只负责显示。
+    /// </summary>
+    public void ToggleWindow(string routeTag)
+    {
+        IntPtr hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        Core.App.WindowToggleAction action = Core.App.WindowToggle.Decide(
+            Core.Interop.WindowInterop.IsVisible(hwnd),
+            Core.Interop.WindowInterop.IsForeground(hwnd),
+            Core.Interop.WindowInterop.IsMinimized(hwnd));
+
+        switch (action)
+        {
+            case Core.App.WindowToggleAction.Hide:
+                App.Host?.Log.Info("热键：主窗口正在前台，隐藏到托盘");
+                AppWindow.Hide();
+                break;
+
+            case Core.App.WindowToggleAction.Activate:
+                App.Host?.Log.Info("热键：主窗口已显示但不在前台，前置");
+                Activate();
+                // Activate() 对「已可见但在后面」的窗口不可靠，补一次显式前置
+                Core.Interop.WindowInterop.BringToFront(hwnd);
+                break;
+
+            default:
+                App.Host?.Log.Info("热键：唤出主窗口");
+                ShowAndNavigate(routeTag);
+                break;
+        }
     }
 
     /// <summary>托盘里的直接动作（不切页），执行结果写日志。</summary>

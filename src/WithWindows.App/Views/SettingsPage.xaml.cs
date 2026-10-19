@@ -9,7 +9,7 @@ using WithWindows.Services;
 
 namespace WithWindows.Views;
 
-/// <summary>设置页：开机自启、呼出主窗口快捷键、关于（版本与路径入口）。</summary>
+/// <summary>设置页：开机自启、显示 / 隐藏窗口快捷键、关于（版本与路径入口）。</summary>
 public sealed partial class SettingsPage : Page
 {
     /// <summary>导航项 Tag 常量，供 MainWindow 路由表引用。</summary>
