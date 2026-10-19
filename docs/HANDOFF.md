@@ -16,11 +16,11 @@ git status --short
 
 ## 一、这个项目是什么
 
-Windows 常驻托盘的工具箱：左侧 `NavigationView` 导航，每个工具一页。当前三个页面——**记事**（对齐系统记事本的编辑器 + 浮动查找替换 + 状态栏）、**投影**（投屏快捷键与候选模式）、**设置**（开机自启、呼出主窗口快捷键、关于）。关闭主窗口只是隐藏到托盘，单进程常驻。
+Windows 常驻托盘的工具箱：左侧 `NavigationView` 导航，每个工具一页。当前三个页面——**记事**（对齐系统记事本的编辑器 + 浮动查找替换 + 状态栏）、**投影**（投屏快捷键与候选模式）、**设置**（开机自启、显示 / 隐藏窗口快捷键、关于）。关闭主窗口只是隐藏到托盘，单进程常驻。
 
-## 二、当前进度（截至 2026-10-11）
+## 二、当前进度（截至 2026-10-20）
 
-- **v0.5.0 已发布**：tag `v0.5.0`，Release 含 Inno Setup 安装器、便携 zip 与 `SHA256SUMS.txt`。发布由 `release.yml` 版本驱动——push 到 main 时 csproj 的 `<Version>` 若没有对应 tag，就自动跑测试、构建产物、打 tag 并创建 Release。
+- **v0.5.1 已发布**：tag `v0.5.1`，Release 见 [v0.5.1](https://github.com/Lifeni/with-windows/releases/tag/v0.5.1)，含 Inno Setup 安装器（约 44.5 MB）、便携 zip（约 66.4 MB）与 `SHA256SUMS.txt`。发布由 `release.yml` 版本驱动——push 到 main 时 csproj 的 `<Version>` 若没有对应 tag，就自动跑测试、构建产物、打 tag 并创建 Release。
 - 旧实现（两个独立窗口 + 单文件 exe）已退役，源码只留在 git 历史里（`v0.4.0` 及更早）。
 - 未发布的改动记在 `CHANGELOG.md` 的 `## [未发布]` 章节。
 

@@ -722,13 +722,14 @@ winapp ui inspect -a WithWindows -i
 | 普通缩放 | 变化并写回（持久化未失效） |
 | 恢复原尺寸 | `774×545 @ 657,333` |
 
-#### 2026-10-19 发布并安装本地 v0.5.0 构建
+#### 2026-10-20 发布并安装 v0.5.1
 
 | 检查 | 结果 |
 |---|---|
 | 发布 | `dist\WithWindows.exe` 173,205,772 字节（约 173 MB）；`--smoke` 通过，F13 注册成功、配置正常加载 |
-| 安装器 | `dist-installer\WithWindows-0.5.0-x64-setup.exe` 44,541,835 字节（约 44.5 MB）；ISCC 编译无错误 |
-| 静默安装 | `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` 退出码 0；安装版 `%LocalAppData%\Programs\With Windows\WithWindows.exe` 173,205,772 字节 |
+| GitHub Release | [v0.5.1](https://github.com/Lifeni/with-windows/releases/tag/v0.5.1) 已创建；安装器 44,536,719 字节，便携 zip 66,373,059 字节，`SHA256SUMS.txt` 已上传 |
+| 安装器 | Release 安装器 `WithWindows-v0.5.1-x64-setup.exe`；SHA256 校验一致，静默安装退出码 0 |
+| 安装版 | `%LocalAppData%\Programs\With Windows\WithWindows.exe` 173,205,772 字节；关于页显示 `With Windows 0.5.1` |
 | 自启项 | `HKCU\...\Run` 为 `"...\WithWindows.exe" --tray` |
 | 安装版 `--tray` | `winapp ui list-windows` → `Found 0 windows`，日志 `以 --tray 启动：隐藏到托盘，不打开主窗口` |
 | 安装版再次启动 | 第二实例退出，窗口出现（1161×818，1.5 倍缩放 = 774×545 DIP），日志 `再次启动：唤出主窗口` |
@@ -736,4 +737,4 @@ winapp ui inspect -a WithWindows -i
 
 **体积排查**：一度出现 exe 398 MB / 安装器 100 MB。解析单文件 manifest 发现条目从正常的 511 个涨到 850 个，重复项全部来自 `artifacts/review-build/`（代码审查临时构建的整份发布副本）。`Directory.Build.props` 用 `DefaultItemExcludes` 排除 `artifacts/**` 后，exe 回到 235,831,536 字节、安装器 62,682,599 字节。随后把 `Microsoft.WindowsAppSDK` 元包换成按组件引用（Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime），不再带入 AI / ML / Search / Widgets；再把语言目录从 83 个过滤到 4 个（`en-GB` / `en-us` / `zh-CN` / `zh-TW`），发布条目从 445 个降到 287 个。exe 降到 173,205,772 字节；Inno 改用 `lzma2/ultra64` 后安装器降到 44,541,835 字节。单文件内嵌压缩实测 exe 95,299,978 字节，但安装器反而 89,462,581 字节（Inno 无法再压缩），所以默认不开启。
 
-当前保持着安装版可见运行（PID 35972，设置页），供用户直接查看。
+当前保持着安装版可见运行（PID 10380，设置页），供用户直接查看。
