@@ -16,15 +16,23 @@
     <!-- 未打包：不使用 MSIX，无包身份 -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- 只保留中文与英文的 .NET 卫星资源；WinUI 原生 .mui 由下面的发布过滤处理 -->
+    <SatelliteResourceLanguages>en;en-US;zh-CN;zh-TW</SatelliteResourceLanguages>
     <PublishSingleFile>false</PublishSingleFile>
     <!-- 单文件发布时 WASDK 强制要求开启 MSIX 工具链（已知坑） -->
     <EnableMsixTooling Condition="'$(PublishSingleFile)' == 'true'">true</EnableMsixTooling>
     <EnableMsixTooling Condition="'$(PublishSingleFile)' != 'true'">false</EnableMsixTooling>
-    <Version>0.5.0</Version>
+    <Version>0.5.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <!-- 按组件引用：WinUI / Foundation / InteractiveExperiences / DWrite / Runtime -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.Base" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="WinUIEx" />
   </ItemGroup>
@@ -57,5 +65,19 @@
       SourceFiles="@(AssetsToPublish)"
       DestinationFolder="$(PublishDir)Assets\%(RecursiveDir)"
       SkipUnchangedFiles="true" />
+  </Target>
+
+  <!--
+    WinUI / WindowsAppSDK 自带 80 多种语言的 .mui 资源（每种语言两个文件，合计约 3.4 MB）。
+    发布前从 ResolvedFileToPublish 移除不在白名单里的语言目录；只保留中文与英文，
+    非白名单语言会回退到英文资源。
+  -->
+  <Target Name="RemoveUnwantedLocaleResources"
+          BeforeTargets="_ComputeFilesToBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish
+        Remove="@(ResolvedFileToPublish)"
+        Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(RelativePath)', '^[a-z]{2}(-[A-Za-z0-9]+)+[\\/]')) AND $([System.Text.RegularExpressions.Regex]::IsMatch('%(RelativePath)', '^(?i)(en(-|[\\/])|zh-(CN|TW|HK|Hans|Hant)([\\/]|$))')) == 'False'" />
+    </ItemGroup>
   </Target>
 </Project>

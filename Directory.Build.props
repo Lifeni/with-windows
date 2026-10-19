@@ -5,5 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- WinUI 3 不支持裁剪；集中关闭，避免模板默认的 Release 裁剪误开 -->
     <PublishTrimmed>false</PublishTrimmed>
+    <!--
+      artifacts/ 是代码审查与界面自检的临时构建目录，可能包含一整份发布产物。
+      WinUI 的资源索引会把其中的 XBF / Assets 当成内容打进 PRI，单文件发布再把整份副本塞进 exe
+      （实测曾让 exe 从 229 MB 涨到 398 MB）。默认项排除后，临时构建不会再被发布。
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>

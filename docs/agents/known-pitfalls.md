@@ -52,6 +52,12 @@
 
 **WinUI 3 不支持裁剪**：`PublishTrimmed` 必须为 `false`。`PublishSingleFile` 仅支持「未打包 + 自包含」组合。
 
+**审查 / 自检构建输出不要留在项目目录**：`codex exec review` 等工具可能在 `src/WithWindows.App/artifacts/review-build` 留下一整份发布副本；WinUI 的 PRI 资源索引会把其中的 XBF / Assets 当成内容，单文件发布再把整份副本打包进 exe（实测 exe 从约 225 MB 涨到约 380 MB，安装器从约 60 MB 涨到约 96 MB）。`Directory.Build.props` 已用 `DefaultItemExcludes` 排除 `artifacts/**`；临时发布仍应放在 `dist-*` 并在完成后清理。
+
+**WindowsAppSDK 2.5 元包默认带 AI / ML / Search / Widgets**：即使项目不使用这些 API，`Microsoft.WindowsAppSDK` 也会把 ONNX Runtime、DirectML、语义索引等组件带进自包含发布（约 50 MB）。官方在 [WindowsAppSDK#6015](https://github.com/microsoft/WindowsAppSDK/issues/6015) 建议自包含应用直接引用需要的组件包；[#6464](https://github.com/microsoft/WindowsAppSDK/issues/6464) 也记录了相同问题和其他用户的排除做法。本项目的 App 现在直接引用 Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime，不再引用元包；升级 WASDK 或改用新组件时要重新跑全页面回归。
+
+**WinUI 语言资源不受 `SatelliteResourceLanguages` 控制**：`Microsoft.ui.xaml.dll.mui` 等原生资源会随 WindowsAppSDK 一起进入发布目录，`SatelliteResourceLanguages` 只影响 .NET 卫星程序集。要在单文件里真正删掉其它语言，必须在 `_ComputeFilesToBundle` **之前**过滤 `ResolvedFileToPublish`；写成 `BeforeTargets="GenerateSingleFileBundle"` 时，`_ComputeFilesToBundle` 已经把条目搬进 `_FilesToBundle`，过滤不会生效（实测尺寸完全不变）。
+
 **XAML 编译器的报错很含糊**（如 `MSB3073` / `XamlCompiler.exe`）：先退回最简结构确认，检查 `UseWinUI`、`WindowsPackageType` 相关属性与命名空间，不要自创恢复结构。
 
 ## 本机环境

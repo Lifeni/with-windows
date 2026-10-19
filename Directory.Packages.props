@@ -5,7 +5,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+    <!-- 只引用实际用到的 Windows App SDK 组件，避免元包把 AI / ML / Search / Widgets 带进自包含产物 -->
+    <PackageVersion Include="Microsoft.WindowsAppSDK.Base" Version="2.0.4" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.Foundation" Version="2.3.12" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.9" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.9" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.DWrite" Version="2.1.0" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.Runtime" Version="2.5.1" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
     <PackageVersion Include="WinUIEx" Version="2.9.3" />
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.358" />

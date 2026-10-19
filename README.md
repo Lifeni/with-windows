@@ -29,7 +29,7 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关
 **设置**
 
 - 卡片分行、内容跟随窗口宽度（上限 1200 DIP 并水平居中），风格对齐系统记事本 / PowerToys 设置页；卡片行与展开组件标题行统一 64 DIP 最小高度（`SettingCardMinHeight`），只留标题时也不会高矮不一
-- 开机自启（写 `HKCU\...\Run`，用户级）、呼出主窗口（全局热键，把隐藏到托盘的主窗口叫回来）
+- 开机自启（写 `HKCU\...\Run`，用户级；开机拉起后隐藏到托盘，不打开主窗口，之后从开始菜单 / 桌面快捷方式再次启动会唤出已有窗口）、显示 / 隐藏窗口（全局热键：按一次唤出并打开记事页，再按一次收起；窗口可见但被别的窗口挡住时只前置聚焦，不收起）
 - 关于：折叠项（默认展开，图标 + 标题），展开后是版本 / 构建日期 / GitHub 仓库
 
 **托盘**：左键唤出主窗口，右键菜单「记事 / 切换投影 · 设置 · 退出」（选项与分组对齐 `main` 分支）。
@@ -58,16 +58,28 @@ powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 & "src/WithWindows.App/bin/x64/Debug/net10.0-windows10.0.22621.0/win-x64/WithWindows.exe" --smoke
 ```
 
+开机自启用的隐藏启动参数（只驻留托盘，不打开主窗口；自启项由设置页写入，手动排查时可照抄）：
+
+```bash
+& "src/WithWindows.App/bin/x64/Debug/net10.0-windows10.0.22621.0/win-x64/WithWindows.exe" --tray
+
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WithWindows
+```
+
 发布与打包（安装器脚本见 [installer/README.md](installer/README.md)）：
 
 ```powershell
-# 自包含单文件（约 225 MB，免装任何运行库）
+# 自包含单文件（约 173 MB，免装任何运行库）
 dotnet publish src/WithWindows.App/WithWindows.App.csproj -c Release -o dist -p:Platform=x64 -p:SelfContained=true -p:PublishSingleFile=true
 
 # 编译安装器（需 Inno Setup 6）
 $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\WithWindows.iss
 ```
+
+单文件默认不内嵌压缩，交给 Inno 的 LZMA2 压缩安装包（实测 exe 约 173 MB、安装包约 44.5 MB）。如果更在意安装后的磁盘占用，可在发布命令加 `-p:EnableCompressionInSingleFile=true`；内嵌压缩后 Inno 很难再压缩，安装包会明显变大。
+
+发布时会移除 WinUI / WindowsAppSDK 自带的其它语言 `.mui`，只保留中文（`zh-CN` / `zh-TW`）与英文（`en-US` / `en-GB`）；其它系统语言回退英文资源。
 
 注意：常驻实例会锁 exe，重新构建前先退出应用（托盘「退出」或任务管理器结束 `WithWindows.exe`）。
 
@@ -77,7 +89,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 
 | 文件 | 大小 | 说明 |
 | --- | --- | --- |
-| `WithWindows-vX.Y.Z-x64-setup.exe` | 约 60 MB | **推荐**。Inno Setup 安装器：装到 `%LocalAppData%\Programs\With Windows`，创建开始菜单项，桌面快捷方式与开机自启为可选任务 |
+| `WithWindows-vX.Y.Z-x64-setup.exe` | 约 44 MB | **推荐**。Inno Setup 安装器：装到 `%LocalAppData%\Programs\With Windows`，创建开始菜单项，桌面快捷方式与开机自启为可选任务 |
 | `WithWindows-vX.Y.Z-x64-portable.zip` | 约 90 MB | 便携版：解压后双击 `WithWindows.exe` 即用，不写安装信息（`Assets\` 一并提供；即使单独拿走 exe，图标也已打进包内） |
 
 `SHA256SUMS.txt` 提供校验和。安装器**未签名**，首次运行会出现 SmartScreen「未知发布者」提示：点「更多信息 → 仍要运行」即可（这是设计文档第 10.4 节的既定取舍，与 MSIX 自签名被直接拒绝有本质区别）。
@@ -121,7 +133,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 ```
 
 - `version`：配置模型版本，当前为 1
-- `tools`：工具列表，每项含 `id` / `enabled` / `hotkey`；`hotkey` 为 `null` 或空 = 不绑定（**不预置任何默认热键**）。目前两项：`notepad`（呼出主窗口并打开记事）与 `display_mode`（切换投影）
+- `tools`：工具列表，每项含 `id` / `enabled` / `hotkey`；`hotkey` 为 `null` 或空 = 不绑定（**不预置任何默认热键**）。目前两项：`notepad`（显示 / 隐藏主窗口并打开记事）与 `display_mode`（切换投影）
 - `displayMode.modes`：投屏 toggle 的候选模式，按固定顺序循环（修改后立即生效）
 - `windowState`：窗口尺寸/位置与记事本字号。位置为 `null` 表示尚未保存（`(0, 0)` 是合法坐标，不用 0 当哨兵）；位置超出所有显示器时回主屏居中
 

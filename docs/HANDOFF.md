@@ -75,7 +75,7 @@ winapp ui screenshot -a WithWindows --json
 Stop-Process -Id $p.Id -Force
 ```
 
-当前基线：Core 测试 **100/100**，解决方案构建 **0 错误 0 警告**。界面基线与截图流程见 `docs/agents/ui-baseline.md`。
+当前基线：Core 测试 **133/133**，解决方案构建 **0 错误 0 警告**。界面基线与截图流程见 `docs/agents/ui-baseline.md`。
 
 ## 六、操作注意事项（都是实际踩过的）
 

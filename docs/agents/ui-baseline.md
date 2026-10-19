@@ -505,8 +505,8 @@ NavItemNotepad ListItem "记事" / NavItemDisplay ListItem "投屏" / SettingsIt
 
 | 步骤 | 结果 |
 |---|---|
-| `dotnet publish -c Release -p:SelfContained=true -p:PublishSingleFile=true` | `dist\WithWindows.exe` 约 225 MB |
-| `ISCC.exe /DAppVersion=0.5.0` | 产出 `WithWindows-0.5.0-x64-setup.exe` 约 59.86 MB |
+| `dotnet publish -c Release -p:SelfContained=true -p:PublishSingleFile=true` | `dist\WithWindows.exe` 约 173 MB |
+| `ISCC.exe /DAppVersion=0.5.0` | 产出 `WithWindows-0.5.0-x64-setup.exe` 约 44 MB |
 | 静默安装到临时目录 | 退出码 0；目录含 `WithWindows.exe` 与 `Assets\with-windows.ico` |
 | 启动已安装的 exe | 窗口正常、记事本页可编辑、托盘图标注册在安装路径 |
 | 静默卸载 | 退出码 0；目录与开始菜单项均被清理 |
@@ -688,3 +688,52 @@ winapp ui inspect -a WithWindows -i
 | 悬停「查找替换」按钮 | 按钮自己的提示窗正常（116×63 popup） |
 | Ctrl+F（焦点在编辑区） | 日志 `记事：快捷键 Ctrl+F` → `记事：打开面板` |
 | Ctrl+H | 日志 `记事：快捷键 Ctrl+H` → `记事：打开面板（展开替换）`，`FindBox` 与 `ReplaceBox` 同时可见 |
+
+#### 2026-10-19 开机自启隐藏启动（未提交）
+
+**改动**：注册表 `HKCU\...\Run` 的自启命令行改为 `"<exe 全路径>" --tray`；程序带该参数启动时只驻留托盘、不激活主窗口；旧版（与安装器）写下的裸路径自启项在启动时按「路径与当前 exe 一致」原地补参数。再次手动启动（开始菜单 / 桌面快捷方式）通过命名事件请已有实例唤出窗口，`--tray` 的重复触发仍安静退出；托盘不可用时回退为显示窗口；注册表迁移失败只记日志，不拦启动。按用户要求**设置页不加说明文字**，`AutoStartCard` 仍只有标题、状态文字与开关。
+
+**验证**（调试构建，先后用 `--tray` 与普通启动各跑一次）：
+
+| 检查 | 结果 |
+|---|---|
+| `WithWindows.exe --tray` 启动 | `winapp ui list-windows -a WithWindows` → `Found 0 windows`；日志 `以 --tray 启动：隐藏到托盘，不打开主窗口`；Win32 枚举主窗口 `visible=False`，`WithWindows.HotkeyWindow` 存在，托盘图标创建成功 |
+| 用配置里的 `F13` 唤出 | SendInput 注入 `F13` → 日志 `热键：唤出主窗口`，窗口变为 `visible=True`；1.5 倍缩放下 1161×818 px = 774×545 DIP，与保存的窗口状态一致——隐藏启动时先恢复尺寸/位置，首次唤出不会先按默认尺寸闪一下 |
+| 再次普通启动（模拟点开始菜单） | 第二实例 3 秒内退出，只剩第一实例；隐藏窗口被唤出（`Found 1 windows`，1161×818），日志 `再次启动：唤出主窗口` |
+| 重复 `--tray` 启动 | 第二实例退出，窗口保持隐藏（`Found 0 windows`），日志里没有 `再次启动`——开机自启重复触发不会擅自弹窗 |
+| 设置页 | `winapp ui search "开机后在后台启动"` → 0 个匹配；`AutoStartToggle` 仍在无障碍树里；截图 `artifacts/ui/2026-10-19-settings-autostart.png` 目视无错乱（开机自启卡片与改版前一致） |
+| 自启项 | 本轮调试实例与用户安装版路径不同，`EnsureUpToDate()` 按设计**未改写**用户的 Run 项（仍是安装版的裸路径）；新版本首次从安装路径启动时才会补齐 `--tray` |
+
+独立审查（`codex exec review --uncommitted`）提出：重复启动无反应、托盘失败时没有入口（均 P2），以及注册表迁移异常会打断启动（P3）。三条均已按上表修复并复测。第二轮审查又提出「已有窗口在别的程序后面时 `ShowWindow` 不会真正前置」与「退出时未等监听线程、先放互斥体再关日志」，已分别补上 `WindowInterop.BringToFront`、第二个实例的 `AllowSetForegroundWindow` 权限转交，以及「唤醒并 join 监听线程 → 关日志 → 放互斥体」的退出顺序。注意：脚本启动的第二实例没有用户点击带来的前台权限，自动化里只能验证窗口出现，无法验证抢占前台；真实从开始菜单启动时权限由 shell 转交。
+
+#### 2026-10-19 窗口状态不再被最小化 / 最大化写坏
+
+**问题**：`WindowStateStore.Persist()` 原先不区分窗口状态。窗口最小化时 `AppWindow.Size` / `Position` 报 `158×26 @ (-32000,-32000)`，会被写进 `windowState`；下次启动走「位置不在任何显示器内」分支，按最小尺寸居中（实测变成 480×360 DIP）。最大化同样会把接近整屏的尺寸写回去。
+
+**修法**：只在 `OverlappedPresenter` 处于 `Restored` 状态时持久化；另在 `WithWindows.Core` 加 `WindowPlacement.IsUsable()` 拦掉最小化哨兵与非法宽高（配单元测试）。
+
+**实测**（调试构建 PID 39164，1.5 倍缩放，配置基线 `774×545 @ 657,333`）：
+
+| 操作 | `windowState` |
+|---|---|
+| 最小化 | `774×545 @ 657,333`（不变） |
+| 最大化 | `774×545 @ 657,333`（不变） |
+| 还原 | `774×545 @ 657,333`（不变） |
+| 普通缩放 | 变化并写回（持久化未失效） |
+| 恢复原尺寸 | `774×545 @ 657,333` |
+
+#### 2026-10-19 发布并安装本地 v0.5.0 构建
+
+| 检查 | 结果 |
+|---|---|
+| 发布 | `dist\WithWindows.exe` 173,205,772 字节（约 173 MB）；`--smoke` 通过，F13 注册成功、配置正常加载 |
+| 安装器 | `dist-installer\WithWindows-0.5.0-x64-setup.exe` 44,541,835 字节（约 44.5 MB）；ISCC 编译无错误 |
+| 静默安装 | `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` 退出码 0；安装版 `%LocalAppData%\Programs\With Windows\WithWindows.exe` 173,205,772 字节 |
+| 自启项 | `HKCU\...\Run` 为 `"...\WithWindows.exe" --tray` |
+| 安装版 `--tray` | `winapp ui list-windows` → `Found 0 windows`，日志 `以 --tray 启动：隐藏到托盘，不打开主窗口` |
+| 安装版再次启动 | 第二实例退出，窗口出现（1161×818，1.5 倍缩放 = 774×545 DIP），日志 `再次启动：唤出主窗口` |
+| 安装版最小化 | `windowState` 保持 `774×545 @ 657,333`，未再写坏 |
+
+**体积排查**：一度出现 exe 398 MB / 安装器 100 MB。解析单文件 manifest 发现条目从正常的 511 个涨到 850 个，重复项全部来自 `artifacts/review-build/`（代码审查临时构建的整份发布副本）。`Directory.Build.props` 用 `DefaultItemExcludes` 排除 `artifacts/**` 后，exe 回到 235,831,536 字节、安装器 62,682,599 字节。随后把 `Microsoft.WindowsAppSDK` 元包换成按组件引用（Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime），不再带入 AI / ML / Search / Widgets；再把语言目录从 83 个过滤到 4 个（`en-GB` / `en-us` / `zh-CN` / `zh-TW`），发布条目从 445 个降到 287 个。exe 降到 173,205,772 字节；Inno 改用 `lzma2/ultra64` 后安装器降到 44,541,835 字节。单文件内嵌压缩实测 exe 95,299,978 字节，但安装器反而 89,462,581 字节（Inno 无法再压缩），所以默认不开启。
+
+当前保持着安装版可见运行（PID 35972，设置页），供用户直接查看。
