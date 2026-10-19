@@ -2,11 +2,20 @@
 
 ## [未发布]
 
+## [v0.5.1] - 2026-10-20
+
 ### 新增
 - 记事页：切换到「记事」时自动聚焦编辑器，光标停在正文末尾可直接输入；导航切换、托盘与热键唤出都生效
 
 ### 变更
+- 开机自启改为**隐藏启动**：自启项写成 `"<exe 全路径>" --tray`，开机拉起后只驻留托盘、不打开主窗口（点托盘图标或按热键再唤出）；带该参数启动时在窗口不可见时就恢复好尺寸与位置，避免首次唤出先按默认尺寸闪一下。旧版本与安装器留下的裸路径自启项会在下次启动时自动补上参数（只在自启项本就指向当前 exe 时才改写，免得多开一个副本被写成自启项），安装器的可选自启任务同步成同一形式。再次从开始菜单 / 桌面快捷方式启动会通过命名事件请已有实例唤出窗口（`--tray` 的重复触发仍安静退出）；托盘图标不可用时 `--tray` 回退为显示窗口，避免应用没有任何入口
+- 设置页的「显示窗口」热键改为「显示 / 隐藏窗口」：按一次唤出并打开记事页，窗口正在前台时再按一次收起；窗口可见但被别的窗口挡住时只前置聚焦，不会把正要找的窗口藏起来；窗口最小化时按热键会先还原（`IsWindowVisible` 对最小化窗口仍为 true，不单独判定就唤不回来）（托盘左键与托盘菜单保持只显示）。判定逻辑放 `WithWindows.Core`，配单元测试
 - 移除未使用的 `CommunityToolkit.Mvvm` 依赖：全仓库没有任何 ViewModel，它只是让单文件 exe 多背约 180 KB。页面暂时保持 code-behind，何时引入 MVVM 的判断准则写进了 `AGENTS.md`
+- 发布包只保留中文（`zh-CN` / `zh-TW`）与英文（`en-US` / `en-GB`）资源：WinUI / WindowsAppSDK 自带的 79 种其它语言 `.mui` 在打包前移除，发布条目从 445 个降到 287 个，exe 减少约 3.3 MB；其它系统语言回退英文
+
+### 修复
+- 窗口最小化 / 最大化时不再把系统占位矩形写进 `windowState`：最小化时 `AppWindow` 报 `158×26 @ (-32000,-32000)`，此前会把用户记住的尺寸位置冲掉，下次启动落到「位置不在任何显示器内」分支、按最小尺寸居中；现在只在 `OverlappedPresenter` 处于「还原」状态时持久化，并在 `WithWindows.Core` 里加一道「最小化哨兵 / 非法宽高」校验（配单元测试）
+- **安装包异常变大**：代码审查临时目录 `artifacts/` 被 WinUI 的资源索引当成内容，整份发布副本（含 `Microsoft.Windows.SDK.NET.dll`、`onnxruntime.dll`、`DirectML.dll` 等）又被单文件发布打包一遍，发布条目从 511 个涨到 850 个，exe 从约 225 MB 涨到约 380 MB。`Directory.Build.props` 现在用 `DefaultItemExcludes` 排除 `artifacts/**`，exe 与安装包恢复到原体积。随后把 WindowsAppSDK 元包改为只引用实际用到的组件（Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime），不再带入 AI / ML / Search / Widgets（ONNX Runtime、DirectML、语义索引等约 50 MB），只保留中英文语言资源，并把 Inno 压缩提升到 `lzma2/ultra64`：exe 从 235.8 MB 降到 173.2 MB，安装器从 62.7 MB 降到 44.5 MB。单文件内嵌压缩会让 Inno 难以继续压缩安装包，因此默认保持不压缩
 
 ### 文档
 - README 系统要求改为 **Windows 11 22H2（22621）**：`TargetPlatformMinVersion` 是 `10.0.22621.0`，此前误写为 21H2（22000）；`v0.5.0` 章节里同样的笔误一并订正
