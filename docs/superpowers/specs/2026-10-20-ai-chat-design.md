@@ -34,8 +34,8 @@
 | Markdown 解析 | `Markdig` | 成熟、活跃、无 WinUI 依赖，不绑定具体渲染库 |
 | Markdown 渲染 | 自建轻量原生控件 | 避免 `WinUI.Markdown` 的预发布状态和 Windows App SDK 元包依赖 |
 | AI 抽象 | 应用内 `IChatCompletionService` | 只抽象本应用需要的流式增量，不引入过大的通用 AI 框架 |
-| 密钥保护 | Windows DPAPI 当前用户范围 | 不把明文密钥写入配置，且无需第三方密钥库 |
-| 密钥访问 | CsWin32 生成 `CryptProtectData` / `CryptUnprotectData` | 遵守项目“P/Invoke 一律 CsWin32”的规则 |
+| 密钥保护 | Windows `DataProtectionProvider` 的 `LOCAL=user` | 使用系统 DPAPI 绑定当前用户，不把明文密钥写入配置 |
+| 密钥访问 | `Windows.Security.Cryptography.DataProtection` | 使用官方 WinRT 封装，不手写加密或 P/Invoke |
 | 会话存储 | JSON 文件、原子替换 | 与会话规模匹配，不引入数据库 |
 | 状态管理 | code-behind + 普通可观察会话模型 | 当前只有一个页面共享聊天状态，暂不引入 MVVM 库 |
 
@@ -78,11 +78,11 @@ OpenAiCompatibleChatService
 - `IChatCompletionService`：接收完整会话和取消令牌，返回文本增量异步序列。
 - `OpenAiCompatibleChatService`：发送 Chat Completions HTTP 请求，解析 JSON 与 SSE，并产生统一增量。
 - `ChatHistoryStore`：读取和保存当前会话。
-- `ChatSecretStore`：通过 DPAPI 保存和读取 API Key。
+- `ChatSecretStore`：通过 `DataProtectionProvider("LOCAL=user")` 保存和读取 API Key。
 - `ChatValidation`：校验 Base URL、模型和消息输入。
 - `MarkdownLinkPolicy`：只允许安全的链接协议。
 
-`ChatHistoryStore` 和 `ChatSecretStore` 不依赖 WinUI。涉及 Win32 的部分只通过 CsWin32 生成的函数访问。
+`ChatHistoryStore` 和 `ChatSecretStore` 不依赖 WinUI。
 
 ### 3.2 App
 
@@ -92,8 +92,7 @@ OpenAiCompatibleChatService
 - `src/WithWindows.App/Views/ChatPage.xaml.cs`
 - `src/WithWindows.App/Controls/MarkdownMessageView.xaml`
 - `src/WithWindows.App/Controls/MarkdownMessageView.xaml.cs`
-- `src/WithWindows.App/Controls/ChatProviderDialog.xaml`
-- `src/WithWindows.App/Controls/ChatProviderDialog.xaml.cs`
+- `src/WithWindows.App/Controls/ChatProviderDialog.cs`
 
 `ToolCatalog` 新增 `ai_chat` 页面项：
 
@@ -133,6 +132,7 @@ API Key 不在 `config.json` 中。版本 `2` 的已知工具列表保持不变�
 ### 4.2 Base URL 规则
 
 - 必须是绝对 `http` 或 `https` URI。
+- 不允许携带查询字符串或片段，避免拼接 `/chat/completions` 后地址失真。
 - 保存用户输入的端点根路径，例如 `https://example.test/v1`。
 - 代码不自动追加 `/v1` 或 `/chat/completions`，避免重复路径。
 - 结尾斜杠在构造客户端前去除。
@@ -214,6 +214,8 @@ API Key 不在 `config.json` 中。版本 `2` 的已知工具列表保持不变�
 - 模型
 - API Key：`PasswordBox`
 - 系统提示：多行文本框
+- 已存密钥时显示“已保存”，留空保存表示继续使用旧密钥。
+- “清除已保存密钥”勾选框用于显式删除密钥。
 - 保存与取消
 
 保存后立即重建协议客户端，不要求重启应用。取消不修改任何已保存值。
@@ -259,11 +261,12 @@ Content-Type: application/json
 - `Authorization` 只在 API Key 非空时发送。
 - 请求使用 `HttpCompletionOption.ResponseHeadersRead`，不能先把完整响应读入内存。
 - 流式响应使用 `SseParser.Create` 逐事件读取，不手写按行拆分 SSE。
+- 响应内容类型不是 `application/json` 或 `+json` 时按 SSE 处理，兼容返回 `text/plain` 的代理。
 - 每个事件的 `data` 为 `[DONE]` 时正常结束。
 - 其他事件解析 `choices[0].delta.content`，每次只提取新增文本。
 - 如果兼容服务忽略 `stream` 并返回普通 JSON，则解析 `choices[0].message.content`。
 - 忽略不含文本的增量，例如只包含角色、工具调用或空内容的更新。
-- 完成、拒绝、长度截断和错误分别映射为内部结果状态。
+- 正常结束、错误和取消分别映射为内部结果状态；第一阶段不单独呈现 `finish_reason`。
 
 页面只消费 `IAsyncEnumerable<ChatDelta>`，不依赖具体 HTTP 协议。
 
@@ -295,7 +298,8 @@ Content-Type: application/json
 
 - 同一时间只允许一个生成任务。
 - `IChatCompletionService` 的生命周期与页面一致，配置变更时替换。
-- `HttpClient` 由页面持有并复用到进程结束，不按每次请求新建。
+- `HttpClient` 由 `AppHost` 持有并复用到进程退出，不按每次请求或页面新建。
+- `HttpClient.Timeout` 为无限，连接超时为 15 秒，流式生成由取消令牌控制。
 - 取消令牌源由页面字段持有。
 - 流式回调通过 `DispatcherQueue.TryEnqueue` 更新 UI。
 - `async void` 只用于事件处理器，并在内部捕获全部异常。
@@ -304,12 +308,11 @@ Content-Type: application/json
 
 ## 9. 安全
 
-- API Key 使用 `DataProtectionScope.CurrentUser`。
-- DPAPI 输出缓冲区使用后及时清零并释放。
+- API Key 使用 `DataProtectionProvider("LOCAL=user")`，保护范围为当前 Windows 用户。
 - `config.json`、`current.json` 和日志均不得出现 API Key。
 - Markdown 不执行原始 HTML。
 - 链接协议采用允许列表。
-- 配置对话框不回显已有 API Key，只显示“已保存”状态；留空并保存会删除已存密钥，并使端点进入未配置状态。
+- 配置对话框不回显已有 API Key，只显示“已保存”状态；留空并保存会保留旧密钥，只有勾选“清除已保存密钥”才删除。
 - 清空会话不会自动删除 API Key；密钥另有清除动作。
 
 ## 10. 测试
