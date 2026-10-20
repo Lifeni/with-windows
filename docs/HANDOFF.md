@@ -16,12 +16,13 @@ git status --short
 
 ## 一、这个项目是什么
 
-Windows 常驻托盘的工具箱：左侧 `NavigationView` 导航，每个工具一页。当前三个页面——**记事**（对齐系统记事本的编辑器 + 浮动查找替换 + 状态栏）、**投影**（投屏快捷键与候选模式）、**设置**（开机自启、显示 / 隐藏窗口快捷键、关于）。关闭主窗口只是隐藏到托盘，单进程常驻。
+Windows 常驻托盘的工具箱：左侧 `NavigationView` 导航，每个工具一页。当前四个页面——**记事**（对齐系统记事本的编辑器 + 浮动查找替换 + 状态栏）、**AI 对话**（OpenAI 兼容流式对话 + Markdown）、**投影**（投屏快捷键与候选模式）、**设置**（开机自启、显示 / 隐藏窗口快捷键、关于）。关闭主窗口只是隐藏到托盘，单进程常驻。
 
 ## 二、当前进度（截至 2026-10-20）
 
 - **v0.5.1 已发布**：tag `v0.5.1`，Release 见 [v0.5.1](https://github.com/Lifeni/with-windows/releases/tag/v0.5.1)，含 Inno Setup 安装器（约 44.5 MB）、便携 zip（约 66.4 MB）与 `SHA256SUMS.txt`。发布由 `release.yml` 版本驱动——push 到 main 时 csproj 的 `<Version>` 若没有对应 tag，就自动跑测试、构建产物、打 tag 并创建 Release。
 - 旧实现（两个独立窗口 + 单文件 exe）已退役，源码只留在 git 历史里（`v0.4.0` 及更早）。
+- 未发布的「AI 对话」第一阶段已实现：OpenAI 兼容 Chat Completions、SSE、Markdown、单会话保存与 DPAPI 密钥保护。
 - 未发布的改动记在 `CHANGELOG.md` 的 `## [未发布]` 章节。
 
 ## 三、已定决策（不要重新讨论）
@@ -75,7 +76,7 @@ winapp ui screenshot -a WithWindows --json
 Stop-Process -Id $p.Id -Force
 ```
 
-当前基线：Core 测试 **133/133**，解决方案构建 **0 错误 0 警告**。界面基线与截图流程见 `docs/agents/ui-baseline.md`。
+当前基线：Core 测试 **161/161**，解决方案构建 **0 错误 0 警告**。界面基线与截图流程见 `docs/agents/ui-baseline.md`。
 
 ## 六、操作注意事项（都是实际踩过的）
 
@@ -92,8 +93,9 @@ Stop-Process -Id $p.Id -Force
 
 1. **安装器向导中文化**（可选）：Inno Setup 6 官方包不含中文语言文件，把 `ChineseSimplified.isl` 放进 `installer/` 后重新编译即自动切换（脚本已用 `#if FileExists` 处理）。
 2. **干净机器验证**：在未装 .NET 与 Windows App Runtime 的机器上实装，确认零依赖启动。
-3. **后续工具**：新增工具 = `ToolCatalog` 加一条 + 一个页面；出现第 3、4 个工具时可考虑把 `ToolCatalog` 抽成 `ITool` 泛化。
+3. **后续工具**：当前已有记事 / AI 对话 / 投影三页；新增工具仍是 `ToolCatalog` 加一条 + 一个页面。只有在出现共享状态或更多可绑定动作时，再把 `ToolCatalog` 抽成 `ITool` 泛化。
 4. **代码签名**（可选）：消除 SmartScreen「未知发布者」提示，设计文档第 10.4 节给了 SignPath 等路径。
+5. **AI 对话下一阶段**：图片与文件附件、Responses API、自动上下文压缩和多会话管理。
 
 ## 八、设计与记录在哪
 

@@ -22,7 +22,7 @@ winapp ui inspect -a WithWindows -i
 winapp ui search NotepadEditor -a WithWindows
 
 # 5. 切换页面
-winapp ui invoke NavItemHotkeys -a WithWindows
+winapp ui invoke NavItemAi_chat -a WithWindows
 
 # 6. 截图（返回 JSON，含文件路径与尺寸）
 winapp ui screenshot -a WithWindows --json
@@ -37,7 +37,7 @@ Stop-Process -Id $p.Id -Force
 - 截图默认落在当前工作目录的 `screenshot.png`，需移到 `artifacts/ui/` 下改名（`artifacts/` 已加入 `.gitignore`）。
 - `winapp` 仍是公共预览版，命令可能变动；执行前用 `winapp ui --help` 核对。
 
-## 二、基线（2026-10-11，提交 538f72d / v0.5.0）
+## 二、基线（2026-10-20，AI 对话第一阶段）
 
 窗口：`"With Windows" (window, 1161x818) [WinUIDesktopWin32WindowClass]`
 
@@ -48,6 +48,7 @@ Window > Pane > Pane > TitleBar
         PART_PaneToggleButton Button "切换导航"
 Window > Pane > Pane > Custom > Window > Pane > Group
               NavItemNotepad ListItem "记事"
+              NavItemAi_chat ListItem "AI 对话"
               NavItemDisplay ListItem "投影"
               SettingsItem ListItem "设置"
 Window > Pane > Pane > Custom
@@ -60,11 +61,25 @@ Window > Pane > Pane > Custom
 页面内容（用 `search` / `get-value` 验证）：
 
 - 启动后默认页为记事，`NotepadEditor` 自动获得键盘焦点（`winapp ui get-focused` 返回该 Edit，状态栏为「行 1，列 1」）
-- `invoke NavItemDisplay` 切到投影页；`invoke SettingsItem` 切到设置页
+- `invoke NavItemAi_chat` 切到 AI 对话页；`invoke NavItemDisplay` 切到投影页；`invoke SettingsItem` 切到设置页
+
+AI 对话页关键控件：
+
+```text
+ChatConfigureButton Button "配置 AI 服务"
+ChatClearButton Button "清空会话"
+ChatInput Edit "输入消息，Enter 发送，Shift+Enter 换行"
+ChatSendButton Button "发送消息"
+ChatProviderBaseUrl Edit "Base URL"
+ChatProviderModel Edit "模型"
+ChatProviderApiKey Edit "API Key"
+ChatProviderClearKey CheckBox "清除已保存密钥"
+ChatProviderSystemPrompt Edit "系统提示"
+```
 
 截图：本次改基线未留图（`artifacts/` 已于 2026-10-11 随开发工作区清理）；需要对照时按上面「一、可复现流程」重拍。
 
-目视结论：标题栏、左栏导航（记事 / 投影 / 设置置底）、记事工具条与状态栏均正常渲染，中文无乱码，Mica 背景生效，无布局错乱。
+目视结论：标题栏、四项导航、AI 空状态、输入区与配置对话框均正常渲染；中文无乱码，Mica 背景生效，深浅主题资源未出现白底白字。
 
 > 下面保留各次 UI 改动的历史记录（按时间先后追加），其中的控件名与结论只代表当时的状态，不要当成当前基线。
 

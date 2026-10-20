@@ -7,7 +7,7 @@
 
 ## 功能
 
-Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关闭窗口只是隐藏到托盘，单进程常驻后台。首版三个页面：
+Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关闭窗口只是隐藏到托盘，单进程常驻后台。当前四个页面：
 
 **记事**（打开即编辑器，纯文本）
 
@@ -19,6 +19,15 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关
 - 查找替换是**浮动面板**（对齐系统记事本）：底色与输入框取系统同一套填充色，默认只有查找行——查找框 + 下一个 / 上一个 / 选项（区分大小写）/ 关闭；点最左侧箭头展开替换行（替换框 + 「替换 / 全部替换」）。命中会自动滚到该处并**高亮选中**（焦点仍在查找框上也看得见），没命中时查找框描边标红；不显示结果文本
 - 行距 1.05，缩放范围 10–32 px（`Ctrl+滚轮`）并随配置持久化
 - 复制粘贴一律手动：**关闭程序不会自动写入剪贴板**
+
+**AI 对话**
+
+- 接入任意 OpenAI 兼容的 Chat Completions 端点：可配置 Base URL、模型、系统提示和可选的 API Key
+- 流式显示回复，支持停止生成、复制消息、清空当前会话；关闭应用后自动恢复当前对话
+- AI 回复完成后渲染标题、列表、引用、代码块和链接等常见 Markdown；原始 HTML 不会被执行
+- 当前会话保存在 `%APPDATA%\WithWindows\chat\current.json`
+- API Key 由 Windows DPAPI 以当前用户范围保护，保存在 `%APPDATA%\WithWindows\chat\credential.bin`，不写入明文配置或日志
+- 第一版暂不支持图片、文件上传、Responses API 和自动上下文压缩
 
 **投影**
 
@@ -109,7 +118,8 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 - WinUIEx：托盘 `TrayIcon`
 - **P/Invoke 一律 CsWin32 生成**（`src/WithWindows.Core/Interop/NativeMethods.txt`），不手写 `DllImport`
 - 全局热键用**独立隐藏消息窗口**接收 `WM_HOTKEY`（绝不子类化 WinUI 窗口，项目已验证两次会原生崩溃）
-- 配置用 `System.Text.Json`（原子替换 + `config.json.bak` 回退 + 自愈清理未知工具）；测试用 xunit
+- AI 对话通过 `HttpClient` 请求 Chat Completions，使用 .NET 10 内置 `System.Net.ServerSentEvents` 解析流式增量；Markdown 由 `Markdig` 解析后用原生 WinUI 控件渲染
+- 配置与会话用 `System.Text.Json`（原子替换 + `.bak` 回退 + 自愈清理未知工具）；测试用 xunit
 
 ## 配置
 
@@ -119,23 +129,27 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 - `config.json.bak`——上一次保存成功的配置，主文件损坏时自动回退
 - `log.txt`——运行日志（超过 1 MB 轮转为 `log.1.txt`）
 - `notepad.txt`——记事本内容
+- `chat/current.json`——当前 AI 对话（附 `current.json.bak`）
+- `chat/credential.bin`——DPAPI 保护的 API Key
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "tools": [
     { "id": "notepad", "enabled": true, "hotkey": null },
     { "id": "display_mode", "enabled": true, "hotkey": null }
   ],
   "displayMode": { "modes": ["internal", "extend"] },
-  "windowState": { "width": 1100, "height": 720, "x": null, "y": null, "notepadFontSize": 14 }
+  "windowState": { "width": 1100, "height": 720, "x": null, "y": null, "notepadFontSize": 14 },
+  "chat": { "baseUrl": "", "model": "", "systemPrompt": "" }
 }
 ```
 
-- `version`：配置模型版本，当前为 1
+- `version`：配置模型版本，当前为 2；版本 1 会自动迁移并保留已有设置
 - `tools`：工具列表，每项含 `id` / `enabled` / `hotkey`；`hotkey` 为 `null` 或空 = 不绑定（**不预置任何默认热键**）。目前两项：`notepad`（显示 / 隐藏主窗口并打开记事）与 `display_mode`（切换投影）
 - `displayMode.modes`：投屏 toggle 的候选模式，按固定顺序循环（修改后立即生效）
 - `windowState`：窗口尺寸/位置与记事本字号。位置为 `null` 表示尚未保存（`(0, 0)` 是合法坐标，不用 0 当哨兵）；位置超出所有显示器时回主屏居中
+- `chat`：AI 对话的非敏感设置。`baseUrl` 填 OpenAI 兼容端点根路径（如 `https://example.com/v1`）；API Key 不在此文件中
 
 仓库内的 [config/config.json](config/config.json) 是同样结构的示例文件，仅作参考。
 
@@ -153,7 +167,7 @@ with-windows/
 ├── installer/              # Inno Setup 脚本与说明
 ├── scripts/                # 开发脚本（dev.ps1、IconGen 图标生成）
 ├── src/WithWindows.App/    # 未打包 WinUI 3 应用（Views/ Controls/ Services/ Tools/ 与 Assets/）
-├── src/WithWindows.Core/   # 纯逻辑类库（Actions/ App/ Config/ Diagnostics/ Hotkeys/ Interop/）
+├── src/WithWindows.Core/   # 纯逻辑类库（Actions/ App/ Chat/ Config/ Diagnostics/ Hotkeys/ Interop/）
 └── tests/WithWindows.Core.Tests/  # 核心逻辑单元测试
 ```
 
