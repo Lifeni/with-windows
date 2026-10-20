@@ -19,12 +19,24 @@ public class AppPathsTests
         Assert.StartsWith(AppPaths.DataRoot, AppPaths.ConfigPath, StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith(AppPaths.DataRoot, AppPaths.LogPath, StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith(AppPaths.DataRoot, AppPaths.NotepadDraftPath, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(AppPaths.DataRoot, AppPaths.ChatDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(AppPaths.ChatDirectory, AppPaths.ChatHistoryPath, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(AppPaths.ChatDirectory, AppPaths.ChatCredentialPath, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void 各路径均非空且互不相同()
     {
-        var all = new[] { AppPaths.DataRoot, AppPaths.ConfigPath, AppPaths.LogPath, AppPaths.NotepadDraftPath };
+        var all = new[]
+        {
+            AppPaths.DataRoot,
+            AppPaths.ConfigPath,
+            AppPaths.LogPath,
+            AppPaths.NotepadDraftPath,
+            AppPaths.ChatDirectory,
+            AppPaths.ChatHistoryPath,
+            AppPaths.ChatCredentialPath,
+        };
 
         Assert.All(all, p => Assert.False(string.IsNullOrWhiteSpace(p)));
         Assert.Equal(all.Length, all.Distinct(StringComparer.OrdinalIgnoreCase).Count());

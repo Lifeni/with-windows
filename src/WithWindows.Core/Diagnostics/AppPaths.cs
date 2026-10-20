@@ -21,4 +21,17 @@ public static class AppPaths
 
     /// <summary>记事本草稿路径。</summary>
     public static string NotepadDraftPath { get; } = Path.Combine(DataRoot, "notepad.txt");
+
+    /// <summary>AI 对话数据目录。</summary>
+    public static string ChatDirectory { get; } = Path.Combine(DataRoot, "chat");
+
+    /// <summary>当前 AI 对话记录。</summary>
+    public static string ChatHistoryPath { get; } = Path.Combine(ChatDirectory, "current.json");
+
+    /// <summary>AI 对话记录备份。</summary>
+    public static string ChatHistoryBackupPath => ChatHistoryPath + ".bak";
+
+    /// <summary>DPAPI 保护的 API Key 文件。</summary>
+    public static string ChatCredentialPath { get; } =
+        Path.Combine(ChatDirectory, "credential.bin");
 }
