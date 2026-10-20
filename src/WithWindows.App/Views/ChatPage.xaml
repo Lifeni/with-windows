@@ -1,0 +1,181 @@
+<Page
+    x:Class="WithWindows.Views.ChatPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WithWindows.Views"
+    xmlns:controls="using:WithWindows.Controls">
+
+    <Page.Resources>
+        <DataTemplate x:Key="ChatMessageTemplate" x:DataType="local:ChatMessageViewModel">
+            <Grid Margin="8,4">
+                <Border
+                    MaxWidth="760"
+                    Padding="14,10"
+                    HorizontalAlignment="Right"
+                    Background="{ThemeResource AccentFillColorSecondaryBrush}"
+                    CornerRadius="8"
+                    Visibility="{x:Bind UserVisibility}">
+                    <StackPanel Spacing="6">
+                        <TextBlock
+                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                            IsTextSelectionEnabled="True"
+                            Text="{x:Bind Content, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                        <Button
+                            Padding="4"
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="{x:Bind CopyAutomationId}"
+                            AutomationProperties.Name="复制用户消息"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnCopyMessageClick"
+                            Tag="{x:Bind Content, Mode=OneWay}"
+                            ToolTipService.ToolTip="复制">
+                            <FontIcon FontSize="14" Glyph="&#xE8C8;" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <Border
+                    MaxWidth="820"
+                    Padding="14,10"
+                    HorizontalAlignment="Left"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Visibility="{x:Bind AssistantVisibility}">
+                    <StackPanel Spacing="6">
+                        <controls:MarkdownMessageView
+                            IsMarkdown="{x:Bind IsMarkdown, Mode=OneWay}"
+                            Text="{x:Bind Content, Mode=OneWay}" />
+                        <Button
+                            Padding="4"
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="{x:Bind CopyAutomationId}"
+                            AutomationProperties.Name="复制 AI 回复"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnCopyMessageClick"
+                            Tag="{x:Bind Content, Mode=OneWay}"
+                            ToolTipService.ToolTip="复制">
+                            <FontIcon FontSize="14" Glyph="&#xE8C8;" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Padding="20,12" Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="ChatPageTitle"
+                Style="{StaticResource TitleTextBlockStyle}"
+                Text="AI 对话" />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <Button
+                    AutomationProperties.AutomationId="ChatConfigureButton"
+                    AutomationProperties.Name="配置 AI 服务"
+                    Click="OnConfigureClick"
+                    ToolTipService.ToolTip="配置 AI 服务">
+                    <FontIcon FontSize="16" Glyph="&#xE713;" />
+                </Button>
+                <Button
+                    AutomationProperties.AutomationId="ChatClearButton"
+                    AutomationProperties.Name="清空会话"
+                    Click="OnClearClick"
+                    ToolTipService.ToolTip="清空会话">
+                    <FontIcon FontSize="16" Glyph="&#xE74D;" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <ListView
+                x:Name="MessageList"
+                AutomationProperties.AutomationId="ChatMessageList"
+                HorizontalContentAlignment="Stretch"
+                ItemsSource="{x:Bind Messages}"
+                ItemTemplate="{StaticResource ChatMessageTemplate}"
+                SelectionMode="None">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="IsTabStop" Value="False" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+            </ListView>
+
+            <TextBlock
+                x:Name="ChatEmptyState"
+                Margin="32"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="ChatEmptyState"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="配置 OpenAI 兼容接口后，开始新的对话。"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+
+            <InfoBar
+                x:Name="ChatErrorBar"
+                Margin="20,12"
+                VerticalAlignment="Top"
+                AutomationProperties.AutomationId="ChatErrorBar"
+                IsClosable="True"
+                IsOpen="False"
+                Severity="Error" />
+        </Grid>
+
+        <Grid
+            Grid.Row="2"
+            Padding="16,10"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0"
+            ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox
+                x:Name="ChatInput"
+                MinHeight="42"
+                MaxHeight="140"
+                AcceptsReturn="True"
+                AutomationProperties.AutomationId="ChatInput"
+                KeyDown="OnInputKeyDown"
+                PlaceholderText="输入消息，Enter 发送，Shift+Enter 换行"
+                TextCompositionEnded="OnTextCompositionEnded"
+                TextCompositionStarted="OnTextCompositionStarted"
+                TextWrapping="Wrap"
+                VerticalContentAlignment="Center" />
+
+            <Button
+                x:Name="ChatSendButton"
+                Grid.Column="1"
+                MinWidth="76"
+                VerticalAlignment="Bottom"
+                AutomationProperties.AutomationId="ChatSendButton"
+                AutomationProperties.Name="发送消息"
+                Click="OnSendOrStopClick"
+                Content="发送" />
+        </Grid>
+    </Grid>
+</Page>

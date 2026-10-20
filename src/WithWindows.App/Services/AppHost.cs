@@ -34,6 +34,15 @@ public sealed class AppHost : IDisposable
     public ConfigStore Store { get; }
     public AppConfig Config { get; private set; }
     public HotkeyManager Hotkeys { get; }
+    public HttpClient HttpClient { get; } = new(
+        new SocketsHttpHandler
+        {
+            ConnectTimeout = TimeSpan.FromSeconds(15),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+        })
+    {
+        Timeout = System.Threading.Timeout.InfiniteTimeSpan,
+    };
 
     /// <summary>触发工具时的回调（由 App 在创建主窗口后注入）。未注入时热键只记日志。</summary>
     public Action<string>? ToolInvoker { get; set; }
@@ -189,6 +198,7 @@ public sealed class AppHost : IDisposable
         }
 
         Log.Info("应用退出");
+        HttpClient.Dispose();
         Hotkeys.Dispose();
         // 先关日志再放互斥体：否则新实例可能抢到互斥体，却因 log.txt 仍被占用而静默丢掉全部日志
         Log.Dispose();
