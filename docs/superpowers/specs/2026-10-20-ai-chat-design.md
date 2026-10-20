@@ -1,9 +1,9 @@
 # With Windows · AI 对话第一阶段设计
 
 - 日期：2026-10-20
-- 状态：待评审
+- 状态：已评审
 - 范围：OpenAI 兼容协议的最小可用闭环
-- 依赖决策：新增 `OpenAI` 与 `Markdig`，不引入 MVVM、Semantic Kernel 或 Markdown 控件库
+- 依赖决策：只新增 `Markdig`，不引入 OpenAI SDK、MVVM、Semantic Kernel 或 Markdown 控件库
 
 ## 1. 目标
 
@@ -29,7 +29,7 @@
 
 | 问题 | 选择 | 理由 |
 |---|---|---|
-| 协议客户端 | 官方 `OpenAI` .NET SDK | 处理流式枚举、请求模型和错误结构，减少手写 SSE 解析 |
+| 协议客户端 | `HttpClient` + `System.Net.ServerSentEvents` | OpenAI 兼容协议本质是 HTTP、JSON 与 SSE，不依赖官方 SDK |
 | 协议模式 | Chat Completions | 第三方兼容端点覆盖最广 |
 | Markdown 解析 | `Markdig` | 成熟、活跃、无 WinUI 依赖，不绑定具体渲染库 |
 | Markdown 渲染 | 自建轻量原生控件 | 避免 `WinUI.Markdown` 的预发布状态和 Windows App SDK 元包依赖 |
@@ -43,10 +43,9 @@
 
 | 包 | 版本 |
 |---|---|
-| `OpenAI` | `2.13.0` |
 | `Markdig` | `1.4.0` |
 
-上述两个包需要同步加入 `AGENTS.md` 的第三方依赖白名单。`OpenAI` 只由 `WithWindows.Core` 引用，`Markdig` 只由 `WithWindows.App` 引用。
+`Markdig` 需要同步加入 `AGENTS.md` 的第三方依赖白名单，并且只由 `WithWindows.App` 引用。`HttpClient`、`System.Text.Json` 和 `System.Net.ServerSentEvents` 属于 .NET 10 自带能力，不扩展白名单。
 
 ## 3. 架构
 
@@ -66,9 +65,6 @@ IChatCompletionService
 OpenAiCompatibleChatService
           │
           ▼
-OpenAI .NET SDK
-          │
-          ▼
 用户配置的 OpenAI 兼容端点
 ```
 
@@ -80,7 +76,7 @@ OpenAI .NET SDK
 - `ChatSession`：当前会话的有序消息。
 - `ChatProviderConfig`：Base URL、模型、系统提示。
 - `IChatCompletionService`：接收完整会话和取消令牌，返回文本增量异步序列。
-- `OpenAiCompatibleChatService`：把内部消息映射为官方 SDK 请求并产生统一增量。
+- `OpenAiCompatibleChatService`：发送 Chat Completions HTTP 请求，解析 JSON 与 SSE，并产生统一增量。
 - `ChatHistoryStore`：读取和保存当前会话。
 - `ChatSecretStore`：通过 DPAPI 保存和读取 API Key。
 - `ChatValidation`：校验 Base URL、模型和消息输入。
@@ -141,7 +137,7 @@ API Key 不在 `config.json` 中。版本 `2` 的已知工具列表保持不变�
 - 代码不自动追加 `/v1` 或 `/chat/completions`，避免重复路径。
 - 结尾斜杠在构造客户端前去除。
 - 空 Base URL 或空模型视为未配置。
-- 第一阶段要求 API Key 非空；不校验密钥的本地兼容服务可填写任意占位值。
+- API Key 允许为空；为空时不发送 `Authorization` 请求头。
 
 ### 4.3 会话文件
 
@@ -244,15 +240,32 @@ API Key 不在 `config.json` 中。版本 `2` 的已知工具列表保持不变�
 
 ## 6. 协议与流式行为
 
-`OpenAiCompatibleChatService` 使用官方 SDK 的 `ChatClient.CompleteChatStreamingAsync`：
+`OpenAiCompatibleChatService` 直接发送 HTTP 请求：
+
+```http
+POST {baseUrl}/chat/completions
+Authorization: Bearer {apiKey}
+Content-Type: application/json
+
+{
+  "model": "{model}",
+  "messages": [],
+  "stream": true
+}
+```
 
 - 配置了系统提示时，请求开头加入一条系统消息。
 - 当前会话中的用户与助手消息按原顺序发送。
-- 每次增量只提取新增文本。
+- `Authorization` 只在 API Key 非空时发送。
+- 请求使用 `HttpCompletionOption.ResponseHeadersRead`，不能先把完整响应读入内存。
+- 流式响应使用 `SseParser.Create` 逐事件读取，不手写按行拆分 SSE。
+- 每个事件的 `data` 为 `[DONE]` 时正常结束。
+- 其他事件解析 `choices[0].delta.content`，每次只提取新增文本。
+- 如果兼容服务忽略 `stream` 并返回普通 JSON，则解析 `choices[0].message.content`。
 - 忽略不含文本的增量，例如只包含角色、工具调用或空内容的更新。
 - 完成、拒绝、长度截断和错误分别映射为内部结果状态。
 
-页面只消费 `IAsyncEnumerable<ChatDelta>`，不直接依赖 `OpenAI` 命名空间。
+页面只消费 `IAsyncEnumerable<ChatDelta>`，不依赖具体 HTTP 协议。
 
 每次发送有独立 `CancellationTokenSource`：
 
@@ -261,7 +274,7 @@ API Key 不在 `config.json` 中。版本 `2` 的已知工具列表保持不变�
 - 应用退出时取消。
 - 取消后已收到的文本保留，并标记为「已停止」。
 
-请求不设置全局固定两分钟超时。取消由用户操作和页面生命周期驱动，底层 SDK 负责连接级失败处理。
+请求不设置全局固定两分钟超时。取消由用户操作和页面生命周期驱动，`HttpClient` 负责连接级失败处理。
 
 ## 7. 错误处理
 
@@ -282,6 +295,7 @@ API Key 不在 `config.json` 中。版本 `2` 的已知工具列表保持不变�
 
 - 同一时间只允许一个生成任务。
 - `IChatCompletionService` 的生命周期与页面一致，配置变更时替换。
+- `HttpClient` 由页面持有并复用到进程结束，不按每次请求新建。
 - 取消令牌源由页面字段持有。
 - 流式回调通过 `DispatcherQueue.TryEnqueue` 更新 UI。
 - `async void` 只用于事件处理器，并在内部捕获全部异常。
@@ -305,8 +319,9 @@ Core 单元测试覆盖：
 - 配置 v1 到 v2 迁移，原有工具、显示模式和窗口状态不丢失。
 - v2 配置往返一致。
 - Base URL 规范化和非法 URI。
-- 消息到 SDK 请求的映射，包括系统提示顺序。
-- 流式增量的空内容、多内容片段和完整文本拼接。
+- 消息到 Chat Completions 请求 JSON 的映射，包括系统提示顺序。
+- SSE 的 `[DONE]`、空内容、多内容片段、格式错误事件和完整文本拼接。
+- 非流式 JSON 响应的兼容解析。
 - 取消后保留部分文本。
 - 会话 JSON 的原子保存、恢复和损坏回退。
 - DPAPI 密钥往返、空密钥删除和错误数据拒绝。
