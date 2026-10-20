@@ -19,7 +19,10 @@ namespace WithWindows.Controls;
 public sealed partial class MarkdownMessageView : UserControl
 {
     private static readonly MarkdownPipeline Pipeline =
-        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        new MarkdownPipelineBuilder()
+            .UseEmphasisExtras()
+            .UseAutoLinks()
+            .Build();
 
     public static readonly DependencyProperty TextProperty = DependencyProperty.Register(
         nameof(Text),
@@ -181,7 +184,8 @@ public sealed partial class MarkdownMessageView : UserControl
         ContainerInline? source,
         InlineCollection target,
         bool bold = false,
-        bool italic = false)
+        bool italic = false,
+        bool strikethrough = false)
     {
         if (source is null)
             return;
@@ -191,7 +195,11 @@ public sealed partial class MarkdownMessageView : UserControl
             switch (inline)
             {
                 case LiteralInline literal:
-                    target.Add(CreateRun(literal.Content.ToString(), bold, italic));
+                    target.Add(CreateRun(
+                        literal.Content.ToString(),
+                        bold,
+                        italic,
+                        strikethrough));
                     break;
 
                 case EmphasisInline emphasis:
@@ -199,7 +207,8 @@ public sealed partial class MarkdownMessageView : UserControl
                         emphasis,
                         target,
                         bold || emphasis.DelimiterCount >= 2,
-                        italic || emphasis.DelimiterCount == 1);
+                        italic || emphasis.DelimiterCount == 1,
+                        strikethrough || emphasis.DelimiterChar == '~');
                     break;
 
                 case CodeInline code:
@@ -228,7 +237,7 @@ public sealed partial class MarkdownMessageView : UserControl
                     break;
 
                 case ContainerInline container:
-                    AddInlines(container, target, bold, italic);
+                    AddInlines(container, target, bold, italic, strikethrough);
                     break;
             }
         }
@@ -262,12 +271,19 @@ public sealed partial class MarkdownMessageView : UserControl
         return hyperlink;
     }
 
-    private static Run CreateRun(string text, bool bold, bool italic)
+    private static Run CreateRun(
+        string text,
+        bool bold,
+        bool italic,
+        bool strikethrough = false)
         => new()
         {
             Text = text,
             FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal,
             FontStyle = italic ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal,
+            TextDecorations = strikethrough
+                ? Windows.UI.Text.TextDecorations.Strikethrough
+                : Windows.UI.Text.TextDecorations.None,
         };
 
     private void AddCodeBlock(string text, int indent)
