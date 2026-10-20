@@ -1,5 +1,6 @@
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace WithWindows.Core.Interop;
 
@@ -33,5 +34,19 @@ public static class WindowInterop
             return;
 
         PInvoke.SetForegroundWindow(new HWND(hwnd));
+    }
+
+    /// <summary>隐藏窗口但保留 WinUI 内容树，避免再次显示时只剩黑帧。</summary>
+    public static void Hide(IntPtr hwnd)
+    {
+        if (hwnd != IntPtr.Zero)
+            PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_HIDE);
+    }
+
+    /// <summary>显示已创建的窗口；调用方仍需执行 WinUI Activate 以取得焦点。</summary>
+    public static void Show(IntPtr hwnd)
+    {
+        if (hwnd != IntPtr.Zero)
+            PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_SHOW);
     }
 }

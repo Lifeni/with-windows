@@ -24,6 +24,8 @@ public sealed partial class MainWindow : Window
     /// <summary>true 表示正在真正退出（区分「关闭窗口 = 隐藏到托盘」）。</summary>
     private bool _exiting;
 
+    private IntPtr Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -145,11 +147,11 @@ public sealed partial class MainWindow : Window
         if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
             presenter.Restore();
 
-        AppWindow.Show();
+        IntPtr hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        Core.Interop.WindowInterop.Show(hwnd);
         Activate();
-
         // Activate() 对「已可见但在别的窗口后面」不可靠（再次启动 / 托盘左键都会走到这里），补一次显式前置
-        Core.Interop.WindowInterop.BringToFront(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        Core.Interop.WindowInterop.BringToFront(hwnd);
     }
 
     /// <summary>托盘图标是否可用；隐藏启动前必须确认，否则窗口藏起来后应用就没有任何入口。</summary>
@@ -182,7 +184,7 @@ public sealed partial class MainWindow : Window
         {
             case Core.App.WindowToggleAction.Hide:
                 App.Host?.Log.Info("热键：主窗口正在前台，隐藏到托盘");
-                AppWindow.Hide();
+                Core.Interop.WindowInterop.Hide(Hwnd);
                 break;
 
             case Core.App.WindowToggleAction.Activate:
@@ -238,6 +240,6 @@ public sealed partial class MainWindow : Window
         }
 
         args.Cancel = true;
-        AppWindow.Hide();
+        Core.Interop.WindowInterop.Hide(Hwnd);
     }
 }

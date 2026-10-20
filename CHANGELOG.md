@@ -11,6 +11,9 @@
 ### 安全
 - API Key 使用 Windows DPAPI 以当前用户范围加密保存，不写入 `config.json`、会话文件或日志
 
+### 修复
+- 修复从「AI 对话」或「投影」等页面关闭到托盘后，再次唤回只剩黑屏并最终触发 `Microsoft.UI.Xaml.dll` 原生崩溃的问题：`AppWindow.Hide()` 会让当前页面触发 `Unloaded`，随后 `AppWindow.Show()` 不会重新挂载页面；现改用 CsWin32 `ShowWindow(SW_HIDE/SW_SHOW)`，隐藏期间保留完整 XAML 可视树
+
 ## [v0.5.1] - 2026-10-20
 
 ### 新增

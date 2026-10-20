@@ -13,6 +13,7 @@ RegisterClassEx
 RegisterHotKey
 SetDisplayConfig
 SetForegroundWindow
+ShowWindow
 UnregisterHotKey
 WNDCLASSEXW
 WNDPROC

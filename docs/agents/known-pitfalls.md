@@ -4,6 +4,8 @@
 
 ## 窗口与 XAML
 
+**不要用 `AppWindow.Hide()` / `AppWindow.Show()` 做常驻窗口的托盘收起与唤回**：WinUI 3 在隐藏时可能让当前页面触发 `Unloaded`，但再次 `AppWindow.Show()` 只恢复顶层窗口，不会把页面重新挂到可视树；投影、AI 对话等页面会黑屏，随后伴随 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。本项目统一走 `WindowInterop.Hide/Show`（CsWin32 `ShowWindow(SW_HIDE/SW_SHOW)`），让 XAML 内容在隐藏期间保持存活。关闭窗口与「显示 / 隐藏窗口」热键都不得绕回 `AppWindow.Hide()`。
+
 **窗口子类化与 WinUI 3 消息泵冲突**：`SetWindowSubclass` 或自绘 `WM_GETMINMAXINFO` 会导致原生崩溃（`0xc000027b`）。已两次验证，一律改用官方 API。
 
 **`DisplayArea.FindAll()` 在窗口打开时可能抛 `InvalidCastException`**：调用处必须 `try/catch`，失败时视为可见、不阻塞窗口打开。
