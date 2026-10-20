@@ -13,6 +13,51 @@ public class ConfigStoreTests : IDisposable
     private ConfigStore NewStore() => new(System.IO.Path.Combine(_dir, "config.json"));
 
     [Fact]
+    public void Load_版本1_迁移为版本2并保留原配置()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 1,
+              "tools": [
+                { "id": "notepad", "enabled": true, "hotkey": "Ctrl+Alt+N" },
+                { "id": "display_mode", "enabled": false, "hotkey": null }
+              ],
+              "displayMode": { "modes": [ "internal", "external" ] },
+              "windowState": { "width": 1024, "height": 700, "x": 0, "y": 0, "notepadFontSize": 18 }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(2, config.Version);
+        Assert.Equal("Ctrl+Alt+N", config.Tools.Single(t => t.Id == "notepad").Hotkey);
+        Assert.Equal(new[] { "internal", "external" }, config.DisplayMode.Modes);
+        Assert.Equal(1024d, config.WindowState.Width);
+        Assert.Equal(18d, config.WindowState.NotepadFontSize);
+        Assert.Equal("", config.Chat.BaseUrl);
+        Assert.Contains("\"version\": 2", File.ReadAllText(store.Path));
+    }
+
+    [Fact]
+    public void Chat配置_保存后可完整读回()
+    {
+        var store = NewStore();
+        var config = new AppConfig();
+        config.Chat.BaseUrl = "https://example.test/v1";
+        config.Chat.Model = "local-model";
+        config.Chat.SystemPrompt = "回答简洁。";
+
+        store.Save(config);
+        AppConfig reloaded = store.Load();
+
+        Assert.Equal("https://example.test/v1", reloaded.Chat.BaseUrl);
+        Assert.Equal("local-model", reloaded.Chat.Model);
+        Assert.Equal("回答简洁。", reloaded.Chat.SystemPrompt);
+    }
+
+    [Fact]
     public void Load_全新配置_不预置任何热键()
     {
         var store = NewStore();

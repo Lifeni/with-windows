@@ -1,10 +1,10 @@
 namespace WithWindows.Core.Config;
 
-/// <summary>应用配置（v1）：工具绑定 + 显示模式候选 + 窗口状态。不与旧 v3 兼容，加载到旧格式时重建默认值。</summary>
+/// <summary>应用配置（v2）：工具绑定 + 显示模式候选 + 窗口状态 + AI 对话。版本 1 加载时自动迁移。</summary>
 public sealed class AppConfig
 {
     /// <summary>当前配置模型版本。</summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     /// <summary>当前支持的工具 ID。加载时用于自愈式清理未知条目。</summary>
     public static readonly string[] KnownToolIds = { "notepad", "display_mode" };
@@ -17,6 +17,7 @@ public sealed class AppConfig
 
     public DisplayModeConfig DisplayMode { get; set; } = new();
     public WindowStateConfig WindowState { get; set; } = new();
+    public ChatSettings Chat { get; set; } = new();
 
     /// <summary>默认工具列表：启用、不预置任何热键。</summary>
     public static List<ToolBinding> CreateDefaultTools() => new()
@@ -24,6 +25,14 @@ public sealed class AppConfig
         new ToolBinding { Id = "notepad" },
         new ToolBinding { Id = "display_mode" },
     };
+}
+
+/// <summary>OpenAI 兼容对话端点的非敏感配置；API Key 单独加密保存。</summary>
+public sealed class ChatSettings
+{
+    public string BaseUrl { get; set; } = "";
+    public string Model { get; set; } = "";
+    public string SystemPrompt { get; set; } = "";
 }
 
 /// <summary>单个工具的绑定：ID、启用开关、热键。热键为空表示不注册任何全局热键。</summary>

@@ -8,7 +8,7 @@ Windows 常驻托盘的工具箱应用：配置驱动的全局热键 → 动作�
 - 仅 x64：构建与测试必须带 `-p:Platform=x64`，RID 固定 `win-x64`
 - 未打包（`WindowsPackageType=None`）；分发用 Inno Setup 安装器
 - C# `latest` + nullable + implicit usings；测试用 xunit
-- 第三方依赖白名单：WindowsAppSDK、WinUIEx、Microsoft.Windows.CsWin32。白名单外一律先问
+- 第三方依赖白名单：WindowsAppSDK、WinUIEx、Microsoft.Windows.CsWin32、Markdig。白名单外一律先问
 - 明确禁止：WPF、Windows Forms、UWP `Windows.UI.*`、WinUI 2、.NET MAUI、Reactor
 
 ## 硬性约束

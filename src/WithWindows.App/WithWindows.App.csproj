@@ -35,6 +35,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="WinUIEx" />
+    <PackageReference Include="Markdig" />
   </ItemGroup>
 
   <ItemGroup>

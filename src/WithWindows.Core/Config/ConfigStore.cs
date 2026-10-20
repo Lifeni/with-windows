@@ -3,8 +3,8 @@ using System.Text.Json;
 namespace WithWindows.Core.Config;
 
 /// <summary>
-/// 配置读写（v1）。原子替换（临时文件 + File.Replace）+ 旧内容留 .bak + 主文件损坏回退 + 自愈式清理未知工具。
-/// 旧 v2 数组格式与旧 v3 对象格式都不兼容：识别到即重建为默认配置并回写。
+/// 配置读写（v2）。原子替换（临时文件 + File.Replace）+ 旧内容留 .bak + 主文件损坏回退 + 自愈式清理未知工具。
+/// 版本 1 迁移到版本 2；旧数组与旧 v3 对象格式不兼容，识别到即重建为默认配置并回写。
 /// </summary>
 public sealed class ConfigStore
 {
@@ -48,10 +48,11 @@ public sealed class ConfigStore
             return new AppConfig();
         }
 
-        AppConfig? config = TryDeserialize(text, out bool unsupportedFormat);
+        AppConfig? config = TryDeserialize(text, out bool unsupportedFormat, out bool migrated);
         if (config is not null)
         {
-            if (Normalize(config))
+            bool normalized = Normalize(config);
+            if (migrated || normalized)
                 Save(config);
             return config;
         }
@@ -71,12 +72,16 @@ public sealed class ConfigStore
     }
 
     /// <summary>
-    /// 解析 v1 配置。<paramref name="unsupportedFormat"/> 为 true 表示 JSON 合法但不是 v1 对象
-    /// （旧数组格式、缺版本号、版本号不符）；为 false 且返回 null 表示 JSON 本身损坏。
+    /// 解析 v1 / v2 配置。<paramref name="unsupportedFormat"/> 为 true 表示 JSON 合法但不是支持版本
+    /// （旧数组格式、缺版本号、版本号不符）；<paramref name="migrated"/> 表示需要从 v1 回写为 v2。
     /// </summary>
-    private static AppConfig? TryDeserialize(string text, out bool unsupportedFormat)
+    private static AppConfig? TryDeserialize(
+        string text,
+        out bool unsupportedFormat,
+        out bool migrated)
     {
         unsupportedFormat = false;
+        migrated = false;
 
         JsonDocument doc;
         try
@@ -92,8 +97,7 @@ public sealed class ConfigStore
         {
             if (doc.RootElement.ValueKind != JsonValueKind.Object
                 || !doc.RootElement.TryGetProperty("version", out JsonElement version)
-                || version.ValueKind != JsonValueKind.Number
-                || version.GetInt32() != AppConfig.CurrentVersion)
+                || version.ValueKind != JsonValueKind.Number)
             {
                 unsupportedFormat = true;
                 return null;
@@ -101,9 +105,21 @@ public sealed class ConfigStore
 
             try
             {
-                return doc.RootElement.Deserialize<AppConfig>(JsonOptions) ?? new AppConfig();
+                int versionNumber = version.GetInt32();
+                if (versionNumber is not (1 or 2))
+                {
+                    unsupportedFormat = true;
+                    return null;
+                }
+
+                AppConfig config =
+                    doc.RootElement.Deserialize<AppConfig>(JsonOptions) ?? new AppConfig();
+                migrated = versionNumber == 1;
+                config.Version = AppConfig.CurrentVersion;
+                config.Chat ??= new ChatSettings();
+                return config;
             }
-            catch (JsonException)
+            catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException)
             {
                 unsupportedFormat = true;
                 return null;
@@ -167,7 +183,8 @@ public sealed class ConfigStore
 
         try
         {
-            AppConfig? config = TryDeserialize(File.ReadAllText(BackupPath), out _);
+            AppConfig? config =
+                TryDeserialize(File.ReadAllText(BackupPath), out _, out _);
             if (config is null) return null;
 
             Normalize(config);
