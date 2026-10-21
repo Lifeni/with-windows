@@ -100,12 +100,12 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 
 ## 下载与安装
 
-每个 Release 提供两个 x64 产物：
+当前正式版：[v0.6.0](https://github.com/Lifeni/with-windows/releases/tag/v0.6.0)。每个 Release 提供两个 x64 产物：
 
 | 文件 | 大小 | 说明 |
 | --- | --- | --- |
-| `WithWindows-vX.Y.Z-x64-setup.exe` | 约 44 MB | **推荐**。Inno Setup 安装器：装到 `%LocalAppData%\Programs\With Windows`，创建开始菜单项，桌面快捷方式与开机自启为可选任务 |
-| `WithWindows-vX.Y.Z-x64-portable.zip` | 约 90 MB | 便携版：解压后双击 `WithWindows.exe` 即用，不写安装信息（`Assets\` 一并提供；即使单独拿走 exe，图标也已打进包内） |
+| `WithWindows-vX.Y.Z-x64-setup.exe` | 约 44.7 MB | **推荐**。Inno Setup 安装器：装到 `%LocalAppData%\Programs\With Windows`，创建开始菜单项，桌面快捷方式与开机自启为可选任务 |
+| `WithWindows-vX.Y.Z-x64-portable.zip` | 约 66.6 MB | 便携版：解压后双击 `WithWindows.exe` 即用，不写安装信息（`Assets\` 一并提供；即使单独拿走 exe，图标也已打进包内） |
 
 `SHA256SUMS.txt` 提供校验和。安装器**未签名**，首次运行会出现 SmartScreen「未知发布者」提示：点「更多信息 → 仍要运行」即可（这是设计文档第 10.4 节的既定取舍，与 MSIX 自签名被直接拒绝有本质区别）。
 

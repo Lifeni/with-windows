@@ -778,4 +778,19 @@ winapp ui inspect -a WithWindows -i
 
 **体积排查**：一度出现 exe 398 MB / 安装器 100 MB。解析单文件 manifest 发现条目从正常的 511 个涨到 850 个，重复项全部来自 `artifacts/review-build/`（代码审查临时构建的整份发布副本）。`Directory.Build.props` 用 `DefaultItemExcludes` 排除 `artifacts/**` 后，exe 回到 235,831,536 字节、安装器 62,682,599 字节。随后把 `Microsoft.WindowsAppSDK` 元包换成按组件引用（Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime），不再带入 AI / ML / Search / Widgets；再把语言目录从 83 个过滤到 4 个（`en-GB` / `en-us` / `zh-CN` / `zh-TW`），发布条目从 445 个降到 287 个。exe 降到 173,205,772 字节；Inno 改用 `lzma2/ultra64` 后安装器降到 44,541,835 字节。单文件内嵌压缩实测 exe 95,299,978 字节，但安装器反而 89,462,581 字节（Inno 无法再压缩），所以默认不开启。
 
-当前保持着安装版可见运行（PID 10380，设置页），供用户直接查看。
+发布当时保持安装版可见运行（PID 10380，设置页），供用户直接查看。
+
+#### 2026-10-21 发布 v0.6.0
+
+| 检查 | 结果 |
+|---|---|
+| 发布提交 | `12f1437 feat(AI 对话): 发布 0.6.0` |
+| GitHub Actions | Run [39614281329](https://github.com/Lifeni/with-windows/actions/runs/39614281329) 成功，耗时约 2 分 17 秒 |
+| GitHub Release | [v0.6.0](https://github.com/Lifeni/with-windows/releases/tag/v0.6.0) 已创建，非草稿、非预发布 |
+| 安装器 | `WithWindows-v0.6.0-x64-setup.exe`，44,728,517 字节，SHA-256 `9f5380e8998c05637d7522c511f39942faefd0dba1ecdf669d8a7595abac8fff` |
+| 便携包 | `WithWindows-v0.6.0-x64-portable.zip`，66,610,289 字节，SHA-256 `e12d1405de44186442047c27ecff14f06bc7eb144d09ae7e6ce65f082c14a750` |
+| 校验文件 | `SHA256SUMS.txt` 已上传，Release asset SHA-256 `61b9c98e775ab7e1cbf6c938d802f394ea27b028b05ff05a91c5caf8afab51c4` |
+| 版本界面 | Release 版关于页显示 `With Windows 0.6.0`，设置页与 AI 配置滚动基线正常 |
+| 本地验证 | Release 构建 0 警告 0 错误；Core 测试 196/196 通过 |
+
+本次远程安装器未做静默安装回归；发布流水线已完成安装器编译和产物上传，安装行为沿用 `v0.5.1` 已验证的 Inno Setup 配置。

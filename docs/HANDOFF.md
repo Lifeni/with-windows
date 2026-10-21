@@ -10,7 +10,7 @@ git log --oneline -12
 git status --short
 ```
 
-- `main` 是稳定集成分支，主检出为 `C:\Users\LFN\Documents\Code\with-windows`。未合并的「AI 对话」改动位于独立工作区 `C:\Users\LFN\.codex\worktrees\ai-chat-openai-compatible\with-windows`，当前为 detached HEAD，待用户决定本地合并或 PR。
+- `main` 是稳定集成分支，主检出为 `C:\Users\LFN\Documents\Code\with-windows`。`0.6.0` 已通过发布提交 `12f1437` 合入 `main`；外部工作区 `C:\Users\LFN\.codex\worktrees\ai-chat-openai-compatible\with-windows` 仍指向同一提交，由 Codex 宿主管理，不再有待合并改动。
 - 2026-10-11 已把 `dev` 全部合并进 `main`（合并提交 `538f72d`），并清掉 `.worktrees/dev`、`dev` 分支与 `feat/winui3`（本地与远端）。要隔离开发直接用 `git worktree add` 新建即可。
 - 新会话应先读：`AGENTS.md`（入口）+ 本文 + `docs/superpowers/specs/2026-10-09-winui3-toolbox-design.md`（设计与全部决策）。
 
@@ -20,7 +20,7 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 导航，每个工具
 
 ## 二、当前进度（截至 2026-10-21）
 
-- **v0.6.0 发布中**：`CHANGELOG.md` 已有正式 `[v0.6.0]` 章节，项目版本已升为 `0.6.0`。push 到 `main` 后由 `release.yml` 自动测试、构建安装器与便携包、创建 `v0.6.0` tag 和 Release；完成后再回填实际链接、产物大小和安装验证结果。
+- **v0.6.0 已发布**：tag `v0.6.0`，Release 见 [v0.6.0](https://github.com/Lifeni/with-windows/releases/tag/v0.6.0)，发布提交 `12f1437`。GitHub Actions Run [39614281329](https://github.com/Lifeni/with-windows/actions/runs/39614281329) 成功，测试、单文件发布、安装器与 Release 上传全部通过；安装器 44,728,517 字节，便携 zip 66,610,289 字节，`SHA256SUMS.txt` 已上传。
 - **v0.5.1 已发布**：tag `v0.5.1`，Release 见 [v0.5.1](https://github.com/Lifeni/with-windows/releases/tag/v0.5.1)，含 Inno Setup 安装器（约 44.5 MB）、便携 zip（约 66.4 MB）与 `SHA256SUMS.txt`。
 - 旧实现（两个独立窗口 + 单文件 exe）已退役，源码只留在 git 历史里（`v0.4.0` 及更早）。
 - `0.6.0` 的核心新增是「AI 对话」：OpenAI 兼容 Chat Completions、SSE、Markdown、单会话保存、DPAPI 密钥保护、剪贴板图片（最终 1 MiB 上限、自动压缩）与新建会话。标题区显示会话摘要和模型名称；发送请求时历史图片限制为最新最多 4 张、总计 4 MiB。输入框在切入页面后自动聚焦，会话搜索已移除，托盘菜单新增「AI 对话」入口。设置页可选择显示 / 隐藏快捷键的默认页面（记事 / AI 对话），配置升到 v5。窗口已换成自有标题栏；托盘收起使用 CsWin32 `ShowWindow(SW_MINIMIZE)` + 从切换器移除，唤回使用 `SW_SHOWNOACTIVATE`，不要再改回 `OverlappedPresenter.Minimize()` / `Restore()`、`SW_HIDE` 或屏幕外移动，否则会复现 AI 页黑屏与 `Microsoft.UI.Xaml.dll` 原生崩溃。
