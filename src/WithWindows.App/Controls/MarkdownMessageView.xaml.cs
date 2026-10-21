@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using Markdig;
+using Markdig.Extensions.CustomContainers;
+using Markdig.Extensions.Tables;
+using Markdig.Extensions.TaskLists;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using Microsoft.UI.Text;
@@ -20,6 +24,10 @@ public sealed partial class MarkdownMessageView : UserControl
 {
     private static readonly MarkdownPipeline Pipeline =
         new MarkdownPipelineBuilder()
+            .UsePipeTables()
+            .UseGridTables()
+            .UseTaskLists()
+            .UseCustomContainers()
             .UseEmphasisExtras()
             .UseAutoLinks()
             .Build();
@@ -74,13 +82,15 @@ public sealed partial class MarkdownMessageView : UserControl
             return;
         }
 
-        MarkdownDocument document = Markdown.Parse(Text, Pipeline);
+        string markdown = MarkdownPreprocessor.NormalizeDetails(Text);
+        MarkdownDocument document = Markdown.Parse(markdown, Pipeline);
         foreach (MarkdigBlock block in document)
             AddBlock(block);
     }
 
-    private void AddBlock(MarkdigBlock block, int indent = 0)
+    private void AddBlock(MarkdigBlock block, int indent = 0, Panel? target = null)
     {
+        target ??= BlocksHost;
         switch (block)
         {
             case HeadingBlock heading:
@@ -88,11 +98,11 @@ public sealed partial class MarkdownMessageView : UserControl
                     heading,
                     24 - Math.Min(8, (heading.Level - 1) * 2));
                 headingText.FontWeight = FontWeights.SemiBold;
-                AddWithIndent(headingText, indent);
+                AddWithIndent(headingText, indent, target);
                 break;
 
             case ParagraphBlock paragraph:
-                AddWithIndent(CreateParagraph(paragraph, 14), indent);
+                AddWithIndent(CreateParagraph(paragraph, 14), indent, target);
                 break;
 
             case ListBlock list:
@@ -104,24 +114,34 @@ public sealed partial class MarkdownMessageView : UserControl
                     {
                         if (child is ParagraphBlock itemParagraph)
                         {
-                            AddWithIndent(
-                                CreateParagraph(itemParagraph, 14, prefix),
-                                indent + 1);
+                            TaskList? task = FindTaskList(itemParagraph.Inline);
+                            FrameworkElement content = task is null
+                                ? CreateParagraph(itemParagraph, 14, prefix)
+                                : CreateTaskItem(itemParagraph, task.Checked);
+                            AddWithIndent(content, indent + 1, target);
                         }
                         else
                         {
-                            AddBlock(child, indent + 1);
+                            AddBlock(child, indent + 1, target);
                         }
                     }
                 }
                 break;
 
+            case Table table:
+                AddWithIndent(CreateTable(table), indent, target);
+                break;
+
+            case CustomContainer container:
+                AddWithIndent(CreateContainer(container), indent, target);
+                break;
+
             case FencedCodeBlock fenced:
-                AddCodeBlock(fenced.Lines.ToString(), indent);
+                AddCodeBlock(fenced.Lines.ToString(), indent, target);
                 break;
 
             case CodeBlock code:
-                AddCodeBlock(code.Lines.ToString(), indent);
+                AddCodeBlock(code.Lines.ToString(), indent, target);
                 break;
 
             case QuoteBlock quote:
@@ -134,11 +154,8 @@ public sealed partial class MarkdownMessageView : UserControl
                 var quotePanel = new StackPanel { Spacing = 6 };
                 quoteBorder.Child = quotePanel;
                 foreach (MarkdigBlock child in quote)
-                {
-                    if (child is ParagraphBlock quoteParagraph)
-                        quotePanel.Children.Add(CreateParagraph(quoteParagraph, 14));
-                }
-                AddWithIndent(quoteBorder, indent);
+                    AddBlock(child, target: quotePanel);
+                AddWithIndent(quoteBorder, indent, target);
                 break;
 
             case ThematicBreakBlock:
@@ -146,7 +163,7 @@ public sealed partial class MarkdownMessageView : UserControl
                 {
                     Height = 1,
                     Background = ThemeBrush("CardStrokeColorDefaultBrush"),
-                }, indent);
+                }, indent, target);
                 break;
 
             case HtmlBlock html:
@@ -155,7 +172,7 @@ public sealed partial class MarkdownMessageView : UserControl
                     Text = html.Lines.ToString(),
                     TextWrapping = TextWrapping.Wrap,
                     IsTextSelectionEnabled = true,
-                }, indent);
+                }, indent, target);
                 break;
         }
     }
@@ -178,6 +195,176 @@ public sealed partial class MarkdownMessageView : UserControl
         };
         richText.Blocks.Add(paragraph);
         return richText;
+    }
+
+    private FrameworkElement CreateTaskItem(ParagraphBlock paragraph, bool isChecked)
+    {
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+        };
+        panel.Children.Add(new CheckBox
+        {
+            IsChecked = isChecked,
+            IsHitTestVisible = false,
+            IsTabStop = false,
+            MinWidth = 0,
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, -4, 0, 0),
+            VerticalAlignment = VerticalAlignment.Top,
+        });
+        panel.Children.Add(CreateParagraph(paragraph, 14));
+        return panel;
+    }
+
+    private static TaskList? FindTaskList(ContainerInline? source)
+    {
+        if (source is null)
+            return null;
+
+        foreach (MarkdigInline inline in source)
+        {
+            if (inline is TaskList task)
+                return task;
+            if (inline is ContainerInline container
+                && FindTaskList(container) is TaskList nested)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private FrameworkElement CreateTable(Table table)
+    {
+        var rows = new List<TableRow>();
+        int columnCount = 0;
+        foreach (MarkdigBlock child in table)
+        {
+            if (child is not TableRow row)
+                continue;
+
+            rows.Add(row);
+            int cellsInRow = 0;
+            foreach (MarkdigBlock cellBlock in row)
+            {
+                if (cellBlock is TableCell cell)
+                    cellsInRow += Math.Max(1, cell.ColumnSpan);
+            }
+            columnCount = Math.Max(columnCount, cellsInRow);
+        }
+
+        columnCount = Math.Max(1, columnCount);
+        var grid = new Grid();
+        for (int column = 0; column < columnCount; column++)
+        {
+            TableColumnDefinition? definition =
+                column < (table.ColumnDefinitions?.Count ?? 0)
+                    ? table.ColumnDefinitions![column]
+                    : null;
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = definition is { Width: > 0 }
+                    ? new GridLength(definition.Width, GridUnitType.Star)
+                    : new GridLength(1, GridUnitType.Star),
+                MinWidth = 110,
+            });
+        }
+
+        for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+        {
+            TableRow row = rows[rowIndex];
+            int cellIndex = 0;
+            foreach (MarkdigBlock child in row)
+            {
+                if (child is not TableCell cell)
+                    continue;
+
+                var cellBorder = new Border
+                {
+                    Padding = new Thickness(8, 6, 8, 6),
+                    Background = row.IsHeader
+                        ? ThemeBrush("LayerFillColorDefaultBrush")
+                        : ThemeBrush("CardBackgroundFillColorDefaultBrush"),
+                    BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush"),
+                    BorderThickness = new Thickness(0, 0, 1, 1),
+                };
+
+                var content = new StackPanel { Spacing = 2 };
+                foreach (MarkdigBlock cellChild in cell)
+                {
+                    if (cellChild is ParagraphBlock paragraph)
+                    {
+                        RichTextBlock text = CreateParagraph(paragraph, 13);
+                        if (row.IsHeader)
+                            text.FontWeight = FontWeights.SemiBold;
+                        content.Children.Add(text);
+                    }
+                    else
+                    {
+                        AddBlock(cellChild, target: content);
+                    }
+                }
+
+                cellBorder.Child = content;
+                int column = Math.Clamp(cellIndex, 0, columnCount - 1);
+                int span = Math.Clamp(
+                    Math.Max(1, cell.ColumnSpan),
+                    1,
+                    columnCount - column);
+                Grid.SetRow(cellBorder, rowIndex);
+                Grid.SetColumn(cellBorder, column);
+                Grid.SetColumnSpan(cellBorder, span);
+                grid.Children.Add(cellBorder);
+                cellIndex += span;
+            }
+        }
+
+        return new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollMode = ScrollMode.Enabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Disabled,
+            Content = new Border
+            {
+                BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush"),
+                BorderThickness = new Thickness(1, 1, 0, 0),
+                CornerRadius = new CornerRadius(6),
+                Child = grid,
+            },
+        };
+    }
+
+    private FrameworkElement CreateContainer(CustomContainer container)
+    {
+        string title = container.Arguments?.Trim() ?? "";
+        if (title.Length == 0)
+            title = container.Info?.Trim() ?? "";
+        if (title.Length == 0)
+            title = "详情";
+
+        var content = new StackPanel { Spacing = 6 };
+        foreach (MarkdigBlock child in container)
+            AddBlock(child, target: content);
+
+        return new Expander
+        {
+            Header = new TextBlock
+            {
+                Text = title,
+                FontWeight = FontWeights.SemiBold,
+            },
+            Content = content,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            IsExpanded = false,
+        };
     }
 
     private void AddInlines(
@@ -236,6 +423,9 @@ public sealed partial class MarkdownMessageView : UserControl
                     target.Add(CreateRun(html.Tag, bold, italic));
                     break;
 
+                case TaskList:
+                    break;
+
                 case ContainerInline container:
                     AddInlines(container, target, bold, italic, strikethrough);
                     break;
@@ -286,7 +476,7 @@ public sealed partial class MarkdownMessageView : UserControl
                 : Windows.UI.Text.TextDecorations.None,
         };
 
-    private void AddCodeBlock(string text, int indent)
+    private void AddCodeBlock(string text, int indent, Panel target)
     {
         var codeText = new TextBlock
         {
@@ -310,13 +500,13 @@ public sealed partial class MarkdownMessageView : UserControl
             CornerRadius = new CornerRadius(6),
             Background = ThemeBrush("LayerFillColorDefaultBrush"),
             Child = scroll,
-        }, indent);
+        }, indent, target);
     }
 
-    private void AddWithIndent(FrameworkElement element, int indent)
+    private static void AddWithIndent(FrameworkElement element, int indent, Panel target)
     {
         element.Margin = new Thickness(indent * 16, 0, 0, 0);
-        BlocksHost.Children.Add(element);
+        target.Children.Add(element);
     }
 
     private static string GetInlineText(ContainerInline? source)

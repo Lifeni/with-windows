@@ -68,9 +68,10 @@ AI 对话页关键控件：
 ```text
 ChatConfigureButton Button "配置 AI 服务"
 ChatNewSessionButton Button "新建会话"
-ChatAttachImageButton Button "粘贴图片"
-ChatInput Edit "输入消息，Enter 发送，Shift+Enter 换行"
-ChatSendButton Button "发送消息"
+ChatSearchButton Button "搜索对话"
+ChatInput Edit "与 AI 对话"
+ChatModelInfo Text "模型：..."
+ChatContextInfo Text "上下文：N 条消息 · M 字符"
 ChatProviderBaseUrl Edit "Base URL"
 ChatProviderModel Edit "模型"
 ChatProviderApiKey Edit "API Key"
@@ -78,7 +79,9 @@ ChatProviderClearKey CheckBox "清除已保存密钥"
 ChatProviderSystemPrompt Edit "系统提示"
 ```
 
-图片粘贴基线：复制剪贴板位图后在输入框按 `Ctrl+V`，出现 `ChatRemoveAttachmentButton Button "移除图片"`；缩略图下方显示尺寸与最终文件大小。单张图片最终不超过 1 MiB。
+图片粘贴基线：复制剪贴板位图后在输入框按 `Ctrl+V`，出现 `ChatRemoveAttachmentButton Button "移除图片"`；缩略图下方显示尺寸与最终文件大小。单张图片最终不超过 1 MiB。输入区没有发送按钮和附件按钮，Enter 发送、Shift+Enter 换行、Esc 停止。
+
+Markdown 基线：表格按单元格顺序显示多列；`- [x]` / `- [ ]` 显示只读复选框；`<details><summary>` 和 `::: details` 显示可展开区域。
 
 截图：本次改基线未留图（`artifacts/` 已于 2026-10-11 随开发工作区清理）；需要对照时按上面「一、可复现流程」重拍。
 

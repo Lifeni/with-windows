@@ -33,9 +33,6 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
     public ChatRole Role { get; }
     public ObservableCollection<ChatAttachmentViewModel> Attachments { get; } = [];
 
-    public string CopyAutomationId =>
-        Role == ChatRole.User ? "ChatCopyUserMessage" : "ChatCopyAssistantMessage";
-
     public Visibility UserVisibility =>
         Role == ChatRole.User ? Visibility.Visible : Visibility.Collapsed;
 
@@ -44,7 +41,6 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
 
     public bool HasText => !string.IsNullOrWhiteSpace(Content);
     public bool HasAttachments => Attachments.Count > 0;
-    public bool CanCopy => HasText;
     public Visibility TextVisibility => HasText ? Visibility.Visible : Visibility.Collapsed;
     public Visibility AttachmentsVisibility =>
         HasAttachments ? Visibility.Visible : Visibility.Collapsed;
@@ -59,7 +55,6 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
             _content = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Content)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasText)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanCopy)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TextVisibility)));
         }
     }

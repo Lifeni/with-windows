@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
@@ -33,7 +32,9 @@ public sealed partial class ChatPage : Page
         new(AppPaths.ChatAttachmentsDirectory);
 
     private CancellationTokenSource? _requestCts;
+    private readonly List<(ChatMessageViewModel Message, int Offset)> _searchMatches = [];
     private string _apiKey = "";
+    private int _searchIndex = -1;
     private bool _isSending;
     private bool _isComposing;
     private bool _isReadingClipboard;
@@ -50,6 +51,7 @@ public sealed partial class ChatPage : Page
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -109,8 +111,8 @@ public sealed partial class ChatPage : Page
 
         UpdateEmptyState();
         UpdatePendingAttachmentsBar();
+        UpdateHeaderInfo();
         ScrollToLatest();
-        ChatInput.Focus(FocusState.Programmatic);
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -118,25 +120,6 @@ public sealed partial class ChatPage : Page
         _requestCts?.Cancel();
         if (Messages.Count > 0)
             SaveSession();
-    }
-
-    private async void OnSendOrStopClick(object sender, RoutedEventArgs e)
-    {
-        if (_isSending)
-        {
-            _requestCts?.Cancel();
-            return;
-        }
-
-        try
-        {
-            await SendAsync();
-        }
-        catch (Exception ex)
-        {
-            App.Host?.Log.Error($"AI 发送入口失败：{ex.GetType().Name}");
-            ShowError("发送失败，请稍后重试。");
-        }
     }
 
     private async void OnInputKeyDown(object sender, KeyRoutedEventArgs e)
@@ -159,6 +142,33 @@ public sealed partial class ChatPage : Page
         {
             App.Host?.Log.Error($"AI 输入发送失败：{ex.GetType().Name}");
             ShowError("发送失败，请稍后重试。");
+        }
+    }
+
+    private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        bool ctrl =
+            (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+                & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
+        if (ctrl && e.Key == VirtualKey.F)
+        {
+            e.Handled = true;
+            ShowSearch(show: true);
+            return;
+        }
+
+        if (e.Key == VirtualKey.Escape)
+        {
+            if (_isSending)
+            {
+                e.Handled = true;
+                _requestCts?.Cancel();
+            }
+            else if (ChatSearchBar.Visibility == Visibility.Visible)
+            {
+                e.Handled = true;
+                ShowSearch(show: false);
+            }
         }
     }
 
@@ -186,19 +196,6 @@ public sealed partial class ChatPage : Page
         catch (Exception ex)
         {
             args.Handled = true;
-            App.Host?.Log.Error($"读取剪贴板图片失败：{ex.GetType().Name}");
-            ShowError("剪贴板图片读取失败。");
-        }
-    }
-
-    private async void OnAttachImageClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await AttachClipboardImagesAsync();
-        }
-        catch (Exception ex)
-        {
             App.Host?.Log.Error($"读取剪贴板图片失败：{ex.GetType().Name}");
             ShowError("剪贴板图片读取失败。");
         }
@@ -315,10 +312,12 @@ public sealed partial class ChatPage : Page
         UpdatePendingAttachmentsBar();
         ChatErrorBar.IsOpen = false;
         UpdateEmptyState();
+        UpdateHeaderInfo();
 
         List<ChatMessage> history = BuildHistory();
         var assistantMessage = new ChatMessageViewModel(ChatRole.Assistant, "");
         Messages.Add(assistantMessage);
+        UpdateHeaderInfo();
         _requestCts = new CancellationTokenSource();
         SetSending(true);
 
@@ -334,6 +333,7 @@ public sealed partial class ChatPage : Page
                 _requestCts.Token))
             {
                 assistantMessage.Content += delta.Content;
+                UpdateHeaderInfo();
                 ScrollToLatest();
             }
 
@@ -345,11 +345,14 @@ public sealed partial class ChatPage : Page
                 RestoreDraft(text, originalAttachments);
                 ShowError("AI 服务没有返回文本。");
                 UpdateEmptyState();
+                UpdateHeaderInfo();
                 return;
             }
 
             assistantMessage.IsMarkdown = true;
             SaveSession();
+            RefreshSearchMatches(selectFirst: false);
+            UpdateHeaderInfo();
         }
         catch (OperationCanceledException)
         {
@@ -358,6 +361,8 @@ public sealed partial class ChatPage : Page
                 : assistantMessage.Content + "\n\n（已停止）";
             assistantMessage.IsMarkdown = true;
             SaveSession();
+            RefreshSearchMatches(selectFirst: false);
+            UpdateHeaderInfo();
         }
         catch (ChatRequestException ex)
         {
@@ -409,6 +414,7 @@ public sealed partial class ChatPage : Page
         }
 
         UpdateEmptyState();
+        UpdateHeaderInfo();
         ShowError(error);
     }
 
@@ -484,6 +490,8 @@ public sealed partial class ChatPage : Page
 
             App.Host.SaveConfig();
             ChatErrorBar.IsOpen = false;
+            UpdateEmptyState();
+            UpdateHeaderInfo();
         }
         catch (Exception ex)
         {
@@ -510,6 +518,7 @@ public sealed partial class ChatPage : Page
         Messages.Clear();
         PendingAttachments.Clear();
         UpdatePendingAttachmentsBar();
+        ShowSearch(show: false);
         _historyStore.Clear();
         try
         {
@@ -522,17 +531,8 @@ public sealed partial class ChatPage : Page
         }
 
         UpdateEmptyState();
+        UpdateHeaderInfo();
         ChatInput.Focus(FocusState.Programmatic);
-    }
-
-    private void OnCopyMessageClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: string text } || text.Length == 0)
-            return;
-
-        var package = new DataPackage();
-        package.SetText(text);
-        Clipboard.SetContent(package);
     }
 
     private void SaveSession()
@@ -558,6 +558,121 @@ public sealed partial class ChatPage : Page
         ChatErrorBar.IsOpen = true;
     }
 
+    private void OnSearchButtonClick(object sender, RoutedEventArgs e)
+        => ShowSearch(ChatSearchBar.Visibility != Visibility.Visible);
+
+    private void OnSearchCloseClick(object sender, RoutedEventArgs e)
+        => ShowSearch(show: false);
+
+    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
+        => RefreshSearchMatches(selectFirst: true);
+
+    private void OnSearchPreviousClick(object sender, RoutedEventArgs e)
+    {
+        if (_searchMatches.Count == 0)
+            return;
+        _searchIndex = (_searchIndex - 1 + _searchMatches.Count) % _searchMatches.Count;
+        SelectSearchResult();
+    }
+
+    private void OnSearchNextClick(object sender, RoutedEventArgs e)
+    {
+        if (_searchMatches.Count == 0)
+            return;
+        _searchIndex = (_searchIndex + 1) % _searchMatches.Count;
+        SelectSearchResult();
+    }
+
+    private void ShowSearch(bool show)
+    {
+        ChatSearchBar.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (show)
+        {
+            ChatSearchBox.Focus(FocusState.Programmatic);
+            ChatSearchBox.SelectAll();
+            RefreshSearchMatches(selectFirst: true);
+        }
+        else
+        {
+            _searchMatches.Clear();
+            _searchIndex = -1;
+            ChatSearchBox.Text = "";
+            ChatSearchCount.Text = "输入关键词";
+            ChatInput.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private void RefreshSearchMatches(bool selectFirst)
+    {
+        _searchMatches.Clear();
+        string query = ChatSearchBox.Text.Trim();
+        if (query.Length == 0)
+        {
+            _searchIndex = -1;
+            ChatSearchCount.Text = "输入关键词";
+            return;
+        }
+
+        foreach (ChatMessageViewModel message in Messages)
+        {
+            if (message.Content.Length == 0)
+                continue;
+
+            int offset = 0;
+            while (offset < message.Content.Length)
+            {
+                int index = message.Content.IndexOf(
+                    query,
+                    offset,
+                    StringComparison.OrdinalIgnoreCase);
+                if (index < 0)
+                    break;
+
+                _searchMatches.Add((message, index));
+                offset = index + Math.Max(1, query.Length);
+            }
+        }
+
+        if (_searchMatches.Count == 0)
+        {
+            _searchIndex = -1;
+            ChatSearchCount.Text = "无结果";
+            return;
+        }
+
+        if (selectFirst || _searchIndex < 0 || _searchIndex >= _searchMatches.Count)
+            _searchIndex = 0;
+        SelectSearchResult();
+    }
+
+    private void SelectSearchResult()
+    {
+        if (_searchMatches.Count == 0)
+            return;
+
+        ChatMessageViewModel message = _searchMatches[_searchIndex].Message;
+        ChatSearchCount.Text = $"{_searchIndex + 1} / {_searchMatches.Count}";
+        MessageList.ScrollIntoView(message, ScrollIntoViewAlignment.Leading);
+    }
+
+    private void UpdateHeaderInfo()
+    {
+        string? model = App.Host?.Config.Chat.Model;
+        ChatModelInfo.Text = string.IsNullOrWhiteSpace(model)
+            ? "模型：未配置"
+            : "模型：" + model.Trim();
+
+        int messageCount = Messages.Count(message => message.HasText || message.HasAttachments);
+        long characters = Messages.Sum(message => (long)message.Content.Length);
+        ChatContextInfo.Text =
+            $"上下文：{messageCount} 条消息 · {FormatCharacterCount(characters)} 字符";
+    }
+
+    private static string FormatCharacterCount(long characters)
+        => characters < 1000
+            ? characters.ToString()
+            : $"{characters / 1000d:0.#}K";
+
     private void ScrollToLatest()
     {
         if (Messages.Count == 0)
@@ -571,26 +686,37 @@ public sealed partial class ChatPage : Page
     private void SetSending(bool sending)
     {
         _isSending = sending;
-        ChatSendButton.Content = sending ? "停止" : "发送";
         ChatInput.IsEnabled = !sending;
-        ChatAttachImageButton.IsEnabled = !sending && !_isReadingClipboard;
-        AutomationProperties.SetName(
-            ChatSendButton,
-            sending ? "停止生成" : "发送消息");
+        ChatInput.PlaceholderText = sending ? "正在回复…按 Esc 停止" : "与 AI 对话";
+        UpdateBusyRing();
     }
 
     private void SetAttachmentReading(bool reading)
     {
         _isReadingClipboard = reading;
-        ChatAttachmentProgress.IsActive = reading;
-        ChatAttachmentProgress.Visibility =
-            reading ? Visibility.Visible : Visibility.Collapsed;
-        ChatAttachImageButton.IsEnabled = !reading && !_isSending;
+        UpdateBusyRing();
+    }
+
+    private void UpdateBusyRing()
+    {
+        bool busy = _isSending || _isReadingClipboard;
+        ChatBusyRing.IsActive = busy;
+        ChatBusyRing.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateEmptyState()
-        => ChatEmptyState.Visibility =
-            Messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    {
+        bool empty = Messages.Count == 0;
+        ChatEmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        if (!empty)
+            return;
+
+        bool configured = App.Host is not null
+            && ChatValidation.Validate(App.Host.Config.Chat) is null;
+        ChatEmptyState.Text = configured
+            ? "输入消息或粘贴图片开始新的对话。"
+            : "请先点击右上角配置 OpenAI 兼容接口。";
+    }
 
     private void UpdatePendingAttachmentsBar()
         => PendingAttachmentsBar.Visibility =
