@@ -80,14 +80,14 @@ public partial class App : Application
         AppHost host = start.Host;
         host.ToolInvoker = toolId => new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
 
-        // 再次双击 exe / 点开始菜单：已有实例把窗口叫出来（只显示，不切换成隐藏）
+        // 再次双击 exe / 点开始菜单：已有实例把窗口叫出来，保留当前页面。
         host.ActivationRequested = () => mainWindow.DispatcherQueue.TryEnqueue(() =>
         {
             if (host.IsShuttingDown)
                 return;
 
             host.Log.Info("再次启动：唤出主窗口");
-            mainWindow.ShowAndNavigate(ToolCatalog.NotepadId);
+            mainWindow.ShowCurrentPage();
         });
         host.StartActivationListener();
 

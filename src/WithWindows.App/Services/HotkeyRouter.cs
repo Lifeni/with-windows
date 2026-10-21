@@ -25,7 +25,9 @@ public sealed class HotkeyRouter
         switch (toolId)
         {
             case ToolCatalog.NotepadId:
-                _window.ToggleWindow(ToolCatalog.NotepadId);
+                string defaultPage =
+                    WindowDefaultPage.Normalize(_config.WindowState.DefaultPage);
+                _window.ToggleWindow(defaultPage);
                 return null;
 
             case ToolCatalog.DisplayModeId:

@@ -17,12 +17,20 @@ public static class ChatRequestFactory
         var effective = new List<ChatMessage>();
         if (!string.IsNullOrWhiteSpace(settings.SystemPrompt))
             effective.Add(new ChatMessage(ChatRole.System, settings.SystemPrompt.Trim()));
-        effective.AddRange(messages);
+        effective.AddRange(ChatHistoryImageBudget.Limit(messages));
 
-        var payload = new
+        long remainingImageBytes = ChatHistoryImageBudget.MaxBytes;
+        var requestMessages = new List<object>(effective.Count);
+        foreach (ChatMessage message in effective)
         {
-            model = settings.Model.Trim(),
-            messages = effective.Select(message => new
+            object? content = CreateContent(
+                message,
+                attachmentStore,
+                ref remainingImageBytes);
+            if (content is null)
+                continue;
+
+            requestMessages.Add(new
             {
                 role = message.Role switch
                 {
@@ -30,8 +38,14 @@ public static class ChatRequestFactory
                     ChatRole.User => "user",
                     _ => "assistant",
                 },
-                content = CreateContent(message, attachmentStore),
-            }).ToArray(),
+                content,
+            });
+        }
+
+        var payload = new
+        {
+            model = settings.Model.Trim(),
+            messages = requestMessages,
             stream = true,
         };
 
@@ -52,28 +66,50 @@ public static class ChatRequestFactory
         return request;
     }
 
-    private static object CreateContent(
+    private static object? CreateContent(
         ChatMessage message,
-        ChatAttachmentStore? attachmentStore)
+        ChatAttachmentStore? attachmentStore,
+        ref long remainingImageBytes)
     {
         if (message.Attachments.Count == 0)
             return message.Content;
         if (attachmentStore is null)
             throw new InvalidOperationException("发送图片消息需要附件存储。");
 
-        var parts = new List<object>();
-        if (!string.IsNullOrWhiteSpace(message.Content))
-            parts.Add(new { type = "text", text = message.Content });
-
+        var imageParts = new List<object>();
         foreach (ChatAttachment attachment in message.Attachments)
         {
-            parts.Add(new
+            byte[] bytes = attachmentStore.LoadBytes(attachment);
+            if (bytes.Length > ChatAttachmentStore.MaxBytes
+                || bytes.Length > remainingImageBytes)
+            {
+                continue;
+            }
+
+            remainingImageBytes -= bytes.Length;
+            imageParts.Add(new
             {
                 type = "image_url",
-                image_url = new { url = attachmentStore.LoadDataUrl(attachment) },
+                image_url = new
+                {
+                    url = $"data:{attachment.MimeType};base64,{Convert.ToBase64String(bytes)}",
+                },
             });
         }
 
+        if (imageParts.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(message.Content))
+                return message.Content;
+            if (message.Role == ChatRole.User && message.Attachments.Count > 0)
+                return ChatHistoryImageBudget.OmittedImagePlaceholder;
+            return null;
+        }
+
+        var parts = new List<object>();
+        if (!string.IsNullOrWhiteSpace(message.Content))
+            parts.Add(new { type = "text", text = message.Content });
+        parts.AddRange(imageParts);
         return parts;
     }
 }

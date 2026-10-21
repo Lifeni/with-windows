@@ -36,17 +36,30 @@ public static class WindowInterop
         PInvoke.SetForegroundWindow(new HWND(hwnd));
     }
 
-    /// <summary>隐藏窗口但保留 WinUI 内容树，避免再次显示时只剩黑帧。</summary>
-    public static void Hide(IntPtr hwnd)
+    /// <summary>
+    /// 用系统窗口消息最小化。Windows App SDK 的 OverlappedPresenter.Minimize() 在本机
+    /// 会让 Microsoft.UI.Xaml.dll 在 0xC000027B 退出；对应的 Win32 路径实测稳定。
+    /// </summary>
+    public static void Minimize(IntPtr hwnd)
     {
         if (hwnd != IntPtr.Zero)
-            PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_HIDE);
+            PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_MINIMIZE);
     }
 
-    /// <summary>显示已创建的窗口；调用方仍需执行 WinUI Activate 以取得焦点。</summary>
+    /// <summary>用系统窗口消息最大化，避免 Presenter 状态切换破坏 XAML 内容树。</summary>
+    public static void Maximize(IntPtr hwnd)
+    {
+        if (hwnd != IntPtr.Zero)
+            PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_MAXIMIZE);
+    }
+
+    /// <summary>
+    /// 无激活显示已创建的窗口；调用方随后必须执行 WinUI Activate 以取得焦点。
+    /// 不能用 SW_SHOW——它会先激活一次，紧接着 WinUI Activate 会造成重复激活并让当前页面 Unloaded。
+    /// </summary>
     public static void Show(IntPtr hwnd)
     {
         if (hwnd != IntPtr.Zero)
-            PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_SHOW);
+            PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_SHOWNOACTIVATE);
     }
 }

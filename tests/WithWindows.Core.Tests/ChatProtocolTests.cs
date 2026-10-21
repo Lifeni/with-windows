@@ -65,6 +65,29 @@ public class ChatProtocolTests
     }
 
     [Fact]
+    public async Task Create_新配置默认携带系统提示()
+    {
+        var settings = new ChatSettings
+        {
+            BaseUrl = "https://example.test/v1",
+            Model = "demo",
+        };
+
+        using HttpRequestMessage request = ChatRequestFactory.Create(
+            settings,
+            "",
+            [new ChatMessage(ChatRole.User, "你好")]);
+
+        string json = await request.Content!.ReadAsStringAsync();
+        using JsonDocument document = JsonDocument.Parse(json);
+        JsonElement systemMessage = document.RootElement.GetProperty("messages")[0];
+        Assert.Equal("system", systemMessage.GetProperty("role").GetString());
+        Assert.Equal(
+            ChatSettings.DefaultSystemPrompt,
+            systemMessage.GetProperty("content").GetString());
+    }
+
+    [Fact]
     public async Task Create_带图片_生成image_url内容片段()
     {
         string directory =
@@ -89,6 +112,7 @@ public class ChatProtocolTests
                 {
                     BaseUrl = "https://example.test/v1",
                     Model = "vision-model",
+                    SystemPrompt = "",
                 },
                 "",
                 [message],
@@ -105,6 +129,163 @@ public class ChatProtocolTests
             Assert.StartsWith(
                 "data:image/png;base64,AQID",
                 content[1].GetProperty("image_url").GetProperty("url").GetString());
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Create_历史图片只保留预算内最新四张()
+    {
+        string directory =
+            Path.Combine(Path.GetTempPath(), "ww-chat-budget-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var store = new ChatAttachmentStore(directory);
+            ChatMessage[] messages = Enumerable.Range(0, 5)
+                .Select(index =>
+                {
+                    ChatAttachment attachment = store.Save(
+                        [(byte)index],
+                        $"图片{index}.png",
+                        "image/png",
+                        width: 1,
+                        height: 1);
+                    return new ChatMessage(ChatRole.User, $"消息{index}")
+                    {
+                        Attachments = [attachment],
+                    };
+                })
+                .ToArray();
+
+            using HttpRequestMessage request = ChatRequestFactory.Create(
+                new ChatSettings
+                {
+                    BaseUrl = "https://example.test/v1",
+                    Model = "vision-model",
+                    SystemPrompt = "",
+                },
+                "",
+                messages,
+                store);
+
+            string json = await request.Content!.ReadAsStringAsync();
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement requestMessages =
+                document.RootElement.GetProperty("messages");
+            Assert.Equal(5, requestMessages.GetArrayLength());
+            Assert.Equal(
+                JsonValueKind.String,
+                requestMessages[0].GetProperty("content").ValueKind);
+
+            int imageParts = requestMessages.EnumerateArray()
+                .Where(message => message.GetProperty("content").ValueKind == JsonValueKind.Array)
+                .SelectMany(message => message.GetProperty("content").EnumerateArray())
+                .Count(part => part.GetProperty("type").GetString() == "image_url");
+            Assert.Equal(ChatHistoryImageBudget.MaxImages, imageParts);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Create_实际文件超过单图上限_跳过历史图片()
+    {
+        string directory =
+            Path.Combine(Path.GetTempPath(), "ww-chat-actual-size-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var store = new ChatAttachmentStore(directory);
+            ChatAttachment attachment = store.Save(
+                [1],
+                "过期元数据.png",
+                "image/png",
+                width: 1,
+                height: 1);
+            string path = Path.Combine(directory, attachment.Id + ".png");
+            using (var stream = new FileStream(path, FileMode.Append, FileAccess.Write))
+                stream.Write(new byte[ChatAttachmentStore.MaxBytes], 0, ChatAttachmentStore.MaxBytes);
+
+            using HttpRequestMessage request = ChatRequestFactory.Create(
+                new ChatSettings
+                {
+                    BaseUrl = "https://example.test/v1",
+                    Model = "vision-model",
+                    SystemPrompt = "",
+                },
+                "",
+                [
+                    new ChatMessage(ChatRole.User, "只保留文字")
+                    {
+                        Attachments = [attachment],
+                    },
+                ],
+                store);
+
+            string json = await request.Content!.ReadAsStringAsync();
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement content = document.RootElement.GetProperty("messages")[0]
+                .GetProperty("content");
+            Assert.Equal(JsonValueKind.String, content.ValueKind);
+            Assert.Equal("只保留文字", content.GetString());
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Create_纯图片消息被实际字节校验裁剪_保留用户占位()
+    {
+        string directory =
+            Path.Combine(Path.GetTempPath(), "ww-chat-actual-image-only-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var store = new ChatAttachmentStore(directory);
+            ChatAttachment attachment = store.Save(
+                [1],
+                "过期元数据.png",
+                "image/png",
+                width: 1,
+                height: 1);
+            string path = Path.Combine(directory, attachment.Id + ".png");
+            using (var stream = new FileStream(path, FileMode.Append, FileAccess.Write))
+                stream.Write(new byte[ChatAttachmentStore.MaxBytes], 0, ChatAttachmentStore.MaxBytes);
+
+            using HttpRequestMessage request = ChatRequestFactory.Create(
+                new ChatSettings
+                {
+                    BaseUrl = "https://example.test/v1",
+                    Model = "vision-model",
+                    SystemPrompt = "",
+                },
+                "",
+                [
+                    new ChatMessage(ChatRole.User, "")
+                    {
+                        Attachments = [attachment],
+                    },
+                    new ChatMessage(ChatRole.Assistant, "旧回复"),
+                ],
+                store);
+
+            string json = await request.Content!.ReadAsStringAsync();
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement messages = document.RootElement.GetProperty("messages");
+            Assert.Equal(2, messages.GetArrayLength());
+            Assert.Equal("user", messages[0].GetProperty("role").GetString());
+            Assert.Equal(
+                ChatHistoryImageBudget.OmittedImagePlaceholder,
+                messages[0].GetProperty("content").GetString());
+            Assert.Equal("assistant", messages[1].GetProperty("role").GetString());
         }
         finally
         {

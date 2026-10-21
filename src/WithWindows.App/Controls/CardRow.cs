@@ -21,6 +21,7 @@ public sealed class CardRow : UserControl
     };
     private readonly Grid _root;
     private readonly ContentPresenter _trailing = new() { VerticalAlignment = VerticalAlignment.Center };
+    private readonly Border _cardBorder;
 
     public CardRow()
     {
@@ -51,7 +52,7 @@ public sealed class CardRow : UserControl
         _root.Children.Add(text);
         _root.Children.Add(_trailing);
 
-        Content = new Border
+        _cardBorder = new Border
         {
             CornerRadius = new CornerRadius(6),
             Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
@@ -59,6 +60,7 @@ public sealed class CardRow : UserControl
             BorderThickness = new Thickness(1),
             Child = _root,
         };
+        Content = _cardBorder;
     }
 
     /// <summary>左侧图标字形（Segoe Fluent Icons）。</summary>
@@ -95,5 +97,19 @@ public sealed class CardRow : UserControl
     {
         get => _trailing.Content as UIElement;
         set => _trailing.Content = value;
+    }
+
+    /// <summary>卡片外框圆角，用于把多行合并成同一张卡片。</summary>
+    public CornerRadius CardCornerRadius
+    {
+        get => _cardBorder.CornerRadius;
+        set => _cardBorder.CornerRadius = value;
+    }
+
+    /// <summary>卡片外框厚度，用于合并多行时去掉相邻的重复分隔线。</summary>
+    public Thickness CardBorderThickness
+    {
+        get => _cardBorder.BorderThickness;
+        set => _cardBorder.BorderThickness = value;
     }
 }

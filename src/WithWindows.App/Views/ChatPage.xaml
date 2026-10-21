@@ -112,12 +112,12 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid
+            MinHeight="48"
             Padding="16,8"
             Background="{ThemeResource LayerFillColorDefaultBrush}"
             ColumnSpacing="4">
@@ -126,28 +126,20 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel VerticalAlignment="Center" Spacing="1">
+            <StackPanel VerticalAlignment="Center" Spacing="0">
                 <TextBlock
-                    AutomationProperties.AutomationId="ChatPageTitle"
-                    FontSize="16"
+                    x:Name="ChatSessionTitle"
+                    AutomationProperties.AutomationId="ChatSessionTitle"
+                    FontSize="11"
                     FontWeight="SemiBold"
-                    Text="AI 对话" />
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock
-                        x:Name="ChatModelInfo"
-                        AutomationProperties.AutomationId="ChatModelInfo"
-                        FontSize="12"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock
-                        FontSize="12"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="·" />
-                    <TextBlock
-                        x:Name="ChatContextInfo"
-                        AutomationProperties.AutomationId="ChatContextInfo"
-                        FontSize="12"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
+                    Text="AI 对话"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    x:Name="ChatModelInfo"
+                    AutomationProperties.AutomationId="ChatModelInfo"
+                    FontSize="11"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    TextTrimming="CharacterEllipsis" />
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
@@ -161,18 +153,7 @@
                     IsActive="False"
                     Visibility="Collapsed" />
                 <Button
-                    Width="36"
-                    Height="32"
-                    Padding="0"
-                    AutomationProperties.AutomationId="ChatSearchButton"
-                    AutomationProperties.Name="搜索对话"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Click="OnSearchButtonClick"
-                    ToolTipService.ToolTip="搜索对话">
-                    <FontIcon FontSize="16" Glyph="&#xE721;" />
-                </Button>
-                <Button
+                    x:Name="ChatNewSessionButton"
                     Width="36"
                     Height="32"
                     Padding="0"
@@ -185,6 +166,7 @@
                     <FontIcon FontSize="16" Glyph="&#xF429;" />
                 </Button>
                 <Button
+                    x:Name="ChatConfigureButton"
                     Width="36"
                     Height="32"
                     Padding="0"
@@ -199,83 +181,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid
-            x:Name="ChatSearchBar"
-            Grid.Row="1"
-            Padding="16,6"
-            Background="{ThemeResource LayerFillColorDefaultBrush}"
-            ColumnSpacing="6"
-            Visibility="Collapsed">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="280" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <FontIcon
-                VerticalAlignment="Center"
-                FontSize="14"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Glyph="&#xE721;" />
-            <TextBox
-                x:Name="ChatSearchBox"
-                Grid.Column="1"
-                AutomationProperties.AutomationId="ChatSearchBox"
-                PlaceholderText="搜索对话"
-                TextChanged="OnSearchTextChanged" />
-            <TextBlock
-                x:Name="ChatSearchCount"
-                Grid.Column="2"
-                MinWidth="76"
-                VerticalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Text="输入关键词" />
-            <Button
-                Grid.Column="4"
-                Width="32"
-                Height="32"
-                Padding="0"
-                AutomationProperties.AutomationId="ChatSearchPreviousButton"
-                AutomationProperties.Name="上一个搜索结果"
-                Background="Transparent"
-                BorderThickness="0"
-                Click="OnSearchPreviousClick"
-                ToolTipService.ToolTip="上一个">
-                <FontIcon FontSize="14" Glyph="&#xE74A;" />
-            </Button>
-            <Button
-                Grid.Column="5"
-                Width="32"
-                Height="32"
-                Padding="0"
-                AutomationProperties.AutomationId="ChatSearchNextButton"
-                AutomationProperties.Name="下一个搜索结果"
-                Background="Transparent"
-                BorderThickness="0"
-                Click="OnSearchNextClick"
-                ToolTipService.ToolTip="下一个">
-                <FontIcon FontSize="14" Glyph="&#xE74B;" />
-            </Button>
-            <Button
-                Grid.Column="6"
-                Width="32"
-                Height="32"
-                Padding="0"
-                AutomationProperties.AutomationId="ChatSearchCloseButton"
-                AutomationProperties.Name="关闭搜索"
-                Background="Transparent"
-                BorderThickness="0"
-                Click="OnSearchCloseClick"
-                ToolTipService.ToolTip="关闭">
-                <FontIcon FontSize="14" Glyph="&#xE711;" />
-            </Button>
-        </Grid>
-
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="1">
             <ListView
                 x:Name="MessageList"
                 AutomationProperties.AutomationId="ChatMessageList"
@@ -313,7 +219,7 @@
                 Severity="Error" />
         </Grid>
 
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -348,7 +254,7 @@
                 Padding="16,10"
                 AcceptsReturn="True"
                 AutomationProperties.AutomationId="ChatInput"
-                Background="Transparent"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderThickness="0"
                 CornerRadius="0"
                 Paste="OnInputPaste"
@@ -357,7 +263,18 @@
                 TextCompositionEnded="OnTextCompositionEnded"
                 TextCompositionStarted="OnTextCompositionStarted"
                 TextWrapping="Wrap"
-                VerticalContentAlignment="Center" />
+                VerticalContentAlignment="Center">
+                <TextBox.Resources>
+                    <StaticResource x:Key="TextControlBackground" ResourceKey="CardBackgroundFillColorDefaultBrush" />
+                    <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="CardBackgroundFillColorDefaultBrush" />
+                    <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="CardBackgroundFillColorDefaultBrush" />
+                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                    <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+                    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                </TextBox.Resources>
+            </TextBox>
         </Grid>
     </Grid>
 </Page>

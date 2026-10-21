@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using WithWindows.Core.Chat;
@@ -72,9 +73,12 @@ public static class ChatProviderDialog
         var validation = new TextBlock
         {
             Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
+            Margin = new Thickness(0, 12, 0, 0),
             TextWrapping = TextWrapping.Wrap,
             Visibility = Visibility.Collapsed,
         };
+        AutomationProperties.SetAutomationId(validation, "ChatProviderValidation");
+        AutomationProperties.SetLiveSetting(validation, AutomationLiveSetting.Polite);
 
         var content = new StackPanel { Spacing = 12, MinWidth = 440 };
         content.Children.Add(baseUrl);
@@ -82,13 +86,46 @@ public static class ChatProviderDialog
         content.Children.Add(apiKey);
         content.Children.Add(clearKey);
         content.Children.Add(systemPrompt);
-        content.Children.Add(validation);
+
+        var contentScroll = new ScrollViewer
+        {
+            Content = content,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            HorizontalScrollMode = ScrollMode.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollMode = ScrollMode.Enabled,
+            IsTabStop = false,
+        };
+        AutomationProperties.SetAutomationId(contentScroll, "ChatProviderContentScroll");
+        AutomationProperties.SetName(contentScroll, "AI 服务配置内容");
+
+        var contentLayout = new Grid
+        {
+            MinWidth = 440,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        contentLayout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        contentLayout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        contentLayout.Children.Add(contentScroll);
+        Grid.SetRow(validation, 1);
+        contentLayout.Children.Add(validation);
+
+        void UpdateContentHeight()
+            => contentScroll.MaxHeight = Math.Clamp(
+                xamlRoot.Size.Height - 200,
+                min: 160,
+                max: 520);
+
+        void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+            => UpdateContentHeight();
+
+        UpdateContentHeight();
 
         var dialog = new ContentDialog
         {
             XamlRoot = xamlRoot,
             Title = "AI 服务配置",
-            Content = content,
+            Content = contentLayout,
             PrimaryButtonText = "保存",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Primary,
@@ -117,10 +154,32 @@ public static class ChatProviderDialog
                 args.Cancel = true;
                 validation.Text = ex.Message;
                 validation.Visibility = Visibility.Visible;
+                validation.DispatcherQueue.TryEnqueue(
+                    Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                    () =>
+                    {
+                        if (validation.XamlRoot is null)
+                            return;
+
+                        AutomationPeer? peer =
+                            FrameworkElementAutomationPeer.FromElement(validation)
+                            ?? FrameworkElementAutomationPeer.CreatePeerForElement(validation);
+                        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+                    });
             }
         };
 
-        ContentDialogResult shown = await dialog.ShowAsync();
+        ContentDialogResult shown;
+        try
+        {
+            xamlRoot.Changed += OnXamlRootChanged;
+            shown = await dialog.ShowAsync();
+        }
+        finally
+        {
+            xamlRoot.Changed -= OnXamlRootChanged;
+        }
+
         return shown == ContentDialogResult.Primary ? result : null;
     }
 }

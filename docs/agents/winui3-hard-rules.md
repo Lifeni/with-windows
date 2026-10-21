@@ -49,6 +49,30 @@ var dialog = new ContentDialog
 };
 ```
 
+### `ContentDialog` 默认内容滚动器不能依赖
+
+WinUI 当前默认模板里的内部 `ContentScrollViewer` 明确设置了 `VerticalScrollBarVisibility="Disabled"`。如果配置表单高度超过窗口，内容会被直接裁切，不会自动出现滚动条。业务内容必须自行包一层 `ScrollViewer`，例如：
+
+```csharp
+var contentScroll = new ScrollViewer
+{
+    Content = content,
+    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+    VerticalScrollMode = ScrollMode.Enabled,
+    MaxHeight = Math.Clamp(xamlRoot.Size.Height - 200, 160, 520),
+};
+
+var dialog = new ContentDialog
+{
+    XamlRoot = xamlRoot,
+    Content = contentScroll,
+};
+```
+
+窗口可在对话框打开期间缩放，因此 `MaxHeight` 应订阅 `XamlRoot.Changed` 更新，并在关闭对话框后解除订阅。
+
+错误提示和操作区域不要放进表单滚动区：把 `ScrollViewer` 与固定错误行放进同一个两行 `Grid`，滚动区使用 `*` 行、错误行使用 `Auto`，可以保证用户无论在表单哪个位置提交，都能看到校验结果。
+
 ### 文件选择器必须先绑定窗口句柄
 
 ```csharp
@@ -72,15 +96,26 @@ UWP 有 ASTA 重入保护，WinUI 3 用的是标准 STA，**没有**这层保护
 
 XAML 绑定路径错误是静默失败——界面空白且没有任何异常。改完绑定必须实际启动并观察，或直接用 `x:Bind`（编译期检查）。
 
-### 自定义标题栏必须同时设置三个东西
+### 自定义标题栏必须同时处理内容扩展与系统 chrome
 
-只在 XAML 里放 `TitleBar` 控件是不够的，窗口会同时显示系统标题栏和自定义标题栏（两条栏）。必须在 code-behind 里补：
+如果使用内置 `TitleBar` 控件，只在 XAML 里放控件是不够的，窗口会同时显示系统标题栏和自定义标题栏（两条栏）。必须在 code-behind 里补：
 
 ```csharp
 ExtendsContentIntoTitleBar = true;
 SetTitleBar(AppTitleBar);
 AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 ```
+
+本项目当前使用自绘的 `AppTitleBar` 网格，以便一并接管最小化、最大化 / 还原和关闭按钮。自绘时必须隐藏系统标题栏，但保留窗口边框与缩放能力：
+
+```csharp
+ExtendsContentIntoTitleBar = true;
+SetTitleBar(AppTitleBar);
+if (AppWindow.Presenter is OverlappedPresenter presenter)
+    presenter.SetBorderAndTitleBar(hasBorder: true, hasTitleBar: false);
+```
+
+自有关闭按钮直接收进托盘；系统关闭路径干净退出。不要在系统 `Closing` 事件里取消关闭后尝试恢复已经卸载的页面。
 
 另外 `TitleBar.IconSource` 用 `.ico` 而不是 `.png`——PNG 在标题栏里会渲染成透明棋盘格。
 

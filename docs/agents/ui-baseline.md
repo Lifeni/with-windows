@@ -26,9 +26,6 @@ winapp ui invoke NavItemAi_chat -a WithWindows
 
 # 6. 截图（返回 JSON，含文件路径与尺寸）
 winapp ui screenshot -a WithWindows --json
-
-# 7. 结束进程
-Stop-Process -Id $p.Id -Force
 ```
 
 要点：
@@ -36,8 +33,9 @@ Stop-Process -Id $p.Id -Force
 - `inspect` / `search` / `click` / `invoke` 都需要 `-a <进程名、窗口标题或 PID>`。
 - 截图默认落在当前工作目录的 `screenshot.png`，需移到 `artifacts/ui/` 下改名（`artifacts/` 已加入 `.gitignore`）。
 - `winapp` 仍是公共预览版，命令可能变动；执行前用 `winapp ui --help` 核对。
+- 界面验证完成后保持应用运行，交给用户直接测试。
 
-## 二、基线（2026-10-21，AI 对话图片附件）
+## 二、基线（2026-10-21，AI 对话标题与输入）
 
 窗口：`"With Windows" (window, 1161x818) [WinUIDesktopWin32WindowClass]`
 
@@ -68,10 +66,9 @@ AI 对话页关键控件：
 ```text
 ChatConfigureButton Button "配置 AI 服务"
 ChatNewSessionButton Button "新建会话"
-ChatSearchButton Button "搜索对话"
+ChatSessionTitle Text "AI 对话"
 ChatInput Edit "与 AI 对话"
-ChatModelInfo Text "模型：..."
-ChatContextInfo Text "上下文：N 条消息 · M 字符"
+ChatModelInfo Text "deepseek-v4.1-flash"
 ChatProviderBaseUrl Edit "Base URL"
 ChatProviderModel Edit "模型"
 ChatProviderApiKey Edit "API Key"
@@ -79,11 +76,34 @@ ChatProviderClearKey CheckBox "清除已保存密钥"
 ChatProviderSystemPrompt Edit "系统提示"
 ```
 
-图片粘贴基线：复制剪贴板位图后在输入框按 `Ctrl+V`，出现 `ChatRemoveAttachmentButton Button "移除图片"`；缩略图下方显示尺寸与最终文件大小。单张图片最终不超过 1 MiB。输入区没有发送按钮和附件按钮，Enter 发送、Shift+Enter 换行、Esc 停止。
+设置页新增控件：
+
+```text
+DefaultWindowPageCard Group "默认打开窗口"
+DefaultWindowPageComboBox ComboBox "默认打开窗口"
+```
+
+默认打开窗口基线：该设置与「显示 / 隐藏窗口」合并在同一张卡片中，两行 UIA 边界首尾相接、无垂直间距，中间只保留一条分隔线。下拉框提供「记事」「AI 对话」两项，选择后立即写入 `windowState.defaultPage`。使用已绑定的 F13 实测：第一次按下收起窗口，第二次唤回并分别打开所选页面；窗口只是被别的窗口挡住时仍只前置当前页。
+
+AI 服务配置滚动基线：窗口缩到 `1000×600` 物理像素（144 DPI）时，`ChatProviderContentScroll` 在 UIA 中带 `[scroll:v]`；滚到底部后系统提示可见。故意清空模型并保存后，`ChatProviderValidation` 显示“请填写模型。”，错误行固定在滚动区外，保存和取消按钮保持可见。正常高度下仍尽量完整展示，不强制出现滚动条。
+
+独立审查处置（2026-10-21）：P2 级“事件订阅早于异常保护”和“校验提示可能位于滚动视口外”均已修复；`XamlRoot.Changed` 现在在 `try/finally` 内订阅，校验行固定在滚动区下方。剩余 P3 是 `- 200` / `160` / `520` 的高度预留仍是经验常量，已保留 144 DPI 基线，后续如遇极端文本缩放再改为实测内容区高度。
+
+标题区：`ChatNewSessionButton` 与记事页 `NotepadFind` 的 UIA 几何均为 `(1510,289 54x48)`；AI 标题区最小高度为 48 DIP，与记事页工具条一致，并允许系统文本缩放时自然增高。大标题和副标题均为 11 px，大标题仅额外加粗。空会话大标题为「AI 对话」，有用户消息后取首条用户消息作为摘要。副标题只显示模型名称，未知模型显示“未配置”。`ChatSearchButton` 在 UI 自动化树中为 0 个匹配。
+
+输入区：`ChatInput` 使用 `CardBackgroundFillColorDefaultBrush`，在深色截图中与消息区有可见层级差；聚焦时边框和底部强调线均为透明。启动后切入 AI 页，以及离开 AI 页再返回时，`winapp ui get-focused` 均返回 `ChatInput Edit "与 AI 对话"`。
+
+消息列表：加载、发送和流式更新后校正到内部 `ScrollViewer.ScrollableHeight`，长会话停留在最新消息底部；`ChangeView` 失败或滚动范围尚未稳定时有限重试。
+
+图片粘贴基线：复制剪贴板位图后在输入框按 `Ctrl+V`，出现 `ChatRemoveAttachmentButton Button "移除图片"`；缩略图下方显示尺寸与最终文件大小。单张图片最终不超过 1 MiB；发送请求只携带最新最多 4 张历史图片、总计不超过 4 MiB，并按实际文件长度再次校验。输入区没有发送按钮和附件按钮，Enter 发送、Shift+Enter 换行、Esc 停止。
 
 Markdown 基线：表格按单元格顺序显示多列；`- [x]` / `- [ ]` 显示只读复选框；`<details><summary>` 和 `::: details` 显示可展开区域。
 
-截图：本次改基线未留图（`artifacts/` 已于 2026-10-11 随开发工作区清理）；需要对照时按上面「一、可复现流程」重拍。
+黑屏回归（2026-10-21 实测）：在包含历史图片的 AI 页用真实鼠标点击自有关闭按钮，托盘收起使用 `ShowWindow(SW_MINIMIZE)` + 从任务栏 / Alt+Tab 移除；原进程保持存活，页面不触发 `Unloaded`。再次启动 exe 后仍为同一 PID，唤回使用 `ShowWindow(SW_SHOWNOACTIVATE)`，AI 消息和图片正常渲染；连续等待 12 秒无崩溃。不要用 UI Automation 在未激活窗口上 `invoke` 关闭按钮来验证该路径，它可能触发真实鼠标不会出现的页面卸载。
+
+托盘入口：代码中新增 `TrayItemAiChat` 并路由到 `ToolCatalog.AiChatId`。Win11 托盘溢出菜单仍无法由 UIA 读取，需要在人工展开托盘菜单时确认。
+
+截图：`artifacts/ui/ai-chat-context-2026-10-21.png`（本地基线，`artifacts/` 不提交）。
 
 目视结论：标题栏、四项导航、AI 空状态、输入区与配置对话框均正常渲染；中文无乱码，Mica 背景生效，深浅主题资源未出现白底白字。
 

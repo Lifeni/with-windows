@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
 using Windows.UI.Core;
@@ -32,19 +34,24 @@ public sealed partial class ChatPage : Page
         new(AppPaths.ChatAttachmentsDirectory);
 
     private CancellationTokenSource? _requestCts;
-    private readonly List<(ChatMessageViewModel Message, int Offset)> _searchMatches = [];
     private string _apiKey = "";
-    private int _searchIndex = -1;
     private bool _isSending;
     private bool _isComposing;
     private bool _isReadingClipboard;
     private bool _initialized;
+    private bool _initializingSession;
+    private int _scrollGeneration;
 
     public static string RouteTag => "ai_chat";
 
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = [];
 
     public ObservableCollection<ChatAttachmentViewModel> PendingAttachments { get; } = [];
+
+    private bool CanTouchUi =>
+        IsLoaded
+        && XamlRoot is not null
+        && App.Host is not { IsShuttingDown: true };
 
     public ChatPage()
     {
@@ -56,70 +63,111 @@ public sealed partial class ChatPage : Page
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (_initialized)
+        LogInfo($"AI 页 Loaded：initialized={_initialized}");
+        if (_initializingSession)
             return;
-        _initialized = true;
 
-        try
+        if (!_initialized)
         {
-            ChatSession session = _historyStore.Load();
-            foreach (ChatMessage message in session.Messages)
+            _initializingSession = true;
+            SetInitializing(true);
+            try
             {
-                var attachments = new List<ChatAttachmentViewModel>();
-                foreach (ChatAttachment attachment in message.Attachments)
+                var loadedMessages = new List<ChatMessageViewModel>();
+                try
                 {
-                    try
+                    ChatSession session = _historyStore.Load();
+                    foreach (ChatMessage message in session.Messages)
                     {
-                        byte[] bytes = _attachmentStore.LoadBytes(attachment);
-                        attachments.Add(await ChatAttachmentViewModel.CreateAsync(
-                            bytes,
-                            attachment.DisplayName,
-                            attachment.MimeType,
-                            attachment.Width,
-                            attachment.Height,
-                            wasCompressed: false,
-                            attachment));
-                    }
-                    catch (Exception ex) when (ex is IOException or ArgumentException)
-                    {
-                        App.Host?.Log.Error($"AI 图片附件读取失败：{ex.GetType().Name}");
+                        var attachments = new List<ChatAttachmentViewModel>();
+                        foreach (ChatAttachment attachment in message.Attachments)
+                        {
+                            try
+                            {
+                                byte[] bytes = _attachmentStore.LoadBytes(attachment);
+                                attachments.Add(await ChatAttachmentViewModel.CreateAsync(
+                                    bytes,
+                                    attachment.DisplayName,
+                                    attachment.MimeType,
+                                    attachment.Width,
+                                    attachment.Height,
+                                    wasCompressed: false,
+                                    attachment));
+                                if (!CanTouchUi)
+                                    return;
+                            }
+                            catch (Exception ex) when (ex is IOException or ArgumentException)
+                            {
+                                LogError($"AI 图片附件读取失败：{ex.GetType().Name}");
+                            }
+                        }
+
+                        if (!CanTouchUi)
+                            return;
+
+                        loadedMessages.Add(new ChatMessageViewModel(
+                            message.Role,
+                            message.Content,
+                            isMarkdown: message.Role == ChatRole.Assistant,
+                            attachments));
                     }
                 }
+                catch (Exception ex)
+                {
+                    loadedMessages.Clear();
+                    LogError($"AI 会话加载失败：{ex.GetType().Name}");
+                    ShowError("会话文件损坏，已从空会话开始。");
+                }
 
-                Messages.Add(new ChatMessageViewModel(
-                    message.Role,
-                    message.Content,
-                    isMarkdown: message.Role == ChatRole.Assistant,
-                    attachments));
+                string loadedApiKey = "";
+                try
+                {
+                    loadedApiKey = await _secretStore.LoadAsync() ?? "";
+                }
+                catch (Exception ex)
+                {
+                    LogError($"AI 密钥读取失败：{ex.GetType().Name}");
+                    ShowError("API Key 无法解密，请重新配置。");
+                }
+
+                if (!CanTouchUi)
+                    return;
+
+                Messages.Clear();
+                foreach (ChatMessageViewModel message in loadedMessages)
+                    Messages.Add(message);
+                _apiKey = loadedApiKey;
+                _initialized = true;
+            }
+            finally
+            {
+                _initializingSession = false;
+                if (CanTouchUi)
+                    SetInitializing(false);
             }
         }
-        catch (Exception ex)
-        {
-            App.Host?.Log.Error($"AI 会话加载失败：{ex.GetType().Name}");
-            ShowError("会话文件损坏，已从空会话开始。");
-        }
 
-        try
-        {
-            _apiKey = await _secretStore.LoadAsync() ?? "";
-        }
-        catch (Exception ex)
-        {
-            App.Host?.Log.Error($"AI 密钥读取失败：{ex.GetType().Name}");
-            ShowError("API Key 无法解密，请重新配置。");
-        }
+        if (!CanTouchUi)
+            return;
 
-        UpdateEmptyState();
-        UpdatePendingAttachmentsBar();
-        UpdateHeaderInfo();
+        ApplyUiState();
         ScrollToLatest();
+
+        if (App.MainWindow is { } window
+            && Core.Interop.WindowInterop.IsForeground(
+                WinRT.Interop.WindowNative.GetWindowHandle(window)))
+        {
+            FocusInput();
+        }
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        LogInfo($"AI 页 Unloaded：messages={Messages.Count}，sending={_isSending}");
+        bool wasSending = _isSending;
         _requestCts?.Cancel();
-        if (Messages.Count > 0)
-            SaveSession();
+        if (_initialized && !_initializingSession && Messages.Count > 0)
+            SaveSession(markStoppedResponse: wasSending);
     }
 
     private async void OnInputKeyDown(object sender, KeyRoutedEventArgs e)
@@ -140,23 +188,13 @@ public sealed partial class ChatPage : Page
         }
         catch (Exception ex)
         {
-            App.Host?.Log.Error($"AI 输入发送失败：{ex.GetType().Name}");
+            LogError($"AI 输入发送失败：{ex.GetType().Name}");
             ShowError("发送失败，请稍后重试。");
         }
     }
 
     private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        bool ctrl =
-            (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
-                & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
-        if (ctrl && e.Key == VirtualKey.F)
-        {
-            e.Handled = true;
-            ShowSearch(show: true);
-            return;
-        }
-
         if (e.Key == VirtualKey.Escape)
         {
             if (_isSending)
@@ -164,12 +202,24 @@ public sealed partial class ChatPage : Page
                 e.Handled = true;
                 _requestCts?.Cancel();
             }
-            else if (ChatSearchBar.Visibility == Visibility.Visible)
-            {
-                e.Handled = true;
-                ShowSearch(show: false);
-            }
         }
+    }
+
+    private void FocusInput()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!CanTouchUi || _isReadingClipboard)
+                return;
+            if (App.MainWindow is not { } window
+                || !Core.Interop.WindowInterop.IsForeground(
+                    WinRT.Interop.WindowNative.GetWindowHandle(window)))
+            {
+                return;
+            }
+
+            ChatInput.Focus(FocusState.Programmatic);
+        });
     }
 
     private void OnTextCompositionStarted(
@@ -184,6 +234,9 @@ public sealed partial class ChatPage : Page
 
     private async void OnInputPaste(object sender, TextControlPasteEventArgs args)
     {
+        if (_initializingSession)
+            return;
+
         try
         {
             DataPackageView content = Clipboard.GetContent();
@@ -195,15 +248,14 @@ public sealed partial class ChatPage : Page
         }
         catch (Exception ex)
         {
-            args.Handled = true;
-            App.Host?.Log.Error($"读取剪贴板图片失败：{ex.GetType().Name}");
+            LogError($"读取剪贴板图片失败：{ex.GetType().Name}");
             ShowError("剪贴板图片读取失败。");
         }
     }
 
     private async Task AttachClipboardImagesAsync()
     {
-        if (_isSending || _isReadingClipboard)
+        if (_isSending || _isReadingClipboard || _initializingSession)
             return;
         int slots = MaxPendingImages - PendingAttachments.Count;
         if (slots <= 0)
@@ -217,12 +269,16 @@ public sealed partial class ChatPage : Page
         {
             IReadOnlyList<ClipboardImageData> images =
                 await ClipboardImageService.ReadAsync();
+            if (!CanTouchUi)
+                return;
+
             if (images.Count == 0)
             {
                 ShowError("剪贴板中没有可用的图片。当前仅支持图片，其他文件不会附加。");
                 return;
             }
 
+            var attachments = new List<ChatAttachmentViewModel>();
             foreach (ClipboardImageData image in images.Take(slots))
             {
                 ChatAttachmentViewModel attachment =
@@ -233,14 +289,18 @@ public sealed partial class ChatPage : Page
                         image.Width,
                         image.Height,
                         image.WasCompressed);
-                PendingAttachments.Add(attachment);
+                if (!CanTouchUi)
+                    return;
+                attachments.Add(attachment);
             }
 
+            foreach (ChatAttachmentViewModel attachment in attachments)
+                PendingAttachments.Add(attachment);
             if (images.Count > slots)
                 ShowError("每条消息最多附加 4 张图片，超出的图片未添加。");
             UpdatePendingAttachmentsBar();
             ChatErrorBar.IsOpen = false;
-            ChatInput.Focus(FocusState.Programmatic);
+            FocusInput();
         }
         finally
         {
@@ -262,6 +322,12 @@ public sealed partial class ChatPage : Page
 
     private async Task SendAsync()
     {
+        if (_initializingSession)
+        {
+            ShowError("正在加载当前会话，请稍候。");
+            return;
+        }
+
         AppHost? host = App.Host;
         if (host is null)
         {
@@ -297,7 +363,7 @@ public sealed partial class ChatPage : Page
         catch (Exception ex)
         {
             DeleteAttachmentModels(originalAttachments);
-            App.Host?.Log.Error($"AI 图片保存失败：{ex.GetType().Name}");
+            LogError($"AI 图片保存失败：{ex.GetType().Name}");
             ShowError("图片保存失败，请重新粘贴。");
             return;
         }
@@ -318,8 +384,10 @@ public sealed partial class ChatPage : Page
         var assistantMessage = new ChatMessageViewModel(ChatRole.Assistant, "");
         Messages.Add(assistantMessage);
         UpdateHeaderInfo();
+        ScrollToLatest();
         _requestCts = new CancellationTokenSource();
         SetSending(true);
+        var streamedContent = new StringBuilder();
 
         try
         {
@@ -332,12 +400,29 @@ public sealed partial class ChatPage : Page
                 history,
                 _requestCts.Token))
             {
-                assistantMessage.Content += delta.Content;
-                UpdateHeaderInfo();
+                streamedContent.Append(delta.Content);
+                if (!CanTouchUi)
+                {
+                    _requestCts.Cancel();
+                    SaveSession(
+                        markStoppedResponse: true,
+                        stoppedAssistantContent: streamedContent.ToString());
+                    return;
+                }
+
+                assistantMessage.Content = streamedContent.ToString();
                 ScrollToLatest();
             }
 
-            if (string.IsNullOrEmpty(assistantMessage.Content))
+            if (!CanTouchUi)
+            {
+                SaveSession(
+                    markStoppedResponse: true,
+                    stoppedAssistantContent: streamedContent.ToString());
+                return;
+            }
+
+            if (streamedContent.Length == 0)
             {
                 Messages.Remove(assistantMessage);
                 Messages.Remove(userMessage);
@@ -349,20 +434,30 @@ public sealed partial class ChatPage : Page
                 return;
             }
 
+            assistantMessage.Content = streamedContent.ToString();
             assistantMessage.IsMarkdown = true;
             SaveSession();
-            RefreshSearchMatches(selectFirst: false);
             UpdateHeaderInfo();
+            ScrollToLatest();
         }
         catch (OperationCanceledException)
         {
-            assistantMessage.Content = assistantMessage.Content.Length == 0
+            if (!CanTouchUi)
+            {
+                SaveSession(
+                    markStoppedResponse: true,
+                    stoppedAssistantContent: streamedContent.ToString());
+                return;
+            }
+
+            string partialContent = streamedContent.ToString();
+            assistantMessage.Content = partialContent.Length == 0
                 ? "（已停止）"
-                : assistantMessage.Content + "\n\n（已停止）";
+                : partialContent + "\n\n（已停止）";
             assistantMessage.IsMarkdown = true;
             SaveSession();
-            RefreshSearchMatches(selectFirst: false);
             UpdateHeaderInfo();
+            ScrollToLatest();
         }
         catch (ChatRequestException ex)
         {
@@ -388,7 +483,7 @@ public sealed partial class ChatPage : Page
             _requestCts.Dispose();
             _requestCts = null;
             SetSending(false);
-            ChatInput.Focus(FocusState.Programmatic);
+            FocusInput();
         }
     }
 
@@ -399,6 +494,9 @@ public sealed partial class ChatPage : Page
         List<ChatAttachmentViewModel> originalAttachments,
         string error)
     {
+        if (!CanTouchUi)
+            return;
+
         if (string.IsNullOrEmpty(assistant.Content))
         {
             Messages.Remove(assistant);
@@ -464,6 +562,9 @@ public sealed partial class ChatPage : Page
 
     private async void OnConfigureClick(object sender, RoutedEventArgs e)
     {
+        if (_initializingSession)
+            return;
+
         try
         {
             ChatProviderDialogResult? result = await ChatProviderDialog.ShowAsync(
@@ -489,19 +590,25 @@ public sealed partial class ChatPage : Page
             }
 
             App.Host.SaveConfig();
+            if (!CanTouchUi)
+                return;
+
             ChatErrorBar.IsOpen = false;
             UpdateEmptyState();
             UpdateHeaderInfo();
         }
         catch (Exception ex)
         {
-            App.Host?.Log.Error($"AI 配置保存失败：{ex.GetType().Name}");
+            LogError($"AI 配置保存失败：{ex.GetType().Name}");
             ShowError("配置保存失败，请检查文件权限。");
         }
     }
 
     private async void OnNewSessionClick(object sender, RoutedEventArgs e)
     {
+        if (_initializingSession)
+            return;
+
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
@@ -515,10 +622,25 @@ public sealed partial class ChatPage : Page
             return;
 
         _requestCts?.Cancel();
+        if (!CanTouchUi)
+        {
+            _historyStore.Clear();
+            try
+            {
+                _attachmentStore.Clear();
+            }
+            catch (Exception ex)
+            {
+                LogError($"AI 图片附件清理失败：{ex.GetType().Name}");
+            }
+
+            _initialized = false;
+            return;
+        }
+
         Messages.Clear();
         PendingAttachments.Clear();
         UpdatePendingAttachmentsBar();
-        ShowSearch(show: false);
         _historyStore.Clear();
         try
         {
@@ -526,169 +648,167 @@ public sealed partial class ChatPage : Page
         }
         catch (Exception ex)
         {
-            App.Host?.Log.Error($"AI 图片附件清理失败：{ex.GetType().Name}");
+            LogError($"AI 图片附件清理失败：{ex.GetType().Name}");
             ShowError("部分图片附件未能清理。");
         }
 
         UpdateEmptyState();
         UpdateHeaderInfo();
-        ChatInput.Focus(FocusState.Programmatic);
+        FocusInput();
     }
 
-    private void SaveSession()
+    private void SaveSession(
+        bool markStoppedResponse = false,
+        string? stoppedAssistantContent = null)
     {
         try
         {
+            List<ChatMessage> messages = BuildHistory();
+            if (markStoppedResponse && _isSending)
+                MarkLastAssistantStopped(messages, stoppedAssistantContent);
+
             _historyStore.Save(new ChatSession
             {
                 UpdatedAt = DateTimeOffset.Now,
-                Messages = BuildHistory(),
+                Messages = messages,
             });
         }
         catch (Exception ex)
         {
-            App.Host?.Log.Error($"AI 会话保存失败：{ex.GetType().Name}");
+            LogError($"AI 会话保存失败：{ex.GetType().Name}");
         }
+    }
+
+    private static void MarkLastAssistantStopped(
+        List<ChatMessage> messages,
+        string? contentOverride)
+    {
+        const string marker = "（已停止）";
+        if (messages.Count > 0
+            && messages[^1] is { Role: ChatRole.Assistant } assistant)
+        {
+            string content = contentOverride ?? assistant.Content;
+            if (string.IsNullOrWhiteSpace(content))
+                content = marker;
+            else if (!content.EndsWith(marker, StringComparison.Ordinal))
+                content += "\n\n" + marker;
+
+            messages[^1] = assistant with { Content = content };
+            return;
+        }
+
+        string stoppedContent = string.IsNullOrWhiteSpace(contentOverride)
+            ? marker
+            : contentOverride.EndsWith(marker, StringComparison.Ordinal)
+                ? contentOverride
+                : contentOverride + "\n\n" + marker;
+        messages.Add(new ChatMessage(ChatRole.Assistant, stoppedContent));
     }
 
     private void ShowError(string message)
     {
+        if (!CanTouchUi)
+            return;
+
         ChatErrorBar.Title = "AI 对话";
         ChatErrorBar.Message = message;
         ChatErrorBar.IsOpen = true;
     }
 
-    private void OnSearchButtonClick(object sender, RoutedEventArgs e)
-        => ShowSearch(ChatSearchBar.Visibility != Visibility.Visible);
-
-    private void OnSearchCloseClick(object sender, RoutedEventArgs e)
-        => ShowSearch(show: false);
-
-    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
-        => RefreshSearchMatches(selectFirst: true);
-
-    private void OnSearchPreviousClick(object sender, RoutedEventArgs e)
-    {
-        if (_searchMatches.Count == 0)
-            return;
-        _searchIndex = (_searchIndex - 1 + _searchMatches.Count) % _searchMatches.Count;
-        SelectSearchResult();
-    }
-
-    private void OnSearchNextClick(object sender, RoutedEventArgs e)
-    {
-        if (_searchMatches.Count == 0)
-            return;
-        _searchIndex = (_searchIndex + 1) % _searchMatches.Count;
-        SelectSearchResult();
-    }
-
-    private void ShowSearch(bool show)
-    {
-        ChatSearchBar.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        if (show)
-        {
-            ChatSearchBox.Focus(FocusState.Programmatic);
-            ChatSearchBox.SelectAll();
-            RefreshSearchMatches(selectFirst: true);
-        }
-        else
-        {
-            _searchMatches.Clear();
-            _searchIndex = -1;
-            ChatSearchBox.Text = "";
-            ChatSearchCount.Text = "输入关键词";
-            ChatInput.Focus(FocusState.Programmatic);
-        }
-    }
-
-    private void RefreshSearchMatches(bool selectFirst)
-    {
-        _searchMatches.Clear();
-        string query = ChatSearchBox.Text.Trim();
-        if (query.Length == 0)
-        {
-            _searchIndex = -1;
-            ChatSearchCount.Text = "输入关键词";
-            return;
-        }
-
-        foreach (ChatMessageViewModel message in Messages)
-        {
-            if (message.Content.Length == 0)
-                continue;
-
-            int offset = 0;
-            while (offset < message.Content.Length)
-            {
-                int index = message.Content.IndexOf(
-                    query,
-                    offset,
-                    StringComparison.OrdinalIgnoreCase);
-                if (index < 0)
-                    break;
-
-                _searchMatches.Add((message, index));
-                offset = index + Math.Max(1, query.Length);
-            }
-        }
-
-        if (_searchMatches.Count == 0)
-        {
-            _searchIndex = -1;
-            ChatSearchCount.Text = "无结果";
-            return;
-        }
-
-        if (selectFirst || _searchIndex < 0 || _searchIndex >= _searchMatches.Count)
-            _searchIndex = 0;
-        SelectSearchResult();
-    }
-
-    private void SelectSearchResult()
-    {
-        if (_searchMatches.Count == 0)
-            return;
-
-        ChatMessageViewModel message = _searchMatches[_searchIndex].Message;
-        ChatSearchCount.Text = $"{_searchIndex + 1} / {_searchMatches.Count}";
-        MessageList.ScrollIntoView(message, ScrollIntoViewAlignment.Leading);
-    }
-
     private void UpdateHeaderInfo()
     {
+        if (!CanTouchUi)
+            return;
+
+        ChatSessionTitle.Text = ChatSessionSummary.Create(BuildHistory());
+
         string? model = App.Host?.Config.Chat.Model;
         ChatModelInfo.Text = string.IsNullOrWhiteSpace(model)
-            ? "模型：未配置"
-            : "模型：" + model.Trim();
-
-        int messageCount = Messages.Count(message => message.HasText || message.HasAttachments);
-        long characters = Messages.Sum(message => (long)message.Content.Length);
-        ChatContextInfo.Text =
-            $"上下文：{messageCount} 条消息 · {FormatCharacterCount(characters)} 字符";
+            ? "未配置"
+            : model.Trim();
     }
-
-    private static string FormatCharacterCount(long characters)
-        => characters < 1000
-            ? characters.ToString()
-            : $"{characters / 1000d:0.#}K";
 
     private void ScrollToLatest()
     {
-        if (Messages.Count == 0)
+        if (!CanTouchUi)
             return;
 
-        ChatMessageViewModel latest = Messages[^1];
+        int generation = ++_scrollGeneration;
+        QueueScrollToLatest(generation, remainingAttempts: 2);
+    }
+
+    private void QueueScrollToLatest(int generation, int remainingAttempts)
+    {
         DispatcherQueue.TryEnqueue(() =>
-            MessageList.ScrollIntoView(latest, ScrollIntoViewAlignment.Leading));
+        {
+            if (!CanTouchUi || generation != _scrollGeneration)
+                return;
+
+            MessageList.UpdateLayout();
+            ScrollViewer? scrollViewer = FindScrollViewer(MessageList);
+            if (scrollViewer is null)
+            {
+                if (remainingAttempts > 0)
+                    QueueScrollToLatest(generation, remainingAttempts - 1);
+                return;
+            }
+
+            double targetOffset = scrollViewer.ScrollableHeight;
+            bool changed = scrollViewer.ChangeView(
+                null,
+                targetOffset,
+                null,
+                disableAnimation: true);
+            if (!changed && Messages.Count > 0)
+                MessageList.ScrollIntoView(Messages[^1], ScrollIntoViewAlignment.Default);
+
+            bool reachedBottom =
+                scrollViewer.VerticalOffset >= scrollViewer.ScrollableHeight - 1d;
+            if ((!changed || !reachedBottom) && remainingAttempts > 0)
+                QueueScrollToLatest(generation, remainingAttempts - 1);
+        });
+    }
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject root)
+    {
+        if (root is ScrollViewer scrollViewer)
+            return scrollViewer;
+
+        int childCount = VisualTreeHelper.GetChildrenCount(root);
+        for (int index = 0; index < childCount; index++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, index);
+            if (FindScrollViewer(child) is { } nested)
+                return nested;
+        }
+
+        return null;
     }
 
     private void SetSending(bool sending)
     {
         _isSending = sending;
-        ChatInput.IsEnabled = !sending;
+        if (!CanTouchUi)
+            return;
+
+        ChatInput.IsEnabled = !sending && !_initializingSession;
         ChatInput.PlaceholderText = sending ? "正在回复…按 Esc 停止" : "与 AI 对话";
         UpdateBusyRing();
+    }
+
+    private void ApplyUiState()
+    {
+        if (!CanTouchUi)
+            return;
+
+        ChatNewSessionButton.IsEnabled = true;
+        ChatConfigureButton.IsEnabled = true;
+        ChatInput.IsEnabled = !_isSending && !_initializingSession;
+        ChatInput.PlaceholderText = _isSending ? "正在回复…按 Esc 停止" : "与 AI 对话";
+        UpdateBusyRing();
+        UpdateEmptyState();
+        UpdatePendingAttachmentsBar();
+        UpdateHeaderInfo();
     }
 
     private void SetAttachmentReading(bool reading)
@@ -697,15 +817,37 @@ public sealed partial class ChatPage : Page
         UpdateBusyRing();
     }
 
+    private void SetInitializing(bool initializing)
+    {
+        if (!CanTouchUi)
+            return;
+
+        ChatInput.IsEnabled = !initializing && !_isSending;
+        ChatInput.PlaceholderText = initializing
+            ? "正在加载会话…"
+            : _isSending
+                ? "正在回复…按 Esc 停止"
+                : "与 AI 对话";
+        ChatNewSessionButton.IsEnabled = !initializing;
+        ChatConfigureButton.IsEnabled = !initializing;
+        UpdateBusyRing();
+    }
+
     private void UpdateBusyRing()
     {
-        bool busy = _isSending || _isReadingClipboard;
+        if (!CanTouchUi)
+            return;
+
+        bool busy = _isSending || _isReadingClipboard || _initializingSession;
         ChatBusyRing.IsActive = busy;
         ChatBusyRing.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateEmptyState()
     {
+        if (!CanTouchUi)
+            return;
+
         bool empty = Messages.Count == 0;
         ChatEmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
         if (!empty)
@@ -719,6 +861,23 @@ public sealed partial class ChatPage : Page
     }
 
     private void UpdatePendingAttachmentsBar()
-        => PendingAttachmentsBar.Visibility =
+    {
+        if (!CanTouchUi)
+            return;
+
+        PendingAttachmentsBar.Visibility =
             PendingAttachments.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static void LogInfo(string message)
+    {
+        if (App.Host is { IsShuttingDown: false } host)
+            host.Log.Info(message);
+    }
+
+    private static void LogError(string message)
+    {
+        if (App.Host is { IsShuttingDown: false } host)
+            host.Log.Error(message);
+    }
 }

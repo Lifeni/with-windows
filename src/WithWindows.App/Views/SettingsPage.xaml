@@ -44,12 +44,34 @@
                 </controls:CardRow.Trailing>
             </controls:CardRow>
 
-            <!-- 显示 / 隐藏窗口：全局热键，把隐藏到托盘的主窗口叫回来；已在屏幕上时再按收起（打开记事页） -->
-            <controls:HotkeyRow
-                x:Name="ShowWindowRow"
-                Glyph="&#xE765;"
-                Title="显示 / 隐藏窗口"
-                ToolId="notepad" />
+            <!-- 显示 / 隐藏窗口：从隐藏状态唤出时打开下方配置的默认页面；已在屏幕上时再按收起 -->
+            <StackPanel Spacing="0">
+                <controls:HotkeyRow
+                    x:Name="ShowWindowRow"
+                    CardBorderThickness="1,1,1,0"
+                    CardCornerRadius="6,6,0,0"
+                    Glyph="&#xE765;"
+                    Title="显示 / 隐藏窗口"
+                    ToolId="notepad" />
+
+                <controls:CardRow
+                    AutomationProperties.AutomationId="DefaultWindowPageCard"
+                    CardCornerRadius="0,0,6,6"
+                    Glyph="&#xE8A7;"
+                    Title="默认打开窗口">
+                    <controls:CardRow.Trailing>
+                        <ComboBox
+                            x:Name="DefaultWindowPageComboBox"
+                            Width="160"
+                            AutomationProperties.AutomationId="DefaultWindowPageComboBox"
+                            AutomationProperties.Name="默认打开窗口"
+                            SelectionChanged="OnDefaultWindowPageChanged">
+                            <ComboBoxItem Content="记事" Tag="notepad" />
+                            <ComboBoxItem Content="AI 对话" Tag="ai_chat" />
+                        </ComboBox>
+                    </controls:CardRow.Trailing>
+                </controls:CardRow>
+            </StackPanel>
 
             <!-- 关于：参考 WinUI Gallery 的写法——折叠成一项，展开后每个条目一行 -->
             <Expander

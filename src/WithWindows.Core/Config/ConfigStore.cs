@@ -3,8 +3,8 @@ using System.Text.Json;
 namespace WithWindows.Core.Config;
 
 /// <summary>
-/// 配置读写（v2）。原子替换（临时文件 + File.Replace）+ 旧内容留 .bak + 主文件损坏回退 + 自愈式清理未知工具。
-/// 版本 1 迁移到版本 2；旧数组与旧 v3 对象格式不兼容，识别到即重建为默认配置并回写。
+/// 配置读写（v5）。原子替换（临时文件 + File.Replace）+ 旧内容留 .bak + 主文件损坏回退 + 自愈式清理未知工具。
+/// 版本 1 至 4 迁移到版本 5；旧 v3 bindings 对象、旧数组与不支持版本重建为默认配置并回写。
 /// </summary>
 public sealed class ConfigStore
 {
@@ -48,11 +48,11 @@ public sealed class ConfigStore
             return new AppConfig();
         }
 
-        AppConfig? config = TryDeserialize(text, out bool unsupportedFormat, out bool migrated);
+        AppConfig? config = TryDeserialize(text, out bool unsupportedFormat, out bool needsSave);
         if (config is not null)
         {
             bool normalized = Normalize(config);
-            if (migrated || normalized)
+            if (needsSave || normalized)
                 Save(config);
             return config;
         }
@@ -72,16 +72,16 @@ public sealed class ConfigStore
     }
 
     /// <summary>
-    /// 解析 v1 / v2 配置。<paramref name="unsupportedFormat"/> 为 true 表示 JSON 合法但不是支持版本
-    /// （旧数组格式、缺版本号、版本号不符）；<paramref name="migrated"/> 表示需要从 v1 回写为 v2。
+    /// 解析 v1 至 v5 配置。<paramref name="unsupportedFormat"/> 为 true 表示 JSON 合法但不是支持版本
+    /// （旧数组格式、缺版本号、版本号不符）；<paramref name="needsSave"/> 表示需要回写。
     /// </summary>
     private static AppConfig? TryDeserialize(
         string text,
         out bool unsupportedFormat,
-        out bool migrated)
+        out bool needsSave)
     {
         unsupportedFormat = false;
-        migrated = false;
+        needsSave = false;
 
         JsonDocument doc;
         try
@@ -106,7 +106,14 @@ public sealed class ConfigStore
             try
             {
                 int versionNumber = version.GetInt32();
-                if (versionNumber is not (1 or 2))
+                if (versionNumber is not (1 or 2 or 3 or 4 or 5))
+                {
+                    unsupportedFormat = true;
+                    return null;
+                }
+
+                if (versionNumber == 3
+                    && doc.RootElement.TryGetProperty("bindings", out _))
                 {
                     unsupportedFormat = true;
                     return null;
@@ -114,9 +121,41 @@ public sealed class ConfigStore
 
                 AppConfig config =
                     doc.RootElement.Deserialize<AppConfig>(JsonOptions) ?? new AppConfig();
-                migrated = versionNumber == 1;
+                bool repaired = false;
+                if (config.Tools is null)
+                {
+                    config.Tools = AppConfig.CreateDefaultTools();
+                    repaired = true;
+                }
+
+                if (config.DisplayMode is null)
+                {
+                    config.DisplayMode = new DisplayModeConfig();
+                    repaired = true;
+                }
+
+                if (config.WindowState is null)
+                {
+                    config.WindowState = new WindowStateConfig();
+                    repaired = true;
+                }
+
+                if (config.Chat is null)
+                {
+                    config.Chat = new ChatSettings();
+                    repaired = true;
+                }
+
+                if (versionNumber < 3
+                    && string.IsNullOrWhiteSpace(config.Chat.SystemPrompt))
+                {
+                    config.Chat.SystemPrompt = ChatSettings.DefaultSystemPrompt;
+                }
+
+                needsSave = versionNumber < AppConfig.CurrentVersion
+                    || repaired
+                    || !HasValidDefaultPage(doc.RootElement);
                 config.Version = AppConfig.CurrentVersion;
-                config.Chat ??= new ChatSettings();
                 return config;
             }
             catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException)
@@ -127,10 +166,31 @@ public sealed class ConfigStore
         }
     }
 
+    private static bool HasValidDefaultPage(JsonElement root)
+    {
+        if (!root.TryGetProperty("windowState", out JsonElement windowState)
+            || windowState.ValueKind != JsonValueKind.Object
+            || !windowState.TryGetProperty("defaultPage", out JsonElement defaultPage)
+            || defaultPage.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        string? value = defaultPage.GetString();
+        return value is WindowDefaultPage.Notepad or WindowDefaultPage.AiChat;
+    }
+
     /// <summary>自愈：丢弃未知工具、去重、补回缺失的已知工具。返回是否发生了变化。</summary>
     private static bool Normalize(AppConfig config)
     {
         bool changed = false;
+
+        string defaultPage = WindowDefaultPage.Normalize(config.WindowState.DefaultPage);
+        if (!string.Equals(config.WindowState.DefaultPage, defaultPage, StringComparison.Ordinal))
+        {
+            config.WindowState.DefaultPage = defaultPage;
+            changed = true;
+        }
 
         int removed = config.Tools.RemoveAll(t => !AppConfig.KnownToolIds.Contains(t.Id));
         changed |= removed > 0;

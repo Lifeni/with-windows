@@ -7,7 +7,7 @@
 
 ## 功能
 
-Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关闭窗口只是隐藏到托盘，单进程常驻后台。当前四个页面：
+Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，单进程常驻后台；自有关闭按钮隐藏到托盘，系统关闭路径（如 `Alt+F4`）退出应用。当前四个页面：
 
 **记事**（打开即编辑器，纯文本）
 
@@ -23,10 +23,12 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关
 **AI 对话**
 
 - 接入任意 OpenAI 兼容的 Chat Completions 端点：可配置 Base URL、模型、系统提示和可选的 API Key
+- AI 服务配置在窗口高度不足时可垂直滚动，校验提示和操作按钮固定可见
 - 流式显示回复，支持 `Enter` 发送、`Shift+Enter` 换行、`Esc` 停止生成和新建会话；关闭应用后自动恢复当前对话
-- 顶部显示当前模型、消息数和上下文字符数，支持搜索当前对话
+- 顶部大标题显示当前会话摘要，副标题只显示模型名称；切到本页后输入框自动获得焦点
+- 输入框默认使用与消息区区分开的主题填充色，悬停和聚焦时保持同一背景，不显示边框或蓝色下划线
 - 支持在输入框按 `Ctrl+V` 粘贴剪贴板图片：位图截图或 PNG / JPEG / WebP / GIF 文件均可识别，每条消息最多 4 张
-- 图片最终大小限制为 1 MiB；超过时自动缩放并优先无损压缩，仍超限再转成高质量 JPEG
+- 图片单张限制为 1 MiB；超过时自动缩放并优先无损压缩，仍超限再转成高质量 JPEG。发送请求时仅携带最新最多 4 张历史图片且总计不超过 4 MiB，本地会话仍保留全部图片
 - AI 回复完成后渲染标题、列表、表格、任务复选框、可折叠区域、引用、代码块和链接等 Markdown；原始 HTML 不会作为可执行内容运行
 - 当前会话保存在 `%APPDATA%\WithWindows\chat\current.json`
 - 图片附件保存在 `%APPDATA%\WithWindows\chat\attachments\`；新建会话会同时清理对话和附件
@@ -42,12 +44,12 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关
 **设置**
 
 - 卡片分行、内容跟随窗口宽度（上限 1200 DIP 并水平居中），风格对齐系统记事本 / PowerToys 设置页；卡片行与展开组件标题行统一 64 DIP 最小高度（`SettingCardMinHeight`），只留标题时也不会高矮不一
-- 开机自启（写 `HKCU\...\Run`，用户级；开机拉起后隐藏到托盘，不打开主窗口，之后从开始菜单 / 桌面快捷方式再次启动会唤出已有窗口）、显示 / 隐藏窗口（全局热键：按一次唤出并打开记事页，再按一次收起；窗口可见但被别的窗口挡住时只前置聚焦，不收起）
+- 开机自启（写 `HKCU\...\Run`，用户级；开机拉起后隐藏到托盘，不打开主窗口，之后从开始菜单 / 桌面快捷方式再次启动会唤出已有窗口）、显示 / 隐藏窗口（全局热键：从隐藏状态唤出并打开所配置的默认页面，再按一次收起；窗口可见但被别的窗口挡住时只前置聚焦，不收起）、默认打开窗口（记事 / AI 对话）
 - 关于：折叠项（默认展开，图标 + 标题），展开后是版本 / 构建日期 / GitHub 仓库
 
-**托盘**：左键唤出主窗口，右键菜单「记事 / 切换投影 · 设置 · 退出」（选项与分组对齐 `main` 分支）。
+**托盘**：左键唤出主窗口，右键菜单「记事 / AI 对话 / 切换投影 · 设置 · 退出」。窗口使用与记事本风格一致的自有标题栏；自有关闭按钮收进托盘，系统关闭路径（如 `Alt+F4`）干净退出，避免再次唤回时出现黑屏。
 
-内置工具：**记事**、**切换投影**（`SetDisplayConfig` 直接应用拓扑；目标与当前一致时提示「当前已是…」，不做无谓切换）。
+内置工具：**记事**、**AI 对话**、**切换投影**（`SetDisplayConfig` 直接应用拓扑；目标与当前一致时提示「当前已是…」，不做无谓切换）。
 
 ## 快速开始
 
@@ -139,21 +141,21 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 
 ```json
 {
-  "version": 2,
+  "version": 5,
   "tools": [
     { "id": "notepad", "enabled": true, "hotkey": null },
     { "id": "display_mode", "enabled": true, "hotkey": null }
   ],
   "displayMode": { "modes": ["internal", "extend"] },
-  "windowState": { "width": 1100, "height": 720, "x": null, "y": null, "notepadFontSize": 14 },
-  "chat": { "baseUrl": "", "model": "", "systemPrompt": "" }
+  "windowState": { "width": 1100, "height": 720, "x": null, "y": null, "notepadFontSize": 14, "defaultPage": "notepad" },
+  "chat": { "baseUrl": "", "model": "" }
 }
 ```
 
-- `version`：配置模型版本，当前为 2；版本 1 会自动迁移并保留已有设置
+- `version`：配置模型版本，当前为 5；版本 1 至 4 会自动迁移并保留已有设置，旧 v3 `bindings` 格式会重建。仅 v1 / v2 中为空的系统提示会迁移为内置默认提示；新格式 v3 起可主动清空
 - `tools`：工具列表，每项含 `id` / `enabled` / `hotkey`；`hotkey` 为 `null` 或空 = 不绑定（**不预置任何默认热键**）。目前两项：`notepad`（显示 / 隐藏主窗口并打开记事）与 `display_mode`（切换投影）
 - `displayMode.modes`：投屏 toggle 的候选模式，按固定顺序循环（修改后立即生效）
-- `windowState`：窗口尺寸/位置与记事本字号。位置为 `null` 表示尚未保存（`(0, 0)` 是合法坐标，不用 0 当哨兵）；位置超出所有显示器时回主屏居中
+- `windowState`：窗口尺寸/位置、记事本字号与快捷键唤出时的默认页面。`defaultPage` 为 `notepad` 或 `ai_chat`，缺失、类型错误或未知值会回退为 `notepad`；位置为 `null` 表示尚未保存（`(0, 0)` 是合法坐标，不用 0 当哨兵），位置超出所有显示器时回主屏居中
 - `chat`：AI 对话的非敏感设置。`baseUrl` 填 OpenAI 兼容端点根路径（如 `https://example.com/v1`）；API Key 不在此文件中
 
 仓库内的 [config/config.json](config/config.json) 是同样结构的示例文件，仅作参考。

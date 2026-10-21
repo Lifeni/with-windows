@@ -5,6 +5,7 @@ using System.Reflection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WithWindows.Core.App;
+using WithWindows.Core.Config;
 using WithWindows.Services;
 
 namespace WithWindows.Views;
@@ -36,6 +37,11 @@ public sealed partial class SettingsPage : Page
         {
             AutoStartToggle.IsOn = AutoStart.IsEnabled();
             AutoStartStateText.Text = AutoStartToggle.IsOn ? "开" : "关";
+            DefaultWindowPageComboBox.SelectedIndex =
+                WindowDefaultPage.Normalize(Host.Config.WindowState.DefaultPage)
+                    == WindowDefaultPage.AiChat
+                    ? 1
+                    : 0;
             VersionText.Text = $"With Windows {CurrentVersion()}";
             BuildDateText.Text = BuildDate();
         }
@@ -64,6 +70,27 @@ public sealed partial class SettingsPage : Page
         {
             Host?.Log.Error($"开机自启设置失败：{ex.Message}");
         }
+    }
+
+    private void OnDefaultWindowPageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing || Host is null)
+            return;
+
+        string page = (DefaultWindowPageComboBox.SelectedItem as ComboBoxItem)?.Tag as string
+            ?? WindowDefaultPage.Notepad;
+        page = WindowDefaultPage.Normalize(page);
+        if (string.Equals(
+            Host.Config.WindowState.DefaultPage,
+            page,
+            StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Host.Config.WindowState.DefaultPage = page;
+        Host.SaveConfig();
+        Host.Log.Info($"默认打开窗口已设为：{(page == WindowDefaultPage.AiChat ? "AI 对话" : "记事")}");
     }
 
     private void OnOpenRepositoryClick(object sender, RoutedEventArgs e)

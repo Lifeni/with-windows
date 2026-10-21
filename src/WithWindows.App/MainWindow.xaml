@@ -14,15 +14,87 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar
+        <Grid
             x:Name="AppTitleBar"
-            Title="With Windows"
-            IsPaneToggleButtonVisible="True"
-            PaneToggleRequested="AppTitleBar_PaneToggleRequested">
-            <TitleBar.IconSource>
-                <ImageIconSource ImageSource="Assets/with-windows.ico" />
-            </TitleBar.IconSource>
-        </TitleBar>
+            Height="48"
+            AutomationProperties.AutomationId="AppTitleBar"
+            Background="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button
+                Width="44"
+                Height="48"
+                Padding="0"
+                AutomationProperties.AutomationId="PaneToggleButton"
+                AutomationProperties.Name="切换导航"
+                Background="Transparent"
+                BorderThickness="0"
+                Click="OnPaneToggleClick">
+                <FontIcon FontSize="16" Glyph="&#xE700;" />
+            </Button>
+
+            <StackPanel
+                Grid.Column="1"
+                Margin="8,0,0,0"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="10">
+                <FontIcon
+                    FontSize="16"
+                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                    Glyph="&#xE945;" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    Text="With Windows" />
+            </StackPanel>
+
+            <StackPanel
+                Grid.Column="2"
+                Orientation="Horizontal">
+                <Button
+                    Width="46"
+                    Height="48"
+                    Padding="0"
+                    AutomationProperties.AutomationId="WindowMinimizeButton"
+                    AutomationProperties.Name="最小化"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnMinimizeClick">
+                    <FontIcon FontSize="12" Glyph="&#xE921;" />
+                </Button>
+                <Button
+                    x:Name="MaximizeRestoreButton"
+                    Width="46"
+                    Height="48"
+                    Padding="0"
+                    AutomationProperties.AutomationId="WindowMaximizeRestoreButton"
+                    AutomationProperties.Name="最大化"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnMaximizeRestoreClick">
+                    <FontIcon
+                        x:Name="MaximizeRestoreIcon"
+                        FontSize="12"
+                        Glyph="&#xE922;" />
+                </Button>
+                <Button
+                    Width="46"
+                    Height="48"
+                    Padding="0"
+                    AutomationProperties.AutomationId="WindowCloseButton"
+                    AutomationProperties.Name="关闭到托盘"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnCloseClick">
+                    <FontIcon FontSize="12" Glyph="&#xE711;" />
+                </Button>
+            </StackPanel>
+        </Grid>
 
         <NavigationView
             x:Name="NavView"

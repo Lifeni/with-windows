@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 5,
   "tools": [
     { "id": "notepad", "enabled": true, "hotkey": null },
     { "id": "display_mode", "enabled": true, "hotkey": null }
@@ -12,7 +12,8 @@
     "height": 720,
     "x": null,
     "y": null,
-    "notepadFontSize": 14
+    "notepadFontSize": 14,
+    "defaultPage": "notepad"
   },
   "chat": {
     "baseUrl": "",

@@ -20,9 +20,11 @@ public sealed class HotkeyRow : UserControl
 {
     private readonly InfoBar _info = new()
     {
+        Margin = new Thickness(0, 8, 0, 0),
         IsOpen = false,
         IsClosable = true,
         Severity = InfoBarSeverity.Warning,
+        Visibility = Visibility.Collapsed,
     };
 
     private readonly HotkeyChips _chips = new() { VerticalAlignment = VerticalAlignment.Center };
@@ -46,6 +48,7 @@ public sealed class HotkeyRow : UserControl
     {
         Build();
         Loaded += OnLoaded;
+        _info.Closed += (_, _) => _info.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>工具标识（对应配置 tools[].id），须在加入可视化树之前设置。</summary>
@@ -72,6 +75,20 @@ public sealed class HotkeyRow : UserControl
         set => _card.Glyph = value;
     }
 
+    /// <summary>透传卡片圆角，供多行组合使用。</summary>
+    public CornerRadius CardCornerRadius
+    {
+        get => _card.CardCornerRadius;
+        set => _card.CardCornerRadius = value;
+    }
+
+    /// <summary>透传卡片边框厚度，供多行组合使用。</summary>
+    public Thickness CardBorderThickness
+    {
+        get => _card.CardBorderThickness;
+        set => _card.CardBorderThickness = value;
+    }
+
     private static AppHost? Host => App.Host;
 
     private void Build()
@@ -84,7 +101,9 @@ public sealed class HotkeyRow : UserControl
         _edit.Click += async (_, _) => await EditHotkeyAsync();
         _card.Trailing = _edit;
 
-        var content = new StackPanel { Spacing = 8 };
+        // 间距放在 InfoBar 自身而不是 StackPanel：InfoBar 折叠时不能留下空白，
+        // 否则与下一张卡片组合时会出现可见间隙。
+        var content = new StackPanel { Spacing = 0 };
         content.Children.Add(_card);
         content.Children.Add(_info);
         Content = content;
@@ -133,12 +152,16 @@ public sealed class HotkeyRow : UserControl
         if (failure is null)
         {
             if (_info.Severity != InfoBarSeverity.Success)
+            {
                 _info.IsOpen = false;
+                _info.Visibility = Visibility.Collapsed;
+            }
             return;
         }
 
         _info.Severity = InfoBarSeverity.Warning;
         _info.Title = failure;
         _info.IsOpen = true;
+        _info.Visibility = Visibility.Visible;
     }
 }

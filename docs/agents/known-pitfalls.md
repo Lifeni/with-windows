@@ -4,7 +4,13 @@
 
 ## 窗口与 XAML
 
-**不要用 `AppWindow.Hide()` / `AppWindow.Show()` 做常驻窗口的托盘收起与唤回**：WinUI 3 在隐藏时可能让当前页面触发 `Unloaded`，但再次 `AppWindow.Show()` 只恢复顶层窗口，不会把页面重新挂到可视树；投影、AI 对话等页面会黑屏，随后伴随 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。本项目统一走 `WindowInterop.Hide/Show`（CsWin32 `ShowWindow(SW_HIDE/SW_SHOW)`），让 XAML 内容在隐藏期间保持存活。关闭窗口与「显示 / 隐藏窗口」热键都不得绕回 `AppWindow.Hide()`。
+**托盘收起不要隐藏顶层 WinUI 窗口**：`AppWindow.Hide()` / `AppWindow.Show()` 和 `SW_HIDE` 都可能让当前页面触发 `Unloaded`，再次显示时只恢复顶层窗口，不会把整棵 XAML 内容重新挂载；投影、AI 对话等页面会黑屏，随后伴随 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。本机还实测到 `OverlappedPresenter.Minimize()` 与 `Restore()` 会直接破坏 XAML 内容树，即使用按钮事件排队执行也无效。当前正常路径是：收起时用 CsWin32 `ShowWindow(SW_MINIMIZE)`，再设 `AppWindow.IsShownInSwitchers = false`；唤回时先设回 `true`，再调用 `ShowWindow(SW_SHOWNOACTIVATE)`，最后 `Activate()` 和 `BringToFront()`。不要移动窗口到屏幕外，也不要用 `SW_HIDE`。
+
+**系统标题栏关闭会在 `Closing` 前卸载页面**：取消系统关闭后再尝试恢复导航，会得到黑帧或原生崩溃。`MainWindow` 因此隐藏系统标题栏，使用自有 `AppTitleBar` 与窗口按钮；自有关闭按钮直接收进托盘，系统关闭路径（`Alt+F4` 等）则干净退出。
+
+**UI Automation `InvokePattern` 不适合关闭按钮生命周期回归**：对未激活窗口直接 invoke 导航或关闭按钮，可能产生真实鼠标不会触发的 `Unloaded`。回归黑屏时必须先切换到目标窗口，再用 `winapp ui click` 执行鼠标路径；不要用截图黑屏反推生产用户操作必然失败。
+
+**`ContentDialog` 内部滚动器默认禁用垂直滚动**：WinUI 默认模板的 `ContentScrollViewer` 是 `VerticalScrollBarVisibility="Disabled"`，高表单在矮窗口里会被直接裁切。业务 `Content` 必须再包一层 `ScrollViewer`，按 `XamlRoot.Size.Height` 设置 `MaxHeight`，并订阅 `XamlRoot.Changed` 处理对话框打开期间的窗口缩放。错误提示应放在滚动区外，否则用户停留在表单顶部提交时看不到校验结果。
 
 **窗口子类化与 WinUI 3 消息泵冲突**：`SetWindowSubclass` 或自绘 `WM_GETMINMAXINFO` 会导致原生崩溃（`0xc000027b`）。已两次验证，一律改用官方 API。
 
@@ -25,6 +31,8 @@
 **XAML 里的初值会立刻触发事件**：`ToggleButton` / `AppBarToggleButton` 写 `IsChecked="True"` 会在**解析期**就触发 `Checked`。若该处理器引用了同一 XAML 中**定义在其之后**的元素（此时还是 `null`），会抛 `NullReferenceException`，而 XAML 层把它包装成极具误导性的「`Failed to assign to property 'ToggleButton.IsChecked'`」并导致 `0xC000027B` 启动崩溃。事件处理器里务必对后定义元素做空值保护。
 
 **XAML 崩溃的定位办法**：`0xC000027B` 只有「应用已启动」一行日志时，给 `App` 挂 `UnhandledException` 把 `e.Exception` 写进日志，通常能拿到带行号的 `XamlParseException`（本次就是靠它定位的）。
+
+**页面 Unloaded 后禁止继续操作 XAML**：异步请求、图片解码、延迟滚动和窗口激活回调都可能在页面已经卸载后继续执行。此时设置控件属性、调用 `Focus()` 或 `ScrollIntoView()` 会把无效窗口句柄交给 WinUI，表现为黑帧并最终以 `0xC000027B` 退出。所有异步续体必须先检查 `IsLoaded` 和 `XamlRoot is not null`；卸载后只允许保存文件等非 UI 工作。AI 页不再订阅全局 `Window.Activated` 来抢输入焦点。
 
 **中文输入法会吃掉/转换注入的字符**：`winapp ui send-keys ... text=AB1CD` 实测结果是 `AB`、`XYZ789` 变成 `XYZ'7'8'9`——根因是**输入法（IME）当时处于中文态**，注入的数字/符号被输入法拦截或改写，**不是应用缺陷**。做注入输入验证前先切到英文输入法，或只注入字母/中文，否则会把输入法问题误判成应用 bug。
 

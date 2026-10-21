@@ -1,3 +1,4 @@
+using System.Text.Json;
 using WithWindows.Core.Config;
 
 namespace WithWindows.Core.Tests;
@@ -13,7 +14,7 @@ public class ConfigStoreTests : IDisposable
     private ConfigStore NewStore() => new(System.IO.Path.Combine(_dir, "config.json"));
 
     [Fact]
-    public void Load_版本1_迁移为版本2并保留原配置()
+    public void Load_版本1_迁移为版本5并保留原配置()
     {
         var store = NewStore();
         File.WriteAllText(store.Path,
@@ -31,13 +32,159 @@ public class ConfigStoreTests : IDisposable
 
         AppConfig config = store.Load();
 
-        Assert.Equal(2, config.Version);
+        Assert.Equal(5, config.Version);
         Assert.Equal("Ctrl+Alt+N", config.Tools.Single(t => t.Id == "notepad").Hotkey);
         Assert.Equal(new[] { "internal", "external" }, config.DisplayMode.Modes);
         Assert.Equal(1024d, config.WindowState.Width);
         Assert.Equal(18d, config.WindowState.NotepadFontSize);
         Assert.Equal("", config.Chat.BaseUrl);
-        Assert.Contains("\"version\": 2", File.ReadAllText(store.Path));
+        Assert.Equal(ChatSettings.DefaultSystemPrompt, config.Chat.SystemPrompt);
+        Assert.Contains("\"version\": 5", File.ReadAllText(store.Path));
+    }
+
+    [Fact]
+    public void Load_版本4_迁移为版本5并默认打开记事()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 4,
+              "windowState": {
+                "width": 1024,
+                "height": 700
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(5, config.Version);
+        Assert.Equal(1024d, config.WindowState.Width);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.Equal(5, saved.RootElement.GetProperty("version").GetInt32());
+        Assert.Equal(
+            "notepad",
+            saved.RootElement.GetProperty("windowState").GetProperty("defaultPage").GetString());
+    }
+
+    [Fact]
+    public void Load_非法默认页_回退为记事()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 5,
+              "windowState": {
+                "width": 1024,
+                "height": 700,
+                "defaultPage": "unknown"
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(5, config.Version);
+        Assert.Equal(1024d, config.WindowState.Width);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.Equal(
+            "notepad",
+            saved.RootElement.GetProperty("windowState").GetProperty("defaultPage").GetString());
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("true")]
+    [InlineData("{}")]
+    public void Load_默认页类型错误_回退为记事且保留其他配置(string invalidDefaultPage)
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            $$"""
+            {
+              "version": 5,
+              "tools": [
+                { "id": "notepad", "enabled": true, "hotkey": "F13" }
+              ],
+              "displayMode": { "modes": [ "internal", "external" ] },
+              "windowState": {
+                "width": 1024,
+                "height": 700,
+                "defaultPage": {{invalidDefaultPage}}
+              },
+              "chat": {
+                "baseUrl": "https://example.test/v1",
+                "model": "demo"
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(WindowDefaultPage.Notepad, config.WindowState.DefaultPage);
+        Assert.Equal(1024d, config.WindowState.Width);
+        Assert.Equal("F13", config.Tools.Single(t => t.Id == "notepad").Hotkey);
+        Assert.Equal("demo", config.Chat.Model);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.Equal(
+            WindowDefaultPage.Notepad,
+            saved.RootElement.GetProperty("windowState").GetProperty("defaultPage").GetString());
+    }
+
+    [Fact]
+    public void Load_窗口状态为null_补默认值且保留其他配置()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 5,
+              "tools": [
+                { "id": "notepad", "enabled": true, "hotkey": "F13" }
+              ],
+              "windowState": null,
+              "chat": {
+                "baseUrl": "https://example.test/v1",
+                "model": "demo"
+              }
+            }
+            """);
+
+        Exception? exception = Record.Exception(() => store.Load());
+
+        Assert.Null(exception);
+        Assert.Equal("F13", store.Load().Tools.Single(t => t.Id == "notepad").Hotkey);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        JsonElement windowState = saved.RootElement.GetProperty("windowState");
+        Assert.Equal(JsonValueKind.Object, windowState.ValueKind);
+        Assert.Equal(
+            WindowDefaultPage.Notepad,
+            windowState.GetProperty("defaultPage").GetString());
+    }
+
+    [Fact]
+    public void Load_版本5缺失默认页_回写为记事()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 5,
+              "windowState": {
+                "width": 1024,
+                "height": 700
+              }
+            }
+            """);
+
+        _ = store.Load();
+
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.True(
+            saved.RootElement.GetProperty("windowState").TryGetProperty("defaultPage", out JsonElement defaultPage));
+        Assert.Equal(WindowDefaultPage.Notepad, defaultPage.GetString());
     }
 
     [Fact]
@@ -58,6 +205,74 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_版本2空提示词_迁移为默认提示()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 2,
+              "chat": {
+                "baseUrl": "https://example.test/v1",
+                "model": "demo",
+                "systemPrompt": ""
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(5, config.Version);
+        Assert.Equal(ChatSettings.DefaultSystemPrompt, config.Chat.SystemPrompt);
+    }
+
+    [Fact]
+    public void Load_版本4空提示词_保留用户主动清空()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 4,
+              "chat": {
+                "baseUrl": "https://example.test/v1",
+                "model": "demo",
+                "systemPrompt": ""
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(5, config.Version);
+        Assert.Equal("", config.Chat.SystemPrompt);
+    }
+
+    [Fact]
+    public void Load_新格式版本3_迁移为版本5并保留主动清空()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 3,
+              "chat": {
+                "baseUrl": "https://example.test/v1",
+                "model": "demo",
+                "systemPrompt": ""
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(5, config.Version);
+        Assert.Equal("https://example.test/v1", config.Chat.BaseUrl);
+        Assert.Equal("demo", config.Chat.Model);
+        Assert.Equal("", config.Chat.SystemPrompt);
+    }
+
+    [Fact]
     public void Load_全新配置_不预置任何热键()
     {
         var store = NewStore();
@@ -67,6 +282,7 @@ public class ConfigStoreTests : IDisposable
         Assert.All(config.Tools, t => Assert.True(string.IsNullOrEmpty(t.Hotkey)));
         Assert.Contains(config.Tools, t => t.Id == "notepad");
         Assert.Contains(config.Tools, t => t.Id == "display_mode");
+        Assert.Equal(ChatSettings.DefaultSystemPrompt, config.Chat.SystemPrompt);
     }
 
     [Fact]
@@ -187,5 +403,18 @@ public class ConfigStoreTests : IDisposable
         var reloaded = store.Load();
         Assert.Equal(new[] { "internal", "external" }, reloaded.DisplayMode.Modes);
         Assert.Equal(1024d, reloaded.WindowState.Width);
+    }
+
+    [Fact]
+    public void Save_默认打开窗口_往返一致()
+    {
+        var store = NewStore();
+        var config = new AppConfig();
+        config.WindowState.DefaultPage = WindowDefaultPage.AiChat;
+
+        store.Save(config);
+        AppConfig reloaded = store.Load();
+
+        Assert.Equal(WindowDefaultPage.AiChat, reloaded.WindowState.DefaultPage);
     }
 }

@@ -10,20 +10,21 @@ git log --oneline -12
 git status --short
 ```
 
-- **工作分支就是 `main`**，主检出 `C:\Users\LFN\Documents\Code\with-windows` 就是当前实现（WinUI 3 工具箱），没有别的工作区。
+- `main` 是稳定集成分支，主检出为 `C:\Users\LFN\Documents\Code\with-windows`。未合并的「AI 对话」改动位于独立工作区 `C:\Users\LFN\.codex\worktrees\ai-chat-openai-compatible\with-windows`，当前为 detached HEAD，待用户决定本地合并或 PR。
 - 2026-10-11 已把 `dev` 全部合并进 `main`（合并提交 `538f72d`），并清掉 `.worktrees/dev`、`dev` 分支与 `feat/winui3`（本地与远端）。要隔离开发直接用 `git worktree add` 新建即可。
 - 新会话应先读：`AGENTS.md`（入口）+ 本文 + `docs/superpowers/specs/2026-10-09-winui3-toolbox-design.md`（设计与全部决策）。
 
 ## 一、这个项目是什么
 
-Windows 常驻托盘的工具箱：左侧 `NavigationView` 导航，每个工具一页。当前四个页面——**记事**（对齐系统记事本的编辑器 + 浮动查找替换 + 状态栏）、**AI 对话**（OpenAI 兼容流式对话 + Markdown + 剪贴板图片）、**投影**（投屏快捷键与候选模式）、**设置**（开机自启、显示 / 隐藏窗口快捷键、关于）。关闭主窗口只是隐藏到托盘，单进程常驻。
+Windows 常驻托盘的工具箱：左侧 `NavigationView` 导航，每个工具一页。当前四个页面——**记事**（对齐系统记事本的编辑器 + 浮动查找替换 + 状态栏）、**AI 对话**（OpenAI 兼容流式对话 + Markdown + 剪贴板图片）、**投影**（投屏快捷键与候选模式）、**设置**（开机自启、显示 / 隐藏窗口快捷键、关于）。自有标题栏关闭按钮隐藏到托盘，单进程常驻；系统关闭路径（如 `Alt+F4`）退出应用。
 
-## 二、当前进度（截至 2026-10-20）
+## 二、当前进度（截至 2026-10-21）
 
-- **v0.5.1 已发布**：tag `v0.5.1`，Release 见 [v0.5.1](https://github.com/Lifeni/with-windows/releases/tag/v0.5.1)，含 Inno Setup 安装器（约 44.5 MB）、便携 zip（约 66.4 MB）与 `SHA256SUMS.txt`。发布由 `release.yml` 版本驱动——push 到 main 时 csproj 的 `<Version>` 若没有对应 tag，就自动跑测试、构建产物、打 tag 并创建 Release。
+- **v0.6.0 发布中**：`CHANGELOG.md` 已有正式 `[v0.6.0]` 章节，项目版本已升为 `0.6.0`。push 到 `main` 后由 `release.yml` 自动测试、构建安装器与便携包、创建 `v0.6.0` tag 和 Release；完成后再回填实际链接、产物大小和安装验证结果。
+- **v0.5.1 已发布**：tag `v0.5.1`，Release 见 [v0.5.1](https://github.com/Lifeni/with-windows/releases/tag/v0.5.1)，含 Inno Setup 安装器（约 44.5 MB）、便携 zip（约 66.4 MB）与 `SHA256SUMS.txt`。
 - 旧实现（两个独立窗口 + 单文件 exe）已退役，源码只留在 git 历史里（`v0.4.0` 及更早）。
-- 未发布的「AI 对话」已实现：OpenAI 兼容 Chat Completions、SSE、Markdown、单会话保存、DPAPI 密钥保护、剪贴板图片（最终 1 MiB 上限、自动压缩）与新建会话。
-- 未发布的改动记在 `CHANGELOG.md` 的 `## [未发布]` 章节。
+- `0.6.0` 的核心新增是「AI 对话」：OpenAI 兼容 Chat Completions、SSE、Markdown、单会话保存、DPAPI 密钥保护、剪贴板图片（最终 1 MiB 上限、自动压缩）与新建会话。标题区显示会话摘要和模型名称；发送请求时历史图片限制为最新最多 4 张、总计 4 MiB。输入框在切入页面后自动聚焦，会话搜索已移除，托盘菜单新增「AI 对话」入口。设置页可选择显示 / 隐藏快捷键的默认页面（记事 / AI 对话），配置升到 v5。窗口已换成自有标题栏；托盘收起使用 CsWin32 `ShowWindow(SW_MINIMIZE)` + 从切换器移除，唤回使用 `SW_SHOWNOACTIVATE`，不要再改回 `OverlappedPresenter.Minimize()` / `Restore()`、`SW_HIDE` 或屏幕外移动，否则会复现 AI 页黑屏与 `Microsoft.UI.Xaml.dll` 原生崩溃。
+- `0.6.0` 的正式变更记在 `CHANGELOG.md` 的 `## [v0.6.0] - 2026-10-21` 章节。
 
 ## 三、已定决策（不要重新讨论）
 
@@ -72,18 +73,18 @@ winapp ui inspect -a WithWindows -i
 winapp ui get-focused -a WithWindows           # 当前键盘焦点落在哪个元素
 winapp ui get-value StatusCaret -a WithWindows # 读状态栏文本
 winapp ui screenshot -a WithWindows --json
-
-Stop-Process -Id $p.Id -Force
 ```
 
-当前基线：Core 测试 **170/170**，解决方案构建 **0 错误 0 警告**。界面基线与截图流程见 `docs/agents/ui-baseline.md`。
+验证完成后保持应用运行，让用户直接测试，不要自行结束进程。
+
+当前基线：Core 测试 **187/187**，解决方案构建 **0 错误 0 警告**。界面基线与截图流程见 `docs/agents/ui-baseline.md`。
 
 ## 六、操作注意事项（都是实际踩过的）
 
 1. **沙箱内 `.git` 是只读的**：所有 git 写操作（`add` / `commit` / `merge` / `worktree` / `push`）都要提权执行。
 2. **沙箱内 `dotnet restore` 会因断网失败，构建解决方案也会失败**（App 的 XAML 编译器起不来；`--no-restore` 下同样失败且不带具体 error 行）。单独构建 `WithWindows.Core` 在沙箱内可以正常构建。**这是沙箱限制，不是仓库缺陷**。
 3. **不要用 `git checkout -- .` / `git reset`**：会回退未提交的修复。要撤销改动用精确命令，或先提交。
-4. **`dotnet run` 会阻塞**：验证界面一律用 `Start-Process` 非阻塞启动，验证完 `Stop-Process`。
+4. **`dotnet run` 会阻塞**：验证界面一律用 `Start-Process` 非阻塞启动；验证完成后保持应用运行，方便用户直接测试。
 5. **常驻实例会锁住 exe**：重新构建前先退出应用（托盘「退出」或结束 `WithWindows.exe`），否则报 `MSB3021` / `MSB3027`——那是文件占用，不是代码错误。
 6. **验证不得污染用户数据**：`%APPDATA%\WithWindows\` 下的草稿与配置是用户的真实数据，注入文本、改字号等验证后必须还原，更稳妥的是不碰真实文件。
 7. **写文件用 `apply_patch`**，不要用 `cat` / heredoc。AI 写出的文件默认是 LF，提交前跑 `powershell -ExecutionPolicy Bypass -File scripts/normalize-eol.ps1` 对齐 CRLF。
