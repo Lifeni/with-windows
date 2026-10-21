@@ -35,6 +35,7 @@ public class MarkdownPreprocessorTests
             ```
             """;
 
-        Assert.Equal(markdown, MarkdownPreprocessor.NormalizeDetails(markdown));
+        string expected = markdown.Replace("\r\n", "\n").Replace('\r', '\n');
+        Assert.Equal(expected, MarkdownPreprocessor.NormalizeDetails(markdown));
     }
 }
