@@ -6,6 +6,62 @@
     xmlns:controls="using:WithWindows.Controls">
 
     <Page.Resources>
+        <DataTemplate x:Key="MessageAttachmentTemplate" x:DataType="local:ChatAttachmentViewModel">
+            <Border
+                CornerRadius="6"
+                ToolTipService.ToolTip="{x:Bind DetailText}">
+                <Image
+                    Width="104"
+                    Height="78"
+                    Source="{x:Bind Preview}"
+                    Stretch="UniformToFill" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="PendingAttachmentTemplate" x:DataType="local:ChatAttachmentViewModel">
+            <Border
+                Margin="0,0,8,0"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                ToolTipService.ToolTip="{x:Bind DetailText}">
+                <Grid>
+                    <Image
+                        Width="112"
+                        Height="76"
+                        Source="{x:Bind Preview}"
+                        Stretch="UniformToFill" />
+                    <Border
+                        Padding="6,3"
+                        VerticalAlignment="Bottom"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        CornerRadius="0,0,6,6">
+                        <TextBlock
+                            MaxWidth="100"
+                            FontSize="11"
+                            Text="{x:Bind DetailText}"
+                            TextTrimming="CharacterEllipsis" />
+                    </Border>
+                    <Button
+                        Width="26"
+                        Height="26"
+                        Margin="2"
+                        Padding="0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        AutomationProperties.AutomationId="ChatRemoveAttachmentButton"
+                        AutomationProperties.Name="移除图片"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderThickness="0"
+                        Click="OnRemovePendingAttachmentClick"
+                        ToolTipService.ToolTip="移除图片">
+                        <FontIcon FontSize="11" Glyph="&#xE711;" />
+                    </Button>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <DataTemplate x:Key="ChatMessageTemplate" x:DataType="local:ChatMessageViewModel">
             <Grid Margin="8,4">
                 <Border
@@ -16,11 +72,22 @@
                     CornerRadius="8"
                     Visibility="{x:Bind UserVisibility}">
                     <StackPanel Spacing="6">
+                        <ItemsControl
+                            ItemsSource="{x:Bind Attachments}"
+                            ItemTemplate="{StaticResource MessageAttachmentTemplate}"
+                            Visibility="{x:Bind AttachmentsVisibility}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
                         <TextBlock
                             Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                             IsTextSelectionEnabled="True"
                             Text="{x:Bind Content, Mode=OneWay}"
-                            TextWrapping="Wrap" />
+                            TextWrapping="Wrap"
+                            Visibility="{x:Bind TextVisibility, Mode=OneWay}" />
                         <Button
                             Padding="4"
                             HorizontalAlignment="Right"
@@ -29,6 +96,7 @@
                             Background="Transparent"
                             BorderThickness="0"
                             Click="OnCopyMessageClick"
+                            IsEnabled="{x:Bind CanCopy, Mode=OneWay}"
                             Tag="{x:Bind Content, Mode=OneWay}"
                             ToolTipService.ToolTip="复制">
                             <FontIcon FontSize="14" Glyph="&#xE8C8;" />
@@ -57,6 +125,7 @@
                             Background="Transparent"
                             BorderThickness="0"
                             Click="OnCopyMessageClick"
+                            IsEnabled="{x:Bind CanCopy, Mode=OneWay}"
                             Tag="{x:Bind Content, Mode=OneWay}"
                             ToolTipService.ToolTip="复制">
                             <FontIcon FontSize="14" Glyph="&#xE8C8;" />
@@ -74,7 +143,10 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Padding="20,12" Background="{ThemeResource LayerFillColorDefaultBrush}">
+        <Grid
+            Padding="16,8"
+            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            ColumnSpacing="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -83,23 +155,35 @@
             <TextBlock
                 VerticalAlignment="Center"
                 AutomationProperties.AutomationId="ChatPageTitle"
-                Style="{StaticResource TitleTextBlockStyle}"
+                FontSize="18"
+                FontWeight="SemiBold"
                 Text="AI 对话" />
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
                 <Button
+                    x:Name="ChatAttachImageButton"
+                    Width="36"
+                    Height="32"
+                    Padding="0"
+                    AutomationProperties.AutomationId="ChatNewSessionButton"
+                    AutomationProperties.Name="新建会话"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnNewSessionClick"
+                    ToolTipService.ToolTip="新建会话">
+                    <FontIcon FontSize="16" Glyph="&#xF429;" />
+                </Button>
+                <Button
+                    Width="36"
+                    Height="32"
+                    Padding="0"
                     AutomationProperties.AutomationId="ChatConfigureButton"
                     AutomationProperties.Name="配置 AI 服务"
+                    Background="Transparent"
+                    BorderThickness="0"
                     Click="OnConfigureClick"
                     ToolTipService.ToolTip="配置 AI 服务">
                     <FontIcon FontSize="16" Glyph="&#xE713;" />
-                </Button>
-                <Button
-                    AutomationProperties.AutomationId="ChatClearButton"
-                    AutomationProperties.Name="清空会话"
-                    Click="OnClearClick"
-                    ToolTipService.ToolTip="清空会话">
-                    <FontIcon FontSize="16" Glyph="&#xE74D;" />
                 </Button>
             </StackPanel>
         </Grid>
@@ -147,35 +231,90 @@
             Grid.Row="2"
             Padding="16,10"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="0,1,0,0"
-            ColumnSpacing="8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+            BorderThickness="0,1,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-            <TextBox
-                x:Name="ChatInput"
-                MinHeight="42"
-                MaxHeight="140"
-                AcceptsReturn="True"
-                AutomationProperties.AutomationId="ChatInput"
-                KeyDown="OnInputKeyDown"
-                PlaceholderText="输入消息，Enter 发送，Shift+Enter 换行"
-                TextCompositionEnded="OnTextCompositionEnded"
-                TextCompositionStarted="OnTextCompositionStarted"
-                TextWrapping="Wrap"
-                VerticalContentAlignment="Center" />
+            <ScrollViewer
+                x:Name="PendingAttachmentsBar"
+                Margin="0,0,0,8"
+                HorizontalScrollBarVisibility="Auto"
+                HorizontalScrollMode="Enabled"
+                VerticalScrollBarVisibility="Disabled"
+                VerticalScrollMode="Disabled"
+                Visibility="Collapsed">
+                <ItemsControl
+                    AutomationProperties.AutomationId="ChatPendingAttachments"
+                    ItemsSource="{x:Bind PendingAttachments}"
+                    ItemTemplate="{StaticResource PendingAttachmentTemplate}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
 
-            <Button
-                x:Name="ChatSendButton"
-                Grid.Column="1"
-                MinWidth="76"
-                VerticalAlignment="Bottom"
-                AutomationProperties.AutomationId="ChatSendButton"
-                AutomationProperties.Name="发送消息"
-                Click="OnSendOrStopClick"
-                Content="发送" />
+            <Grid Grid.Row="1" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button
+                    Width="36"
+                    Height="32"
+                    Padding="0"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.AutomationId="ChatAttachImageButton"
+                    AutomationProperties.Name="粘贴图片"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnAttachImageClick"
+                    ToolTipService.ToolTip="粘贴剪贴板图片">
+                    <FontIcon FontSize="16" Glyph="&#xE723;" />
+                </Button>
+
+                <TextBox
+                    x:Name="ChatInput"
+                    Grid.Column="1"
+                    MinHeight="42"
+                    MaxHeight="140"
+                    AcceptsReturn="True"
+                    AutomationProperties.AutomationId="ChatInput"
+                    KeyDown="OnInputKeyDown"
+                    Paste="OnInputPaste"
+                    PlaceholderText="输入消息；Ctrl+V 可粘贴图片；Enter 发送"
+                    TextCompositionEnded="OnTextCompositionEnded"
+                    TextCompositionStarted="OnTextCompositionStarted"
+                    TextWrapping="Wrap"
+                    VerticalContentAlignment="Center" />
+
+                <ProgressRing
+                    x:Name="ChatAttachmentProgress"
+                    Grid.Column="2"
+                    Width="20"
+                    Height="20"
+                    Margin="0,0,6,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="ChatAttachmentProgress"
+                    IsActive="False"
+                    Visibility="Collapsed" />
+
+                <Button
+                    x:Name="ChatSendButton"
+                    Grid.Column="3"
+                    MinWidth="76"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.AutomationId="ChatSendButton"
+                    AutomationProperties.Name="发送消息"
+                    Click="OnSendOrStopClick"
+                    Content="发送" />
+            </Grid>
         </Grid>
     </Grid>
 </Page>

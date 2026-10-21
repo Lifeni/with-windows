@@ -11,7 +11,8 @@ public static class ChatRequestFactory
     public static HttpRequestMessage Create(
         ChatSettings settings,
         string apiKey,
-        IReadOnlyList<ChatMessage> messages)
+        IReadOnlyList<ChatMessage> messages,
+        ChatAttachmentStore? attachmentStore = null)
     {
         var effective = new List<ChatMessage>();
         if (!string.IsNullOrWhiteSpace(settings.SystemPrompt))
@@ -29,7 +30,7 @@ public static class ChatRequestFactory
                     ChatRole.User => "user",
                     _ => "assistant",
                 },
-                content = message.Content,
+                content = CreateContent(message, attachmentStore),
             }).ToArray(),
             stream = true,
         };
@@ -49,5 +50,30 @@ public static class ChatRequestFactory
                 new AuthenticationHeaderValue("Bearer", apiKey.Trim());
 
         return request;
+    }
+
+    private static object CreateContent(
+        ChatMessage message,
+        ChatAttachmentStore? attachmentStore)
+    {
+        if (message.Attachments.Count == 0)
+            return message.Content;
+        if (attachmentStore is null)
+            throw new InvalidOperationException("发送图片消息需要附件存储。");
+
+        var parts = new List<object>();
+        if (!string.IsNullOrWhiteSpace(message.Content))
+            parts.Add(new { type = "text", text = message.Content });
+
+        foreach (ChatAttachment attachment in message.Attachments)
+        {
+            parts.Add(new
+            {
+                type = "image_url",
+                image_url = new { url = attachmentStore.LoadDataUrl(attachment) },
+            });
+        }
+
+        return parts;
     }
 }

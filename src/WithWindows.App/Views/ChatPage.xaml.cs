@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,23 +20,30 @@ using WithWindows.Services;
 
 namespace WithWindows.Views;
 
-/// <summary>OpenAI 兼容文本流式对话页。</summary>
+/// <summary>OpenAI 兼容流式对话页，支持剪贴板图片。</summary>
 public sealed partial class ChatPage : Page
 {
+    private const int MaxPendingImages = 4;
+
     private readonly ChatHistoryStore _historyStore =
         new(AppPaths.ChatHistoryPath);
     private readonly ChatSecretStore _secretStore =
         new(AppPaths.ChatCredentialPath);
+    private readonly ChatAttachmentStore _attachmentStore =
+        new(AppPaths.ChatAttachmentsDirectory);
 
     private CancellationTokenSource? _requestCts;
     private string _apiKey = "";
     private bool _isSending;
     private bool _isComposing;
+    private bool _isReadingClipboard;
     private bool _initialized;
 
     public static string RouteTag => "ai_chat";
 
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = [];
+
+    public ObservableCollection<ChatAttachmentViewModel> PendingAttachments { get; } = [];
 
     public ChatPage()
     {
@@ -55,10 +63,32 @@ public sealed partial class ChatPage : Page
             ChatSession session = _historyStore.Load();
             foreach (ChatMessage message in session.Messages)
             {
+                var attachments = new List<ChatAttachmentViewModel>();
+                foreach (ChatAttachment attachment in message.Attachments)
+                {
+                    try
+                    {
+                        byte[] bytes = _attachmentStore.LoadBytes(attachment);
+                        attachments.Add(await ChatAttachmentViewModel.CreateAsync(
+                            bytes,
+                            attachment.DisplayName,
+                            attachment.MimeType,
+                            attachment.Width,
+                            attachment.Height,
+                            wasCompressed: false,
+                            attachment));
+                    }
+                    catch (Exception ex) when (ex is IOException or ArgumentException)
+                    {
+                        App.Host?.Log.Error($"AI 图片附件读取失败：{ex.GetType().Name}");
+                    }
+                }
+
                 Messages.Add(new ChatMessageViewModel(
                     message.Role,
                     message.Content,
-                    isMarkdown: message.Role == ChatRole.Assistant));
+                    isMarkdown: message.Role == ChatRole.Assistant,
+                    attachments));
             }
         }
         catch (Exception ex)
@@ -78,6 +108,7 @@ public sealed partial class ChatPage : Page
         }
 
         UpdateEmptyState();
+        UpdatePendingAttachmentsBar();
         ScrollToLatest();
         ChatInput.Focus(FocusState.Programmatic);
     }
@@ -141,6 +172,97 @@ public sealed partial class ChatPage : Page
         TextCompositionEndedEventArgs args)
         => _isComposing = false;
 
+    private async void OnInputPaste(object sender, TextControlPasteEventArgs args)
+    {
+        try
+        {
+            DataPackageView content = Clipboard.GetContent();
+            if (!ClipboardImageService.ContainsPotentialImage(content))
+                return;
+
+            args.Handled = true;
+            await AttachClipboardImagesAsync();
+        }
+        catch (Exception ex)
+        {
+            args.Handled = true;
+            App.Host?.Log.Error($"读取剪贴板图片失败：{ex.GetType().Name}");
+            ShowError("剪贴板图片读取失败。");
+        }
+    }
+
+    private async void OnAttachImageClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await AttachClipboardImagesAsync();
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"读取剪贴板图片失败：{ex.GetType().Name}");
+            ShowError("剪贴板图片读取失败。");
+        }
+    }
+
+    private async Task AttachClipboardImagesAsync()
+    {
+        if (_isSending || _isReadingClipboard)
+            return;
+        int slots = MaxPendingImages - PendingAttachments.Count;
+        if (slots <= 0)
+        {
+            ShowError("每条消息最多附加 4 张图片。");
+            return;
+        }
+
+        SetAttachmentReading(true);
+        try
+        {
+            IReadOnlyList<ClipboardImageData> images =
+                await ClipboardImageService.ReadAsync();
+            if (images.Count == 0)
+            {
+                ShowError("剪贴板中没有可用的图片。当前仅支持图片，其他文件不会附加。");
+                return;
+            }
+
+            foreach (ClipboardImageData image in images.Take(slots))
+            {
+                ChatAttachmentViewModel attachment =
+                    await ChatAttachmentViewModel.CreateAsync(
+                        image.Bytes,
+                        image.DisplayName,
+                        image.MimeType,
+                        image.Width,
+                        image.Height,
+                        image.WasCompressed);
+                PendingAttachments.Add(attachment);
+            }
+
+            if (images.Count > slots)
+                ShowError("每条消息最多附加 4 张图片，超出的图片未添加。");
+            UpdatePendingAttachmentsBar();
+            ChatErrorBar.IsOpen = false;
+            ChatInput.Focus(FocusState.Programmatic);
+        }
+        finally
+        {
+            SetAttachmentReading(false);
+        }
+    }
+
+    private void OnRemovePendingAttachmentClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement
+            {
+                DataContext: ChatAttachmentViewModel attachment,
+            })
+        {
+            PendingAttachments.Remove(attachment);
+            UpdatePendingAttachmentsBar();
+        }
+    }
+
     private async Task SendAsync()
     {
         AppHost? host = App.Host;
@@ -152,24 +274,49 @@ public sealed partial class ChatPage : Page
 
         string text = ChatInput.Text.Trim();
         string? configError = ChatValidation.Validate(host.Config.Chat);
-        if (text.Length == 0 || _isSending || configError is not null)
+        bool hasImages = PendingAttachments.Count > 0;
+        if (_isSending
+            || configError is not null
+            || (text.Length == 0 && !hasImages))
         {
-            ShowError(configError ?? "请输入消息。");
+            ShowError(configError ?? "请输入消息或粘贴图片。");
             return;
         }
 
-        var userMessage = new ChatMessageViewModel(ChatRole.User, text);
+        List<ChatAttachmentViewModel> originalAttachments =
+            PendingAttachments.ToList();
+        try
+        {
+            foreach (ChatAttachmentViewModel attachment in originalAttachments)
+            {
+                attachment.Model = _attachmentStore.Save(
+                    attachment.Bytes,
+                    attachment.DisplayName,
+                    attachment.MimeType,
+                    attachment.Width,
+                    attachment.Height);
+            }
+        }
+        catch (Exception ex)
+        {
+            DeleteAttachmentModels(originalAttachments);
+            App.Host?.Log.Error($"AI 图片保存失败：{ex.GetType().Name}");
+            ShowError("图片保存失败，请重新粘贴。");
+            return;
+        }
+
+        var userMessage = new ChatMessageViewModel(
+            ChatRole.User,
+            text,
+            attachments: originalAttachments);
         Messages.Add(userMessage);
         ChatInput.Text = "";
+        PendingAttachments.Clear();
+        UpdatePendingAttachmentsBar();
         ChatErrorBar.IsOpen = false;
         UpdateEmptyState();
 
-        var history = Messages
-            .Where(message => message.Role is ChatRole.User or ChatRole.Assistant)
-            .Where(message => !string.IsNullOrWhiteSpace(message.Content))
-            .Select(message => new ChatMessage(message.Role, message.Content))
-            .ToList();
-
+        List<ChatMessage> history = BuildHistory();
         var assistantMessage = new ChatMessageViewModel(ChatRole.Assistant, "");
         Messages.Add(assistantMessage);
         _requestCts = new CancellationTokenSource();
@@ -177,7 +324,9 @@ public sealed partial class ChatPage : Page
 
         try
         {
-            var service = new OpenAiCompatibleChatService(host.HttpClient);
+            var service = new OpenAiCompatibleChatService(
+                host.HttpClient,
+                _attachmentStore);
             await foreach (ChatDelta delta in service.StreamAsync(
                 host.Config.Chat,
                 _apiKey,
@@ -191,7 +340,9 @@ public sealed partial class ChatPage : Page
             if (string.IsNullOrEmpty(assistantMessage.Content))
             {
                 Messages.Remove(assistantMessage);
-                ChatInput.Text = text;
+                Messages.Remove(userMessage);
+                DeleteAttachmentModels(originalAttachments);
+                RestoreDraft(text, originalAttachments);
                 ShowError("AI 服务没有返回文本。");
                 UpdateEmptyState();
                 return;
@@ -210,14 +361,21 @@ public sealed partial class ChatPage : Page
         }
         catch (ChatRequestException ex)
         {
-            HandlePartialAndError(assistantMessage, text, ex.UserMessage);
+            HandleRequestFailure(
+                assistantMessage,
+                userMessage,
+                text,
+                originalAttachments,
+                ex.UserMessage);
         }
         catch (Exception ex)
         {
             host.Log.Error($"AI 对话请求失败：{ex.GetType().Name}");
-            HandlePartialAndError(
+            HandleRequestFailure(
                 assistantMessage,
+                userMessage,
                 text,
+                originalAttachments,
                 "请求失败，请检查端点配置和网络。");
         }
         finally
@@ -229,15 +387,19 @@ public sealed partial class ChatPage : Page
         }
     }
 
-    private void HandlePartialAndError(
+    private void HandleRequestFailure(
         ChatMessageViewModel assistant,
+        ChatMessageViewModel userMessage,
         string originalText,
+        List<ChatAttachmentViewModel> originalAttachments,
         string error)
     {
         if (string.IsNullOrEmpty(assistant.Content))
         {
             Messages.Remove(assistant);
-            ChatInput.Text = originalText;
+            Messages.Remove(userMessage);
+            DeleteAttachmentModels(originalAttachments);
+            RestoreDraft(originalText, originalAttachments);
         }
         else
         {
@@ -249,6 +411,50 @@ public sealed partial class ChatPage : Page
         UpdateEmptyState();
         ShowError(error);
     }
+
+    private void RestoreDraft(
+        string text,
+        List<ChatAttachmentViewModel> attachments)
+    {
+        ChatInput.Text = text;
+        foreach (ChatAttachmentViewModel attachment in attachments)
+        {
+            attachment.Model = null;
+            PendingAttachments.Add(attachment);
+        }
+
+        UpdatePendingAttachmentsBar();
+    }
+
+    private void DeleteAttachmentModels(
+        IEnumerable<ChatAttachmentViewModel> attachments)
+    {
+        foreach (ChatAttachmentViewModel attachment in attachments)
+        {
+            if (attachment.Model is not null)
+            {
+                try
+                {
+                    _attachmentStore.Delete(attachment.Model);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+    }
+
+    private List<ChatMessage> BuildHistory()
+        => Messages
+            .Where(message => message.HasText || message.HasAttachments)
+            .Select(message => new ChatMessage(message.Role, message.Content)
+            {
+                Attachments = message.Attachments
+                    .Where(attachment => attachment.Model is not null)
+                    .Select(attachment => attachment.Model!)
+                    .ToList(),
+            })
+            .ToList();
 
     private async void OnConfigureClick(object sender, RoutedEventArgs e)
     {
@@ -286,14 +492,14 @@ public sealed partial class ChatPage : Page
         }
     }
 
-    private async void OnClearClick(object sender, RoutedEventArgs e)
+    private async void OnNewSessionClick(object sender, RoutedEventArgs e)
     {
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "清空会话",
-            Content = "这会删除当前全部对话记录，是否继续？",
-            PrimaryButtonText = "清空",
+            Title = "新建会话",
+            Content = "这会清空当前对话和图片附件，是否继续？",
+            PrimaryButtonText = "新建",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
         };
@@ -302,7 +508,19 @@ public sealed partial class ChatPage : Page
 
         _requestCts?.Cancel();
         Messages.Clear();
+        PendingAttachments.Clear();
+        UpdatePendingAttachmentsBar();
         _historyStore.Clear();
+        try
+        {
+            _attachmentStore.Clear();
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"AI 图片附件清理失败：{ex.GetType().Name}");
+            ShowError("部分图片附件未能清理。");
+        }
+
         UpdateEmptyState();
         ChatInput.Focus(FocusState.Programmatic);
     }
@@ -324,10 +542,7 @@ public sealed partial class ChatPage : Page
             _historyStore.Save(new ChatSession
             {
                 UpdatedAt = DateTimeOffset.Now,
-                Messages = Messages
-                    .Where(message => !string.IsNullOrWhiteSpace(message.Content))
-                    .Select(message => new ChatMessage(message.Role, message.Content))
-                    .ToList(),
+                Messages = BuildHistory(),
             });
         }
         catch (Exception ex)
@@ -358,12 +573,26 @@ public sealed partial class ChatPage : Page
         _isSending = sending;
         ChatSendButton.Content = sending ? "停止" : "发送";
         ChatInput.IsEnabled = !sending;
+        ChatAttachImageButton.IsEnabled = !sending && !_isReadingClipboard;
         AutomationProperties.SetName(
             ChatSendButton,
             sending ? "停止生成" : "发送消息");
     }
 
+    private void SetAttachmentReading(bool reading)
+    {
+        _isReadingClipboard = reading;
+        ChatAttachmentProgress.IsActive = reading;
+        ChatAttachmentProgress.Visibility =
+            reading ? Visibility.Visible : Visibility.Collapsed;
+        ChatAttachImageButton.IsEnabled = !reading && !_isSending;
+    }
+
     private void UpdateEmptyState()
         => ChatEmptyState.Visibility =
             Messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private void UpdatePendingAttachmentsBar()
+        => PendingAttachmentsBar.Visibility =
+            PendingAttachments.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 }

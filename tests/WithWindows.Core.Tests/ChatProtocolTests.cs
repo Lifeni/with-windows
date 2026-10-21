@@ -65,6 +65,54 @@ public class ChatProtocolTests
     }
 
     [Fact]
+    public async Task Create_带图片_生成image_url内容片段()
+    {
+        string directory =
+            Path.Combine(Path.GetTempPath(), "ww-chat-request-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var store = new ChatAttachmentStore(directory);
+            ChatAttachment attachment = store.Save(
+                [1, 2, 3],
+                "截图.png",
+                "image/png",
+                width: 1,
+                height: 1);
+            var message = new ChatMessage(ChatRole.User, "看看这张图")
+            {
+                Attachments = [attachment],
+            };
+
+            using HttpRequestMessage request = ChatRequestFactory.Create(
+                new ChatSettings
+                {
+                    BaseUrl = "https://example.test/v1",
+                    Model = "vision-model",
+                },
+                "",
+                [message],
+                store);
+
+            string json = await request.Content!.ReadAsStringAsync();
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement content = document.RootElement.GetProperty("messages")[0]
+                .GetProperty("content");
+            Assert.Equal(JsonValueKind.Array, content.ValueKind);
+            Assert.Equal("text", content[0].GetProperty("type").GetString());
+            Assert.Equal("看看这张图", content[0].GetProperty("text").GetString());
+            Assert.Equal("image_url", content[1].GetProperty("type").GetString());
+            Assert.StartsWith(
+                "data:image/png;base64,AQID",
+                content[1].GetProperty("image_url").GetProperty("url").GetString());
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ParseSse_读取内容并识别完成和错误()
     {
         ChatStreamEvent content = ChatStreamParser.Parse(

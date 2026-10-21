@@ -6,7 +6,9 @@ using WithWindows.Core.Config;
 namespace WithWindows.Core.Chat;
 
 /// <summary>通过 Chat Completions 和 SSE 访问 OpenAI 兼容端点。</summary>
-public sealed class OpenAiCompatibleChatService(HttpClient http) : IChatCompletionService
+public sealed class OpenAiCompatibleChatService(
+    HttpClient http,
+    ChatAttachmentStore? attachmentStore = null) : IChatCompletionService
 {
     public async IAsyncEnumerable<ChatDelta> StreamAsync(
         ChatSettings settings,
@@ -15,7 +17,7 @@ public sealed class OpenAiCompatibleChatService(HttpClient http) : IChatCompleti
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         using HttpRequestMessage request =
-            ChatRequestFactory.Create(settings, apiKey, messages);
+            ChatRequestFactory.Create(settings, apiKey, messages, attachmentStore);
         using HttpResponseMessage response = await http.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,

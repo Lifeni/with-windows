@@ -24,10 +24,13 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，关
 
 - 接入任意 OpenAI 兼容的 Chat Completions 端点：可配置 Base URL、模型、系统提示和可选的 API Key
 - 流式显示回复，支持停止生成、复制消息、清空当前会话；关闭应用后自动恢复当前对话
+- 支持在输入框按 `Ctrl+V` 粘贴剪贴板图片：位图截图或 PNG / JPEG / WebP / GIF 文件均可识别，每条消息最多 4 张
+- 图片最终大小限制为 1 MiB；超过时自动缩放并优先无损压缩，仍超限再转成高质量 JPEG
 - AI 回复完成后渲染标题、列表、引用、代码块和链接等常见 Markdown；原始 HTML 不会被执行
 - 当前会话保存在 `%APPDATA%\WithWindows\chat\current.json`
+- 图片附件保存在 `%APPDATA%\WithWindows\chat\attachments\`；新建会话会同时清理对话和附件
 - API Key 由 Windows DPAPI 以当前用户范围保护，保存在 `%APPDATA%\WithWindows\chat\credential.bin`，不写入明文配置或日志
-- 第一版暂不支持图片、文件上传、Responses API 和自动上下文压缩
+- 图片输入要求所选兼容端点及模型支持视觉内容；暂不支持普通文件、Responses API 和自动上下文压缩
 
 **投影**
 
@@ -130,6 +133,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 - `log.txt`——运行日志（超过 1 MB 轮转为 `log.1.txt`）
 - `notepad.txt`——记事本内容
 - `chat/current.json`——当前 AI 对话（附 `current.json.bak`）
+- `chat/attachments/`——会话图片附件
 - `chat/credential.bin`——DPAPI 保护的 API Key
 
 ```json

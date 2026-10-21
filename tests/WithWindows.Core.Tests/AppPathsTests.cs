@@ -22,6 +22,7 @@ public class AppPathsTests
         Assert.StartsWith(AppPaths.DataRoot, AppPaths.ChatDirectory, StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith(AppPaths.ChatDirectory, AppPaths.ChatHistoryPath, StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith(AppPaths.ChatDirectory, AppPaths.ChatCredentialPath, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(AppPaths.ChatDirectory, AppPaths.ChatAttachmentsDirectory, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -36,6 +37,7 @@ public class AppPathsTests
             AppPaths.ChatDirectory,
             AppPaths.ChatHistoryPath,
             AppPaths.ChatCredentialPath,
+            AppPaths.ChatAttachmentsDirectory,
         };
 
         Assert.All(all, p => Assert.False(string.IsNullOrWhiteSpace(p)));

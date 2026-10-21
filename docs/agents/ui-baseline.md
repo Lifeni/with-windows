@@ -37,7 +37,7 @@ Stop-Process -Id $p.Id -Force
 - 截图默认落在当前工作目录的 `screenshot.png`，需移到 `artifacts/ui/` 下改名（`artifacts/` 已加入 `.gitignore`）。
 - `winapp` 仍是公共预览版，命令可能变动；执行前用 `winapp ui --help` 核对。
 
-## 二、基线（2026-10-20，AI 对话第一阶段）
+## 二、基线（2026-10-21，AI 对话图片附件）
 
 窗口：`"With Windows" (window, 1161x818) [WinUIDesktopWin32WindowClass]`
 
@@ -67,7 +67,8 @@ AI 对话页关键控件：
 
 ```text
 ChatConfigureButton Button "配置 AI 服务"
-ChatClearButton Button "清空会话"
+ChatNewSessionButton Button "新建会话"
+ChatAttachImageButton Button "粘贴图片"
 ChatInput Edit "输入消息，Enter 发送，Shift+Enter 换行"
 ChatSendButton Button "发送消息"
 ChatProviderBaseUrl Edit "Base URL"
@@ -76,6 +77,8 @@ ChatProviderApiKey Edit "API Key"
 ChatProviderClearKey CheckBox "清除已保存密钥"
 ChatProviderSystemPrompt Edit "系统提示"
 ```
+
+图片粘贴基线：复制剪贴板位图后在输入框按 `Ctrl+V`，出现 `ChatRemoveAttachmentButton Button "移除图片"`；缩略图下方显示尺寸与最终文件大小。单张图片最终不超过 1 MiB。
 
 截图：本次改基线未留图（`artifacts/` 已于 2026-10-11 随开发工作区清理）；需要对照时按上面「一、可复现流程」重拍。
 

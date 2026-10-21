@@ -124,11 +124,75 @@ public class OpenAiCompatibleChatServiceTests
         Assert.Contains("API Key", ex.UserMessage);
     }
 
-    private sealed class StubHandler(HttpResponseMessage response) : HttpMessageHandler
+    [Fact]
+    public async Task StreamAsync_带图片_请求包含DataUrl()
     {
-        protected override Task<HttpResponseMessage> SendAsync(
+        string directory =
+            Path.Combine(Path.GetTempPath(), "ww-chat-service-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var store = new ChatAttachmentStore(directory);
+            ChatAttachment attachment = store.Save(
+                [4, 5, 6],
+                "图片.png",
+                "image/png",
+                1,
+                1);
+            string? requestBody = null;
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "data: [DONE]\n\n",
+                    Encoding.UTF8,
+                    "text/event-stream"),
+            };
+            using var http = new HttpClient(new StubHandler(
+                response,
+                requestJson => requestBody = requestJson));
+            var service = new OpenAiCompatibleChatService(http, store);
+
+            await foreach (ChatDelta _ in service.StreamAsync(
+                new ChatSettings
+                {
+                    BaseUrl = "https://example.test/v1",
+                    Model = "vision-model",
+                },
+                "",
+                [
+                    new ChatMessage(ChatRole.User, "看图")
+                    {
+                        Attachments = [attachment],
+                    },
+                ],
+                CancellationToken.None))
+            {
+            }
+
+            Assert.NotNull(requestBody);
+            Assert.Contains("\"type\":\"image_url\"", requestBody);
+            Assert.Contains("data:image/png;base64,BAUG", requestBody);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private sealed class StubHandler(
+        HttpResponseMessage response,
+        Action<string>? onRequest = null) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
-            => Task.FromResult(response);
+        {
+            if (onRequest is not null && request.Content is not null)
+            {
+                onRequest(await request.Content.ReadAsStringAsync(cancellationToken));
+            }
+
+            return response;
+        }
     }
 }

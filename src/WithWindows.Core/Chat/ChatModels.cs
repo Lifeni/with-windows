@@ -10,8 +10,20 @@ public enum ChatRole
     Assistant,
 }
 
+/// <summary>消息附带的一张图片；文件内容保存在会话附件目录。</summary>
+public sealed record ChatAttachment(
+    string Id,
+    string DisplayName,
+    string MimeType,
+    long ByteLength,
+    int Width,
+    int Height);
+
 /// <summary>一条完整对话消息。</summary>
-public sealed record ChatMessage(ChatRole Role, string Content);
+public sealed record ChatMessage(ChatRole Role, string Content)
+{
+    public List<ChatAttachment> Attachments { get; init; } = [];
+}
 
 /// <summary>流式回复中的一个文本增量。</summary>
 public sealed record ChatDelta(string Content);

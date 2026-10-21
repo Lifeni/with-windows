@@ -34,4 +34,8 @@ public static class AppPaths
     /// <summary>DPAPI 保护的 API Key 文件。</summary>
     public static string ChatCredentialPath { get; } =
         Path.Combine(ChatDirectory, "credential.bin");
+
+    /// <summary>会话图片附件目录。</summary>
+    public static string ChatAttachmentsDirectory { get; } =
+        Path.Combine(ChatDirectory, "attachments");
 }

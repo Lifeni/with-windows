@@ -5,6 +5,8 @@
 - 范围：OpenAI 兼容协议的最小可用闭环
 - 依赖决策：只新增 `Markdig`，不引入 OpenAI SDK、MVVM、Semantic Kernel 或 Markdown 控件库
 
+> **2026-10-21 实现扩展**：第一阶段在文本对话之外增加了剪贴板图片。支持位图截图和 PNG / JPEG / WebP / GIF 图片，每条消息最多 4 张；最终文件最大 1 MiB，超限时自动缩放并优先无损压缩，仍超限再使用高质量 JPEG。附件独立存放在 `chat/attachments/`，新建会话时清理。普通文件、Responses API 和自动上下文压缩仍不在本阶段。
+
 ## 1. 目标
 
 新增一个独立的「AI 对话」工具页，通过用户配置的 OpenAI 兼容端点完成流式多轮文本对话，并完成以下闭环：
@@ -18,7 +20,7 @@
 
 第一阶段不包含：
 
-- 文件与图片上传。
+- 普通文件上传。
 - OpenAI Responses API。
 - 自动上下文压缩。
 - 多会话列表、搜索和导出。
@@ -362,7 +364,7 @@ Core 单元测试覆盖：
 
 第二阶段：
 
-- 图片与文件附件。
+- 普通文件附件。
 - 新版 Windows App SDK 文件选择器。
 - Responses API 与 `input_file`。
 

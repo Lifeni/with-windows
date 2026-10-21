@@ -63,4 +63,32 @@ public class ChatHistoryStoreTests : IDisposable
         Assert.False(File.Exists(store.Path));
         Assert.False(File.Exists(store.BackupPath));
     }
+
+    [Fact]
+    public void SaveAndLoad_保留图片附件元数据()
+    {
+        ChatHistoryStore store = NewStore();
+        var attachment = new ChatAttachment(
+            Guid.NewGuid().ToString("N"),
+            "截图.png",
+            "image/png",
+            1024,
+            640,
+            400);
+        store.Save(new ChatSession
+        {
+            Messages =
+            [
+                new ChatMessage(ChatRole.User, "")
+                {
+                    Attachments = [attachment],
+                },
+            ],
+        });
+
+        ChatSession loaded = store.Load();
+
+        ChatAttachment restored = Assert.Single(loaded.Messages[0].Attachments);
+        Assert.Equal(attachment, restored);
+    }
 }
