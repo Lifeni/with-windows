@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 构建解决方案（WinUI 3 需要 x64 平台）
         run: dotnet build WithWindows.sln -c Release -p:Platform=x64

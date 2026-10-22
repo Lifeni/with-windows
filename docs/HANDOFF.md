@@ -21,6 +21,7 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 导航，每个工具
 ## 二、当前进度（截至 2026-10-22）
 
 - **标题栏已改用系统窗口按钮**：内置 `TitleBar` 只负责图标、标题与折叠导航，最小化、最大化 / 还原、关闭交给系统 caption 区域，关闭按钮恢复红色悬停；关闭后唤回会清除 caption 悬停残留。
+- **GitHub Actions 运行环境已升级**：`actions/checkout` 与 `softprops/action-gh-release` 已升级到使用 Node.js 24 的版本，消除 Node.js 20 弃用注解。
 - **v0.6.0 已发布**：tag `v0.6.0`，Release 见 [v0.6.0](https://github.com/Lifeni/with-windows/releases/tag/v0.6.0)，发布提交 `12f1437`。GitHub Actions Run [39614281329](https://github.com/Lifeni/with-windows/actions/runs/39614281329) 成功，测试、单文件发布、安装器与 Release 上传全部通过；安装器 44,728,517 字节，便携 zip 66,610,289 字节，`SHA256SUMS.txt` 已上传。
 - **v0.5.1 已发布**：tag `v0.5.1`，Release 见 [v0.5.1](https://github.com/Lifeni/with-windows/releases/tag/v0.5.1)，含 Inno Setup 安装器（约 44.5 MB）、便携 zip（约 66.4 MB）与 `SHA256SUMS.txt`。
 - 旧实现（两个独立窗口 + 单文件 exe）已退役，源码只留在 git 历史里（`v0.4.0` 及更早）。
