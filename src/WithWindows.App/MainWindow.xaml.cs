@@ -34,11 +34,10 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // 用自定义 TitleBar 控件替代系统标题栏（否则会同时出现两条标题栏）
+        // WinUI TitleBar 只管布局，窗口按钮由系统 caption 区域绘制与交互。
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
-            presenter.SetBorderAndTitleBar(hasBorder: true, hasTitleBar: false);
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 
         if (AppIcon.Exists)
             AppWindow.SetIcon(AppIcon.Preferred);
@@ -78,8 +77,6 @@ public sealed partial class MainWindow : Window
         if (args.DidSizeChange || args.DidPositionChange)
             _windowState.OnWindowChanged();
 
-        if (args.DidPresenterChange || args.DidSizeChange)
-            UpdateMaximizeRestoreButton();
     }
 
     private static void LogLifecycle(string message)
@@ -114,56 +111,6 @@ public sealed partial class MainWindow : Window
 
     private void OnPaneToggleClick(object sender, RoutedEventArgs e)
         => NavView.IsPaneOpen = !NavView.IsPaneOpen;
-
-    private void OnMinimizeClick(object sender, RoutedEventArgs e)
-    {
-        // 不能在输入事件回调栈内直接改变 presenter 状态，否则 WinUI 会在
-        // internal error 之后以 Microsoft.UI.Xaml.dll 的 0xC000027B 崩溃。
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            Core.Interop.WindowInterop.Minimize(Hwnd);
-        });
-    }
-
-    private void OnMaximizeRestoreClick(object sender, RoutedEventArgs e)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (AppWindow.Presenter is OverlappedPresenter
-                {
-                    State: OverlappedPresenterState.Maximized,
-                })
-            {
-                Core.Interop.WindowInterop.Show(Hwnd);
-            }
-            else
-            {
-                Core.Interop.WindowInterop.Maximize(Hwnd);
-            }
-        });
-    }
-
-    private void OnCloseClick(object sender, RoutedEventArgs e)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (_tray.IsAvailable)
-                HideToTray();
-            else
-                ExitApplication();
-        });
-    }
-
-    private void UpdateMaximizeRestoreButton()
-    {
-        bool maximized = AppWindow.Presenter is OverlappedPresenter
-        {
-            State: OverlappedPresenterState.Maximized,
-        };
-
-        MaximizeRestoreIcon.Glyph = maximized ? "\uE923" : "\uE922";
-        AutomationProperties.SetName(MaximizeRestoreButton, maximized ? "还原" : "最大化");
-    }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
@@ -221,6 +168,8 @@ public sealed partial class MainWindow : Window
         bool needsShow = _isHiddenToTray || Core.Interop.WindowInterop.IsMinimized(hwnd);
         if (needsShow)
         {
+            Core.Interop.WindowInterop.ClearCaptionButtonHover(hwnd);
+
             if (AppWindow.Presenter is OverlappedPresenter)
                 AppWindow.IsShownInSwitchers = true;
 
@@ -363,11 +312,17 @@ public sealed partial class MainWindow : Window
         if (_exiting)
             return;
 
-        // 系统关闭路径（Alt+F4 等）直接退出。WinUI 在触发 Closing 前已经可能卸载页面，
-        // 取消关闭会把损坏的内容树留在原地，最终以 Microsoft.UI.Xaml.dll 的 0xC000027B 退出。
-        // 应用自己的关闭按钮调用 HideToTray()，不会进入这条路径。
+        // 系统关闭按钮与 Alt+F4 都收进托盘；真正退出只走托盘「退出」。
+        // 在事件回调栈里直接切换 presenter 会与 WinUI 的消息处理重入，
+        // 因此先取消关闭，再排队收起窗口。
         args.Cancel = true;
-        ExitApplication();
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_tray.IsAvailable)
+                HideToTray();
+            else
+                ExitApplication();
+        });
     }
 
     private void HideToTray()

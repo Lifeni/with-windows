@@ -4,9 +4,9 @@
 
 - `MainWindow` 用 `NavigationView` + `Frame` 组成导航壳：左栏是工具列表，底部固定「设置」。
 - 内容路由由 `NavigationViewItem.Tag` 驱动，映射表**由工具目录生成**：`ToolCatalog.Tools` 里 `ShowInNav` 的项进左栏，`MainWindow.BuildNavigation` 据此建 `_routes`。新增有页面的工具 = 在 `ToolCatalog` 加一条 + 写一个页面，**不要改 `MainWindow`**。
-- 标题栏由 `MainWindow` 的 `AppTitleBar` 网格实现，保留应用图标、折叠导航、最小化、最大化 / 还原与关闭按钮。系统关闭按钮会在 `AppWindow.Closing` 前卸载 XAML 页面，因此这里隐藏系统标题栏并使用自有按钮；不要换回内置 `TitleBar` 控件，除非同时验证关闭、托盘收起和再次唤回。
+- 标题栏由 `MainWindow` 的内置 `TitleBar` 实现，保留应用图标与折叠导航；最小化、最大化 / 还原与关闭按钮交给系统 caption 区域，不自绘窗口按钮。`ExtendsContentIntoTitleBar` 只扩展内容区，不能同时隐藏 caption 按钮。
 - 窗口背景用 `MicaBackdrop`（`Window.SystemBackdrop`）。
-- 自有关闭按钮 = 隐藏到托盘，不销毁窗口；托盘收起使用 `ShowWindow(SW_MINIMIZE)`，不要依赖 `Closed` 事件做清理。系统关闭路径（`Alt+F4` 等）直接退出。
+- 关闭按钮与 `Alt+F4` 都通过 `AppWindow.Closing` 隐藏到托盘，不销毁窗口；托盘收起使用 `ShowWindow(SW_MINIMIZE)`，不要依赖 `Closed` 事件做清理。真正退出只走托盘菜单。唤回前调用 `WindowInterop.ClearCaptionButtonHover`，清除系统关闭按钮可能残留的悬停状态。
 
 ## 二、主题与颜色
 

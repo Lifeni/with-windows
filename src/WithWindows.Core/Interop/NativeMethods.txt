@@ -4,6 +4,7 @@ DefWindowProc
 DestroyWindow
 GetDisplayConfigBufferSizes
 GetDpiForWindow
+GetCursorPos
 GetForegroundWindow
 GetModuleHandle
 IsIconic
@@ -11,6 +12,7 @@ IsWindowVisible
 QueryDisplayConfig
 RegisterClassEx
 RegisterHotKey
+SendMessage
 SetDisplayConfig
 SetForegroundWindow
 ShowWindow

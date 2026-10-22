@@ -794,3 +794,21 @@ winapp ui inspect -a WithWindows -i
 | 本地验证 | Release 构建 0 警告 0 错误；Core 测试 196/196 通过 |
 
 本次远程安装器未做静默安装回归；发布流水线已完成安装器编译和产物上传，安装行为沿用 `v0.5.1` 已验证的 Inno Setup 配置。
+
+#### 2026-10-22 系统 caption 窗口按钮
+
+**改动**：`MainWindow` 的标题栏改用 WinUI 内置 `TitleBar`，左侧折叠导航仍保留 `PaneToggleButton` 的稳定 AutomationId；最小化、最大化 / 还原和关闭交给系统 caption 区域，不再自绘三个按钮。`AppWindow.TitleBar.PreferredHeightOption` 设为 `Tall`。
+
+**关闭与唤回**：`AppWindow.Closing` 取消关闭并排队执行原有的托盘收起；真正退出仍只由托盘「退出」触发。唤回前调用 `WindowInterop.ClearCaptionButtonHover`，发送 `WM_NCMOUSEMOVE` / `HTNOWHERE` 清除关闭按钮残留悬停状态。坐标打包由单元测试覆盖，包含负屏幕坐标。
+
+**实测**：
+
+| 检查 | 结果 |
+|---|---|
+| UIA 按钮尺寸 | 最小化、最大化、关闭均为 72×72 物理像素（150% 缩放下为 48×48 DIP） |
+| 悬停 | `winapp ui hover btn-close-*` 后截图显示系统关闭按钮为红色背景 |
+| 关闭 | 真实鼠标点击关闭按钮后，日志依次写入「托盘收起：最小化」「从切换器移除」「完成」，进程保持存活 |
+| 唤回 | 再次启动已有实例后窗口恢复，关闭按钮无残留红色背景；关闭前 AI 页正常渲染 |
+| 构建 | App 项目 0 警告 0 错误 |
+
+截图：`artifacts/ui/titlebar-system-2026-10-22.png`（普通状态）、`artifacts/ui/titlebar-system-close-hover-verified-2026-10-22.png`（红色悬停）、`artifacts/ui/titlebar-system-close-restored-2026-10-22.png`（唤回后正常状态）。

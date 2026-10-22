@@ -106,16 +106,17 @@ SetTitleBar(AppTitleBar);
 AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 ```
 
-本项目当前使用自绘的 `AppTitleBar` 网格，以便一并接管最小化、最大化 / 还原和关闭按钮。自绘时必须隐藏系统标题栏，但保留窗口边框与缩放能力：
+本项目使用内置 `TitleBar`，只接管图标、标题与折叠导航；最小化、最大化 / 还原和关闭按钮交给系统 caption 区域。不要调用 `SetBorderAndTitleBar(hasBorder: true, hasTitleBar: false)`，那会重新变成自绘窗口按钮并丢失系统图标尺寸和关闭按钮的红色悬停背景：
 
 ```csharp
 ExtendsContentIntoTitleBar = true;
 SetTitleBar(AppTitleBar);
-if (AppWindow.Presenter is OverlappedPresenter presenter)
-    presenter.SetBorderAndTitleBar(hasBorder: true, hasTitleBar: false);
+AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 ```
 
-自有关闭按钮直接收进托盘；系统关闭路径干净退出。不要在系统 `Closing` 事件里取消关闭后尝试恢复已经卸载的页面。
+系统关闭按钮与 `Alt+F4` 在 `AppWindow.Closing` 中取消关闭，并排队执行与托盘相同的 `HideToTray()`；不要在该回调栈内直接切换 presenter。真正退出只走托盘菜单，并通过 `_exiting` 让 `Closing` 放行。
+
+从托盘唤回时先发送 `WM_NCMOUSEMOVE` / `HTNOWHERE` 清除 caption 悬停状态。WinUI 在关闭按钮点击并立即收起窗口时可能收不到 pointer-exited，导致再次显示后关闭按钮仍为红色（WindowsAppSDK / WinUI issue 12232）；这个规避对标准标题栏无副作用。
 
 另外 `TitleBar.IconSource` 用 `.ico` 而不是 `.png`——PNG 在标题栏里会渲染成透明棋盘格。
 

@@ -11,6 +11,8 @@ namespace WithWindows.Core.Interop;
 /// </summary>
 public static class WindowInterop
 {
+    private const uint WmNcMouseMove = 0x00A0;
+
     public static bool IsVisible(IntPtr hwnd)
         => hwnd != IntPtr.Zero && PInvoke.IsWindowVisible(new HWND(hwnd));
 
@@ -61,5 +63,30 @@ public static class WindowInterop
     {
         if (hwnd != IntPtr.Zero)
             PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_SHOWNOACTIVATE);
+    }
+
+    /// <summary>
+    /// 清除扩展标题栏 caption 按钮残留的悬停状态。系统在点击关闭按钮时会结束
+    /// 非客户区鼠标跟踪，窗口随即隐藏时可能收不到 pointer-exited；再次显示前
+    /// 发送一次 HTNOWHERE 的 WM_NCMOUSEMOVE，让 WinUI 重算悬停区域。
+    /// 这条消息对标准系统标题栏也无副作用。
+    /// </summary>
+    public static void ClearCaptionButtonHover(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || !PInvoke.GetCursorPos(out var point))
+            return;
+
+        PInvoke.SendMessage(
+            new HWND(hwnd),
+            WmNcMouseMove,
+            new WPARAM(0),
+            BuildMouseMessageLParam(point.X, point.Y));
+    }
+
+    /// <summary>把屏幕坐标打包为鼠标消息的 lParam；负坐标按 16 位补码保留。</summary>
+    internal static nint BuildMouseMessageLParam(int x, int y)
+    {
+        uint packed = (ushort)x | ((uint)(ushort)y << 16);
+        return unchecked((int)packed);
     }
 }

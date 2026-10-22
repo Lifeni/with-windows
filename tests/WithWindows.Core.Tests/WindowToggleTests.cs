@@ -35,4 +35,11 @@ public class WindowInteropTests
     [Fact]
     public void IsMinimized_空句柄_恒为假()
         => Assert.False(WindowInterop.IsMinimized(IntPtr.Zero));
+
+    [Theory]
+    [InlineData(100, 200, 0x00C80064)]
+    [InlineData(-1920, 200, 0x00C8F880)]
+    [InlineData(-1, -1, -1)]
+    public void BuildMouseMessageLParam_按高低字打包屏幕坐标(int x, int y, int expected)
+        => Assert.Equal((nint)expected, WindowInterop.BuildMouseMessageLParam(x, y));
 }
