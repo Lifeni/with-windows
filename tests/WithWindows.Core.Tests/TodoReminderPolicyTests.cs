@@ -43,6 +43,17 @@ public class TodoReminderPolicyTests
         Assert.Null(TodoReminderPolicy.NextWakeAt([completed], Now));
     }
 
+    [Fact]
+    public void ReminderText_已提醒优先显示已提醒()
+    {
+        TodoItem item = Item("item", Now.AddHours(1));
+        item.ReminderDeliveredAt = Now;
+
+        string text = TodoDisplayFormatter.ReminderText(item);
+
+        Assert.Equal("已提醒", text);
+    }
+
     private static TodoItem Item(string id, DateTimeOffset reminderAt) => new()
     {
         Id = id,

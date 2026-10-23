@@ -812,3 +812,22 @@ winapp ui inspect -a WithWindows -i
 | 构建 | App 项目 0 警告 0 错误 |
 
 截图：`artifacts/ui/titlebar-system-2026-10-22.png`（普通状态）、`artifacts/ui/titlebar-system-close-hover-verified-2026-10-22.png`（红色悬停）、`artifacts/ui/titlebar-system-close-restored-2026-10-22.png`（唤回后正常状态）。
+
+#### 2026-10-24 待办页
+
+**导航与自动化标识**：左栏新增 `NavItemTodo`（标题「待办」）；页面稳定标识包括 `TodoNewInput`、`TodoAddButton`、`TodoList`、`TodoEmptyState`、`TodoReminderBar` 与 `TodoErrorBar`。每行按待办 ID 生成 `TodoComplete_*`、`TodoReminder_*`、`TodoDelete_*`。
+
+**界面**：内容区最大宽度 900 DIP，顶部为标题、摘要和快速添加栏；待办卡片包含完成复选框、标题、提醒摘要、提醒与删除按钮。完成项使用删除线并排在未完成项之后。
+
+**交互实测**：
+
+- 添加「验证待办」后列表显示一行，`todos.json` 立即写入；
+- 提醒对话框可启用日期与时间、保存和移除；`ContentDialog` 关闭后列表刷新，未再出现 WinUI 原生崩溃；
+- 完成操作会将 `isCompleted` 设为 `true` 并清空提醒；
+- 删除确认后列表恢复空状态，进程保持存活；
+- 到期验证中，应用自动从记事页切换到待办页，显示「“提醒验证”已到期。」，并把 `reminderDeliveredAt` 写回文件；
+- 临时验证待办已删除，`%APPDATA%\WithWindows\todos.json` 恢复为空列表。
+
+Windows App SDK 2.5.1 自包含应用的通知注册在调试版隐藏启动路径触发 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。为保持提醒可靠，最终改用应用内唤醒提示；不再依赖系统 toast 或额外通知资源 DLL。
+
+截图：`artifacts/ui/todo-page-2026-10-24.png`。

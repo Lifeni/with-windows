@@ -1,19 +1,21 @@
 # 待办与提醒实现计划
 
+> 实现偏差：Windows App SDK 2.5.1 自包含应用的通知注册会在隐藏启动路径触发 WinUI 原生崩溃，Task 3 和 Task 7 中的系统 toast 方案未采用。最终提醒改为精确截止计时后自动唤出待办页并显示 `InfoBar`；其余存储、页面与测试任务按计划完成。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 新增可持久化的待办页面，并让每个待办可以按指定时间触发 Windows 系统通知。
+**Goal:** 新增可持久化的待办页面，并让每个待办可以在指定时间自动唤出应用内提醒。
 
-**Architecture:** Core 提供待办模型、仓储和纯函数提醒策略；App 的页面只负责交互与展示，`AppHost` 持有共享仓储；`TodoReminderHost` 使用单次 `DispatcherQueueTimer` 睡到最近截止时间，并通过 Windows App SDK 发送系统通知。
+**Architecture:** Core 提供待办模型、仓储和纯函数提醒策略；App 的页面只负责交互与展示，`AppHost` 持有共享仓储；`TodoReminderHost` 使用单次后台计时器睡到最近截止时间，到期后唤出待办页并显示应用内提示条。
 
-**Tech Stack:** .NET 10、WinUI 3、Windows App SDK `AppNotificationManager`、`System.Text.Json`、xunit。
+**Tech Stack:** .NET 10、WinUI 3、`System.Threading.Timer`、`System.Text.Json`、xunit。
 
 **Spec:** `docs/superpowers/specs/2026-10-23-todo-reminders-design.md`
 
 ## Global Constraints
 
 - 仅 x64，所有构建和测试命令带 `-p:Platform=x64`。
-- 不新增第三方包；`Microsoft.WindowsAppSDK.Foundation` 已包含应用通知 API。
+- 不新增第三方包；提醒使用已引用的 WinUI 3 与 .NET 计时 API。
 - `WithWindows.Core` 不得引用任何 `Microsoft.UI.Xaml` 类型。
 - 页面保持 code-behind，不引入 MVVM 框架。
 - 运行时待办数据写入 `%APPDATA%\WithWindows\todos.json`，程序目录只放程序与资源。

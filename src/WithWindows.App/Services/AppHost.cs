@@ -19,6 +19,7 @@ public sealed record AppHostStartResult(AppHost? Host, bool AlreadyRunning, stri
 public sealed class AppHost : IDisposable
 {
     private readonly SingleInstance _singleInstance;
+    private TodoStore? _todos;
     private Thread? _activationThread;
     private volatile bool _shuttingDown;
 
@@ -29,14 +30,26 @@ public sealed class AppHost : IDisposable
         Store = store;
         Config = config;
         Hotkeys = new HotkeyManager();
-        Todos = new TodoStore(AppPaths.TodoPath);
     }
 
     public Logger Log { get; }
     public ConfigStore Store { get; }
     public AppConfig Config { get; private set; }
     public HotkeyManager Hotkeys { get; }
-    public TodoStore Todos { get; }
+    public TodoStore Todos
+    {
+        get
+        {
+            if (_todos is null)
+            {
+                _todos = new TodoStore(AppPaths.TodoPath);
+                if (_todos.LastLoadError is { } error)
+                    Log.Error(error);
+            }
+
+            return _todos;
+        }
+    }
     public HttpClient HttpClient { get; } = new(
         new SocketsHttpHandler
         {
@@ -91,8 +104,6 @@ public sealed class AppHost : IDisposable
         }
 
         var host = new AppHost(single, log, store, config);
-        if (host.Todos.LastLoadError is { } todoError)
-            host.Log.Error(todoError);
         foreach (string failure in host.ReloadBindings())
             host.Log.Error(failure);
         host.Log.Info("应用已启动");

@@ -83,9 +83,7 @@ public partial class App : Application
 
         _todoReminders = new TodoReminderHost(
             host,
-            mainWindow.DispatcherQueue,
-            () => mainWindow.ShowAndNavigate(ToolCatalog.TodoId));
-        _todoReminders.Start();
+            mainWindow.ShowTodoReminder);
 
         // 再次双击 exe / 点开始菜单：已有实例把窗口叫出来，保留当前页面。
         host.ActivationRequested = () => mainWindow.DispatcherQueue.TryEnqueue(() =>
@@ -122,6 +120,8 @@ public partial class App : Application
                 host.Log.Error("托盘不可用，--tray 启动回退为显示主窗口");
             mainWindow.Activate();
         }
+
+        _todoReminders.Start();
     }
 
     /// <summary>启动失败：在当前窗口上弹对话框后退出。</summary>
@@ -204,10 +204,11 @@ public partial class App : Application
         Current.Exit();
     }
 
-    /// <summary>真正退出前停止提醒计时器并解除通知与仓储订阅。</summary>
+    /// <summary>真正退出前停止提醒计时器并解除仓储订阅。</summary>
     public static void StopTodoReminders()
     {
         if (Current is App app)
             app._todoReminders?.Dispose();
     }
+
 }

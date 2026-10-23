@@ -34,6 +34,8 @@ public static class ToolCatalog
     public static IReadOnlyList<ToolEntry> Tools { get; } = new[]
     {
         new ToolEntry(NotepadId, "记事", "\uE70B", typeof(NotepadPage), ShowInNav: true, HasHotkey: true),
+        // E9D5 = CheckList（WinUI Gallery 图标表，tags: tasks, items, organize, progress）
+        new ToolEntry(TodoId, "待办", "\uE9D5", typeof(TodoPage), ShowInNav: true, HasHotkey: false),
         // EAB7 = ChatSparkle（WinUI Gallery 图标表，tags: chat, sparkle, ai）
         new ToolEntry(AiChatId, "AI 对话", "\uEAB7", typeof(ChatPage), ShowInNav: true, HasHotkey: false),
         // E7F9 = DeviceMonitorRightPic（WinUI Gallery 图标表，tags: projection/present）

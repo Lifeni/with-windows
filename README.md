@@ -7,7 +7,7 @@
 
 ## 功能
 
-Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，单进程常驻后台；系统关闭按钮与 `Alt+F4` 都隐藏到托盘，托盘菜单的「退出」才结束进程。当前四个页面：
+Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，单进程常驻后台；系统关闭按钮与 `Alt+F4` 都隐藏到托盘，托盘菜单的「退出」才结束进程。当前五个页面：
 
 **记事**（打开即编辑器，纯文本）
 
@@ -35,6 +35,15 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，单
 - API Key 由 Windows DPAPI 以当前用户范围保护，保存在 `%APPDATA%\WithWindows\chat\credential.bin`，不写入明文配置或日志
 - 图片输入要求所选兼容端点及模型支持视觉内容；暂不支持普通文件、Responses API 和自动上下文压缩
 
+**待办**
+
+- 快速添加待办，支持完成、重新设为未完成和删除；完成项保留在列表底部
+- 每项可设置一个本地日期与时间提醒，也可随时修改或移除
+- 提醒使用最近截止时间的一次性后台计时器：没有待处理提醒时不保持唤醒，不进行固定间隔轮询
+- 到点后自动唤出主窗口、切换到待办页并显示醒目提示条；应用重新启动后会补发已经到期但尚未提醒的项
+- 待办独立保存在 `%APPDATA%\WithWindows\todos.json`，不会混入应用配置
+- 提醒依赖应用正在托盘常驻；若需要登录后自动恢复，请在设置页开启开机自启
+
 **投影**
 
 - 「启用功能」开关、「快捷键」行（按键方块 + 铅笔按钮，点开弹窗录制，含重置 / 清除 / 保存 / 取消）；卡片行只留标题，不再带说明文字
@@ -47,9 +56,9 @@ Windows 常驻托盘的工具箱：左侧 `NavigationView` 切换工具页，单
 - 开机自启（写 `HKCU\...\Run`，用户级；开机拉起后隐藏到托盘，不打开主窗口，之后从开始菜单 / 桌面快捷方式再次启动会唤出已有窗口）、显示 / 隐藏窗口（全局热键：从隐藏状态唤出并打开所配置的默认页面，再按一次收起；窗口可见但被别的窗口挡住时只前置聚焦，不收起）、默认打开窗口（记事 / AI 对话）
 - 关于：折叠项（默认展开，图标 + 标题），展开后是版本 / 构建日期 / GitHub 仓库
 
-**托盘**：左键唤出主窗口，右键菜单「记事 / AI 对话 / 切换投影 · 设置 · 退出」。标题栏使用 WinUI 内置 `TitleBar`，最小化、最大化 / 还原与关闭按钮由系统 caption 区域绘制，尺寸、图标和关闭按钮红色悬停背景均跟随系统；关闭按钮与 `Alt+F4` 收进托盘，再次唤回时清除 caption 悬停残留。
+**托盘**：左键唤出主窗口，右键菜单「记事 / 待办 / AI 对话 / 切换投影 · 设置 · 退出」。标题栏使用 WinUI 内置 `TitleBar`，最小化、最大化 / 还原与关闭按钮由系统 caption 区域绘制，尺寸、图标和关闭按钮红色悬停背景均跟随系统；关闭按钮与 `Alt+F4` 收进托盘，再次唤回时清除 caption 悬停残留。
 
-内置工具：**记事**、**AI 对话**、**切换投影**（`SetDisplayConfig` 直接应用拓扑；目标与当前一致时提示「当前已是…」，不做无谓切换）。
+内置工具：**记事**、**待办**、**AI 对话**、**切换投影**（`SetDisplayConfig` 直接应用拓扑；目标与当前一致时提示「当前已是…」，不做无谓切换）。
 
 ## 快速开始
 
@@ -135,6 +144,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 - `config.json.bak`——上一次保存成功的配置，主文件损坏时自动回退
 - `log.txt`——运行日志（超过 1 MB 轮转为 `log.1.txt`）
 - `notepad.txt`——记事本内容
+- `todos.json`——待办、完成状态与提醒时间（附 `todos.json.bak`）
 - `chat/current.json`——当前 AI 对话（附 `current.json.bak`）
 - `chat/attachments/`——会话图片附件
 - `chat/credential.bin`——DPAPI 保护的 API Key
@@ -174,7 +184,7 @@ with-windows/
 ├── installer/              # Inno Setup 脚本与说明
 ├── scripts/                # 开发脚本（dev.ps1、IconGen 图标生成）
 ├── src/WithWindows.App/    # 未打包 WinUI 3 应用（Views/ Controls/ Services/ Tools/ 与 Assets/）
-├── src/WithWindows.Core/   # 纯逻辑类库（Actions/ App/ Chat/ Config/ Diagnostics/ Hotkeys/ Interop/）
+├── src/WithWindows.Core/   # 纯逻辑类库（Actions/ App/ Chat/ Config/ Diagnostics/ Hotkeys/ Interop/ Todos/）
 └── tests/WithWindows.Core.Tests/  # 核心逻辑单元测试
 ```
 

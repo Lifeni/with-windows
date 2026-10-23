@@ -54,17 +54,6 @@
     <!-- CopyToPublishDirectory 必须显式设置：单文件发布时 Content 不会被复制到 publish 目录，
          缺了 Assets 会导致托盘图标与窗口图标丢失 -->
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <!--
-      Windows App SDK 2.5.1 的自包含应用缺少该 Insights 资源 DLL，
-      AppNotificationManager.Register() 会因 0x8007007E 失败。
-      文件取自同一 WindowsAppSDK.Runtime 包的 Framework MSIX，等官方稳定版修复后可移除。
-    -->
-    <None
-      Include="Runtime\Microsoft.WindowsAppRuntime.Insights.Resource.dll"
-      CopyToOutputDirectory="PreserveNewest"
-      CopyToPublishDirectory="PreserveNewest">
-      <TargetPath>Microsoft.WindowsAppRuntime.Insights.Resource.dll</TargetPath>
-    </None>
   </ItemGroup>
 
   <!-- WindowsAppSDK 的应用内容在 publish 阶段不会随单文件一起复制（已知坑，与旧项目的 XBF/PRI 同类）。

@@ -188,6 +188,35 @@ public sealed partial class MainWindow : Window
     /// <summary>再次启动应用时显示现有窗口，并保留当前页面。</summary>
     public void ShowCurrentPage() => ShowWindow();
 
+    /// <summary>把到期项作为应用内提醒显示，并唤出待办页。</summary>
+    public void ShowTodoReminder(IReadOnlyList<string> titles)
+    {
+        if (titles.Count == 0)
+            return;
+
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            DispatcherQueue.TryEnqueue(() => ShowTodoReminder(titles));
+            return;
+        }
+
+        ShowAndNavigate(ToolCatalog.TodoId);
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                if (NavFrame.Content is TodoPage page)
+                    page.ShowReminderNotice(titles);
+                else
+                    App.Host?.Log.Error("待办提醒已到期，但待办页尚未挂载。");
+            }
+            catch (Exception ex)
+            {
+                App.Host?.Log.Error($"显示待办提醒失败：{ex.Message}");
+            }
+        });
+    }
+
     private void ScheduleShowRecovery(int generation, int remainingAttempts)
     {
         _showRecoveryTimer?.Stop();
