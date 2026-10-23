@@ -26,10 +26,9 @@
                         VerticalAlignment="Top"
                         AutomationProperties.AutomationId="{x:Bind CompleteAutomationId}"
                         AutomationProperties.Name="完成待办"
-                        Checked="OnCompletedChecked"
+                        Click="OnCompletedClick"
                         IsChecked="{x:Bind IsCompleted}"
-                        Tag="{x:Bind Id}"
-                        Unchecked="OnCompletedUnchecked">
+                        Tag="{x:Bind Id}">
                     </CheckBox>
 
                     <StackPanel
@@ -73,7 +72,8 @@
                             BorderThickness="0"
                             Click="OnReminderClick"
                             Tag="{x:Bind Id}"
-                            ToolTipService.ToolTip="{x:Bind ReminderButtonText}">
+                            ToolTipService.ToolTip="{x:Bind ReminderButtonText}"
+                            Visibility="{x:Bind PendingVisibility}">
                             <FontIcon FontSize="16" Glyph="&#xEA8F;" />
                         </Button>
                         <Button

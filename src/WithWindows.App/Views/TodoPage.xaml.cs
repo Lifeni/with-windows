@@ -127,17 +127,14 @@ public sealed partial class TodoPage : Page
         }
     }
 
-    private void OnCompletedChecked(object sender, RoutedEventArgs e)
-        => SetCompleted(sender, completed: true);
-
-    private void OnCompletedUnchecked(object sender, RoutedEventArgs e)
-        => SetCompleted(sender, completed: false);
-
-    private void SetCompleted(object sender, bool completed)
+    private void OnCompletedClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not CheckBox { Tag: string id })
-            return;
+        if (sender is CheckBox { Tag: string id } checkBox)
+            SetCompleted(id, checkBox.IsChecked == true);
+    }
 
+    private void SetCompleted(string id, bool completed)
+    {
         try
         {
             Host?.Todos.SetCompleted(id, completed, DateTimeOffset.UtcNow);

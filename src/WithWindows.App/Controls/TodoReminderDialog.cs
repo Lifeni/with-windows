@@ -92,7 +92,6 @@ public static class TodoReminderDialog
         };
         content.Children.Add(enabled);
         content.Children.Add(pickerGrid);
-        content.Children.Add(validation);
 
         var contentScroll = new ScrollViewer
         {
@@ -104,6 +103,14 @@ public static class TodoReminderDialog
             IsTabStop = false,
         };
         AutomationProperties.SetAutomationId(contentScroll, "TodoReminderContentScroll");
+
+        var contentLayout = new Grid { MinWidth = 420 };
+        contentLayout.RowDefinitions.Add(
+            new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        contentLayout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        contentLayout.Children.Add(contentScroll);
+        Grid.SetRow(validation, 1);
+        contentLayout.Children.Add(validation);
 
         void UpdateContentHeight()
             => contentScroll.MaxHeight = Math.Clamp(
@@ -120,7 +127,7 @@ public static class TodoReminderDialog
         {
             XamlRoot = xamlRoot,
             Title = "设置提醒",
-            Content = contentScroll,
+            Content = contentLayout,
             PrimaryButtonText = "保存",
             SecondaryButtonText = hasExisting ? "移除提醒" : "",
             CloseButtonText = "取消",

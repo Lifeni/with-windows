@@ -18,10 +18,12 @@ public sealed class TodoReminderHost : IDisposable
     private Timer? _timer;
     private readonly Action<IReadOnlyList<string>> _showReminder;
     private readonly object _scheduleGate = new();
+    private readonly Dictionary<string, DateTimeOffset> _suppressedDeliveries =
+        new(StringComparer.Ordinal);
 
     private bool _started;
-    private bool _processingDue;
-    private bool _disposed;
+    private volatile bool _processingDue;
+    private volatile bool _disposed;
 
     public TodoReminderHost(
         AppHost host,
@@ -53,9 +55,24 @@ public sealed class TodoReminderHost : IDisposable
             try
             {
                 _timer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                IReadOnlyList<TodoItem> items = _store.GetAll();
+                foreach (string id in _suppressedDeliveries.Keys.ToArray())
+                {
+                    TodoItem? item = items.FirstOrDefault(candidate =>
+                        string.Equals(candidate.Id, id, StringComparison.Ordinal));
+                    if (item is null
+                        || item.IsCompleted
+                        || item.ReminderAt is null
+                        || item.ReminderDeliveredAt is not null
+                        || item.ReminderAt != _suppressedDeliveries[id])
+                    {
+                        _suppressedDeliveries.Remove(id);
+                    }
+                }
+
                 DateTimeOffset now = DateTimeOffset.UtcNow;
                 DateTimeOffset? next = TodoReminderPolicy.NextWakeAt(
-                    _store.GetAll(),
+                    items.Where(item => !IsSuppressed(item)),
                     now);
                 if (next is null)
                 {
@@ -101,24 +118,39 @@ public sealed class TodoReminderHost : IDisposable
         try
         {
             IReadOnlyList<TodoItem> due = TodoReminderPolicy.GetDue(
-                _store.GetAll(),
-                DateTimeOffset.UtcNow);
+                    _store.GetAll(),
+                    DateTimeOffset.UtcNow)
+                .Where(item => !IsSuppressed(item))
+                .ToList();
             if (due.Count == 0)
                 return;
 
-            _showReminder(
-                due.Select(item => item.Title)
-                    .Where(title => !string.IsNullOrWhiteSpace(title))
-                    .ToArray());
+            try
+            {
+                _showReminder(
+                    due.Select(item => item.Title)
+                        .Where(title => !string.IsNullOrWhiteSpace(title))
+                        .ToArray());
+            }
+            catch (Exception ex)
+            {
+                foreach (TodoItem item in due)
+                    Suppress(item);
+                _host.Log.Error($"显示待办提醒失败，本次运行不再重试：{ex}");
+                return;
+            }
 
             foreach (TodoItem item in due)
             {
                 try
                 {
-                    _store.MarkReminderDelivered(item.Id, DateTimeOffset.UtcNow);
+                    if (!_store.MarkReminderDelivered(item.Id, DateTimeOffset.UtcNow))
+                        Suppress(item);
                 }
                 catch (Exception ex)
                 {
+                    // 写盘失败时本次进程不再重复抢窗口；下次启动会重新尝试。
+                    Suppress(item);
                     _host.Log.Error(
                         $"待办“{item.Title}”提醒状态保存失败：{ex.Message}");
                 }
@@ -132,6 +164,25 @@ public sealed class TodoReminderHost : IDisposable
         {
             _processingDue = false;
             RefreshSchedule();
+        }
+    }
+
+    private bool IsSuppressed(TodoItem item)
+    {
+        lock (_scheduleGate)
+        {
+            return item.ReminderAt is { } at
+                && _suppressedDeliveries.TryGetValue(item.Id, out DateTimeOffset suppressedAt)
+                && suppressedAt == at;
+        }
+    }
+
+    private void Suppress(TodoItem item)
+    {
+        lock (_scheduleGate)
+        {
+            if (item.ReminderAt is { } at)
+                _suppressedDeliveries[item.Id] = at;
         }
     }
 

@@ -7,6 +7,6 @@ public static class TodoDisplayFormatter
         => item.ReminderDeliveredAt is not null
             ? "已提醒"
             : item.ReminderAt is { } reminderAt
-                ? $"提醒：{reminderAt.ToLocalTime():M月 d 日 HH:mm}"
+                ? $"提醒：{reminderAt.ToLocalTime():M 月 d 日 HH:mm}"
                 : "未设置提醒";
 }

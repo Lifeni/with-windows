@@ -54,6 +54,17 @@ public class TodoReminderPolicyTests
         Assert.Equal("已提醒", text);
     }
 
+    [Fact]
+    public void ReminderText_中文与数字之间保留空格()
+    {
+        DateTime local = new(2026, 10, 23, 18, 30, 0, DateTimeKind.Unspecified);
+        TodoItem item = Item("item", new DateTimeOffset(local));
+
+        string text = TodoDisplayFormatter.ReminderText(item);
+
+        Assert.Equal("提醒：10 月 23 日 18:30", text);
+    }
+
     private static TodoItem Item(string id, DateTimeOffset reminderAt) => new()
     {
         Id = id,

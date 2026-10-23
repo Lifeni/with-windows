@@ -139,7 +139,7 @@ public sealed class TodoStore
             return;
         }
 
-        if (File.Exists(Path) && TryLoad(BackupPath, out loaded))
+        if (TryLoad(BackupPath, out loaded))
         {
             _items = loaded;
             try
@@ -169,8 +169,11 @@ public sealed class TodoStore
             TodoDocument? document = JsonSerializer.Deserialize<TodoDocument>(
                 File.ReadAllText(path),
                 JsonOptions);
-            if (document?.Items is null)
+            if (document?.Items is null
+                || document.Items.Any(item => item is null))
+            {
                 return false;
+            }
 
             items = document.Items
                 .Where(item => !string.IsNullOrWhiteSpace(item.Id)

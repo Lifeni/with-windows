@@ -69,6 +69,30 @@ public class TodoStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_主文件缺失时从备份恢复()
+    {
+        TodoStore store = NewStore();
+        store.Add("保留我", DateTimeOffset.UnixEpoch);
+        store.Add("后一项", DateTimeOffset.UnixEpoch.AddMinutes(1));
+        File.Delete(store.Path);
+
+        TodoItem item = Assert.Single(NewStore().GetAll());
+        Assert.Equal("保留我", item.Title);
+    }
+
+    [Fact]
+    public void Load_主文件含null项目时从备份恢复()
+    {
+        TodoStore store = NewStore();
+        store.Add("保留我", DateTimeOffset.UnixEpoch);
+        store.Add("后一项", DateTimeOffset.UnixEpoch.AddMinutes(1));
+        File.WriteAllText(store.Path, """{"version":1,"items":[null]}""");
+
+        TodoItem item = Assert.Single(NewStore().GetAll());
+        Assert.Equal("保留我", item.Title);
+    }
+
+    [Fact]
     public void MarkReminderDelivered_不再进入到期列表()
     {
         TodoStore store = NewStore();
