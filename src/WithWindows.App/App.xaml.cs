@@ -28,6 +28,7 @@ public partial class App : Application
     // 冒烟路径同样由字段持有：AGENTS.md 硬性约束禁止用局部 using 持有 Logger / 热键管理器
     private Logger? _smokeLog;
     private HotkeyManager? _smokeHotkeys;
+    private TodoReminderHost? _todoReminders;
 
     public App()
     {
@@ -79,6 +80,12 @@ public partial class App : Application
 
         AppHost host = start.Host;
         host.ToolInvoker = toolId => new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
+
+        _todoReminders = new TodoReminderHost(
+            host,
+            mainWindow.DispatcherQueue,
+            () => mainWindow.ShowAndNavigate(ToolCatalog.TodoId));
+        _todoReminders.Start();
 
         // 再次双击 exe / 点开始菜单：已有实例把窗口叫出来，保留当前页面。
         host.ActivationRequested = () => mainWindow.DispatcherQueue.TryEnqueue(() =>
@@ -195,5 +202,12 @@ public partial class App : Application
 
         log.Info($"冒烟完成：配置 {config.Tools.Count} 个工具，成功注册 {bound} 个热键");
         Current.Exit();
+    }
+
+    /// <summary>真正退出前停止提醒计时器并解除通知与仓储订阅。</summary>
+    public static void StopTodoReminders()
+    {
+        if (Current is App app)
+            app._todoReminders?.Dispose();
     }
 }

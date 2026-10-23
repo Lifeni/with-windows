@@ -2,6 +2,7 @@ using WithWindows.Core.App;
 using WithWindows.Core.Config;
 using WithWindows.Core.Diagnostics;
 using WithWindows.Core.Hotkeys;
+using WithWindows.Core.Todos;
 
 namespace WithWindows.Services;
 
@@ -28,12 +29,14 @@ public sealed class AppHost : IDisposable
         Store = store;
         Config = config;
         Hotkeys = new HotkeyManager();
+        Todos = new TodoStore(AppPaths.TodoPath);
     }
 
     public Logger Log { get; }
     public ConfigStore Store { get; }
     public AppConfig Config { get; private set; }
     public HotkeyManager Hotkeys { get; }
+    public TodoStore Todos { get; }
     public HttpClient HttpClient { get; } = new(
         new SocketsHttpHandler
         {
@@ -88,6 +91,8 @@ public sealed class AppHost : IDisposable
         }
 
         var host = new AppHost(single, log, store, config);
+        if (host.Todos.LastLoadError is { } todoError)
+            host.Log.Error(todoError);
         foreach (string failure in host.ReloadBindings())
             host.Log.Error(failure);
         host.Log.Info("应用已启动");

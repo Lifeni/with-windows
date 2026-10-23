@@ -25,6 +25,7 @@ public sealed record ToolEntry(
 public static class ToolCatalog
 {
     public const string NotepadId = "notepad";
+    public const string TodoId = "todo";
     public const string AiChatId = "ai_chat";
     public const string DisplayPageId = "display";
     public const string DisplayModeId = "display_mode";

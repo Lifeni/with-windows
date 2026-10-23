@@ -298,6 +298,7 @@ public sealed partial class MainWindow : Window
     public void ExitApplication()
     {
         _exiting = true;
+        App.StopTodoReminders();
         _showRecoveryTimer?.Stop();
         _showRecoveryTimer = null;
         _windowState.Dispose();
