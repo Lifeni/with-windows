@@ -22,6 +22,9 @@ public static class AppPaths
     /// <summary>记事本草稿路径。</summary>
     public static string NotepadDraftPath { get; } = Path.Combine(DataRoot, "notepad.txt");
 
+    /// <summary>待办数据文件路径。</summary>
+    public static string TodoPath { get; } = Path.Combine(DataRoot, "todos.json");
+
     /// <summary>AI 对话数据目录。</summary>
     public static string ChatDirectory { get; } = Path.Combine(DataRoot, "chat");
 
