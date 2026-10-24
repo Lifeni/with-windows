@@ -849,7 +849,7 @@ public sealed partial class ChatPage : Page
             return;
 
         bool empty = Messages.Count == 0;
-        ChatEmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        ChatEmptyStatePanel.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
         if (!empty)
             return;
 

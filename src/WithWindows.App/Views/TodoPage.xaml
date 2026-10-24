@@ -123,12 +123,11 @@
                 Background="Transparent"
                 BorderThickness="0"
                 FontSize="14"
-                FocusVisualMargin="-4"
                 PlaceholderText="添加待办"
                 PreviewKeyDown="OnNewInputKeyDown"
                 TextCompositionEnded="OnTextCompositionEnded"
                 TextCompositionStarted="OnTextCompositionStarted"
-                UseSystemFocusVisuals="True">
+                UseSystemFocusVisuals="False">
                 <TextBox.Resources>
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
                     <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />

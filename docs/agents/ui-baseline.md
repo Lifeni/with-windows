@@ -34,8 +34,11 @@ winapp ui screenshot -a WithWindows
 - 列表与摘要：`TodoList`、`TodoSummary`
 - 状态提示：`TodoReminderBar`、`TodoErrorBar`、`TodoEmptyState`
 - 行操作：`TodoComplete_*`、`TodoReminder_*`、`TodoDelete_*`
+- 提醒对话框：`TodoReminderDate`、`TodoReminderTime`、`TodoReminderValidation`
 
-待办输入栏位于页面底部且高度为 48 DIP。输入框保持透明背景和透明边框，键盘聚焦时显示系统焦点框；按 `Enter` 添加，不显示发送按钮。
+待办输入栏位于页面底部且高度为 48 DIP。输入框保持透明背景、透明边框且不显示焦点边框；按 `Enter` 添加，不显示发送按钮。
+
+提醒对话框直接显示日期与时间选择器，不使用“启用提醒”开关；已有提醒通过次级按钮移除，两个选择器高度均为 40 DIP。
 
 ## AI 对话
 
@@ -44,7 +47,7 @@ winapp ui screenshot -a WithWindows
 - 消息：`ChatMessageList`、`ChatEmptyState`、`ChatErrorBar`
 - 输入与附件：`ChatInput`、`ChatPendingAttachments`、`ChatRemoveAttachmentButton`
 
-输入栏使用主题填充色和透明边框，单行文字垂直居中。`Enter` 发送，`Shift+Enter` 换行，输入法组合期间不发送。
+空状态使用与待办页一致的 42 DIP 字体图标和说明文字。输入栏使用主题填充色和透明边框，单行文字垂直居中。`Enter` 发送，`Shift+Enter` 换行，输入法组合期间不发送。
 
 ## 投影与设置
 

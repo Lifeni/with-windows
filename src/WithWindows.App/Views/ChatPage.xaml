@@ -199,15 +199,25 @@
                 </ListView.ItemContainerStyle>
             </ListView>
 
-            <TextBlock
-                x:Name="ChatEmptyState"
+            <StackPanel
+                x:Name="ChatEmptyStatePanel"
                 Margin="32"
+                MaxWidth="360"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                AutomationProperties.AutomationId="ChatEmptyState"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                TextAlignment="Center"
-                TextWrapping="Wrap" />
+                Spacing="10">
+                <FontIcon
+                    HorizontalAlignment="Center"
+                    FontSize="42"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Glyph="&#xE8F2;" />
+                <TextBlock
+                    x:Name="ChatEmptyState"
+                    AutomationProperties.AutomationId="ChatEmptyState"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+            </StackPanel>
 
             <InfoBar
                 x:Name="ChatErrorBar"

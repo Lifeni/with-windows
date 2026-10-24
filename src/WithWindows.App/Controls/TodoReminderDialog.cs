@@ -23,56 +23,51 @@ public static class TodoReminderDialog
             ?? RoundUpToFiveMinutes(DateTimeOffset.Now.AddHours(1));
         bool hasExisting = item.ReminderAt is not null;
 
-        var enabled = new CheckBox
-        {
-            Content = "启用提醒",
-            IsChecked = hasExisting,
-        };
-        AutomationProperties.SetAutomationId(enabled, "TodoReminderEnabled");
-        AutomationProperties.SetName(enabled, "启用提醒");
-
         var datePicker = new CalendarDatePicker
         {
-            Header = "日期",
             Date = new DateTimeOffset(initial.Date),
-            IsEnabled = hasExisting,
+            Height = 40,
+            MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
         };
         AutomationProperties.SetAutomationId(datePicker, "TodoReminderDate");
         AutomationProperties.SetName(datePicker, "提醒日期");
 
         var timePicker = new TimePicker
         {
-            Header = "时间",
             ClockIdentifier = "24HourClock",
+            Height = 40,
+            MinWidth = 0,
             SelectedTime = initial.TimeOfDay,
-            IsEnabled = hasExisting,
             HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
         };
         AutomationProperties.SetAutomationId(timePicker, "TodoReminderTime");
         AutomationProperties.SetName(timePicker, "提醒时间");
+        // TimePicker 模板把内部 FlyoutButton 顶对齐，外层 Height 不会撑高可见内容。
+        // 用对称内边距把内容框实际撑到与 CalendarDatePicker 相同的 40 DIP。
+        timePicker.Resources["TimePickerHostPadding"] = new Thickness(0, 9, 0, 9);
 
-        enabled.Checked += (_, _) => SetPickersEnabled(isEnabled: true);
-        enabled.Unchecked += (_, _) => SetPickersEnabled(isEnabled: false);
-
-        void SetPickersEnabled(bool isEnabled)
-        {
-            if (datePicker is null || timePicker is null)
-                return;
-
-            datePicker.IsEnabled = isEnabled;
-            timePicker.IsEnabled = isEnabled;
-        }
+        var dateLabel = CreateFieldLabel("日期");
+        var timeLabel = CreateFieldLabel("时间");
 
         var pickerGrid = new Grid
         {
             ColumnSpacing = 12,
-            Margin = new Thickness(0, 8, 0, 0),
+            RowSpacing = 4,
         };
+        pickerGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        pickerGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         pickerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         pickerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        pickerGrid.Children.Add(dateLabel);
+        Grid.SetColumn(timeLabel, 1);
+        pickerGrid.Children.Add(timeLabel);
+        Grid.SetRow(datePicker, 1);
         pickerGrid.Children.Add(datePicker);
         Grid.SetColumn(timePicker, 1);
+        Grid.SetRow(timePicker, 1);
         pickerGrid.Children.Add(timePicker);
 
         var validation = new TextBlock
@@ -90,7 +85,6 @@ public static class TodoReminderDialog
             MinWidth = 420,
             Spacing = 4,
         };
-        content.Children.Add(enabled);
         content.Children.Add(pickerGrid);
 
         var contentScroll = new ScrollViewer
@@ -126,7 +120,7 @@ public static class TodoReminderDialog
         var dialog = new ContentDialog
         {
             XamlRoot = xamlRoot,
-            Title = "设置提醒",
+            Title = hasExisting ? "修改提醒" : "设置提醒",
             Content = contentLayout,
             PrimaryButtonText = "保存",
             SecondaryButtonText = hasExisting ? "移除提醒" : "",
@@ -137,12 +131,6 @@ public static class TodoReminderDialog
         TodoReminderChoice? choice = null;
         dialog.PrimaryButtonClick += (_, args) =>
         {
-            if (enabled.IsChecked != true)
-            {
-                choice = new TodoReminderChoice(Remove: true, At: null);
-                return;
-            }
-
             if (datePicker.Date is not { } date || timePicker.SelectedTime is not { } time)
             {
                 args.Cancel = true;
@@ -182,6 +170,13 @@ public static class TodoReminderDialog
             _ => null,
         };
     }
+
+    private static TextBlock CreateFieldLabel(string text) => new()
+    {
+        Text = text,
+        FontSize = 12,
+        Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+    };
 
     private static DateTimeOffset RoundUpToFiveMinutes(DateTimeOffset value)
     {
