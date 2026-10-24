@@ -27,7 +27,7 @@ DefaultDirName={autopf}\With Windows
 DefaultGroupName=With Windows
 DisableProgramGroupPage=yes
 OutputDir=..\dist-installer
-OutputBaseFilename=WithWindows-{#AppVersion}-x64-setup
+OutputBaseFilename=with-windows-{#AppVersion}-x64-setup
 ; 64 MB 字典；比默认 max（8 MB）略小，代价是压缩时约需 742 MB 内存
 Compression=lzma2/ultra64
 SolidCompression=yes

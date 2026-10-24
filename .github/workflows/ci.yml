@@ -38,5 +38,5 @@ jobs:
         run: |
           $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=$ver /DSourceDir=..\dist-check installer\WithWindows.iss
-          if (-not (Test-Path "dist-installer/WithWindows-$ver-x64-setup.exe")) { Write-Error "未生成安装器" }
-          Write-Host "安装器已生成：WithWindows-$ver-x64-setup.exe"
+          if (-not (Test-Path "dist-installer/with-windows-$ver-x64-setup.exe")) { Write-Error "未生成安装器" }
+          Write-Host "安装器已生成：with-windows-$ver-x64-setup.exe"

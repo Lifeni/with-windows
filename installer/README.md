@@ -1,6 +1,6 @@
 # 安装器（Inno Setup）
 
-安装器把自包含单文件 exe 与 `Assets/` 打成 `WithWindows-<版本>-x64-setup.exe`。
+安装器把自包含单文件 exe 与 `Assets/` 打成 `with-windows-<版本>-x64-setup.exe`。
 
 ## 本地编译
 
@@ -13,7 +13,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\WithWindows.iss
 ```
 
-产物在 `dist-installer\WithWindows-<版本>-x64-setup.exe`。
+产物在 `dist-installer\with-windows-<版本>-x64-setup.exe`。
 
 ## 行为说明
 

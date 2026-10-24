@@ -65,19 +65,19 @@ jobs:
         run: |
           $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\WithWindows.iss
-          if (-not (Test-Path "dist-installer/WithWindows-$ver-x64-setup.exe")) { Write-Error "未生成安装器" }
+          if (-not (Test-Path "dist-installer/with-windows-$ver-x64-setup.exe")) { Write-Error "未生成安装器" }
 
       - name: 整理产物与校验和
         if: steps.version.outputs.need_release == 'true'
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.tag }}"
-          # 安装器文件名用的是不带 v 的版本号（ISCC /DAppVersion=$ver），tag 才带 v 前缀
+          # 安装器源文件名用不带 v 的版本号，Release 资产名使用完整 tag。
           $ver = $tag.TrimStart('v')
-          Copy-Item "dist-installer/WithWindows-$ver-x64-setup.exe" "WithWindows-$tag-x64-setup.exe"
+          Copy-Item "dist-installer/with-windows-$ver-x64-setup.exe" "with-windows-$tag-x64-setup.exe"
           # 只打包 exe 与 Assets：不要 dist/*，否则会把 PDB 调试符号一起发到 Release
-          Compress-Archive -Path dist/WithWindows.exe, dist/Assets -DestinationPath "WithWindows-$tag-x64-portable.zip" -Force
-          Get-ChildItem "WithWindows-$tag-x64-*.exe", "WithWindows-$tag-x64-*.zip" | ForEach-Object {
+          Compress-Archive -Path dist/WithWindows.exe, dist/Assets -DestinationPath "with-windows-$tag-x64-portable.zip" -Force
+          Get-ChildItem "with-windows-$tag-x64-*.exe", "with-windows-$tag-x64-*.zip" | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Set-Content SHA256SUMS.txt -Encoding utf8
 
@@ -98,7 +98,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
-            WithWindows-*-x64-setup.exe
-            WithWindows-*-x64-portable.zip
+            with-windows-*-x64-setup.exe
+            with-windows-*-x64-portable.zip
             SHA256SUMS.txt
           body_path: release_body.md
