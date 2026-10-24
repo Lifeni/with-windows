@@ -13,6 +13,7 @@
 
 ### 修复
 - 修复通过关闭按钮收起窗口后再唤回时，caption 关闭按钮可能残留悬停高亮的问题：显示前发送 `WM_NCMOUSEMOVE` / `HTNOWHERE` 清理非客户区指针状态
+- 修复窗口长时间未激活、锁屏或休眠恢复后 XAML 内容树可能失效并黑屏的问题：停用超过 10 分钟后重新激活会主动重建当前页面；普通激活也会检查页面是否仍挂载
 
 ### 其他
 - GitHub Actions 升级 `actions/checkout` 至 `v5`、`softprops/action-gh-release` 至 `v3`，消除 Node.js 20 弃用注解

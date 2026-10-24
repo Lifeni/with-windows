@@ -12,6 +12,8 @@ namespace WithWindows;
 
 public sealed partial class MainWindow : Window
 {
+    private static readonly TimeSpan StalePageThreshold = TimeSpan.FromMinutes(10);
+
     /// <summary>导航项 Tag → 页面类型；由工具目录生成，不手写。</summary>
     private readonly Dictionary<string, Type> _routes = new(StringComparer.Ordinal);
 
@@ -22,8 +24,10 @@ public sealed partial class MainWindow : Window
     private readonly WindowStateStore _windowState;
 
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _showRecoveryTimer;
+    private DateTimeOffset? _deactivatedAt;
     private int _navigationGeneration;
     private bool _isHiddenToTray;
+    private bool _activationRecoveryQueued;
 
     /// <summary>true 表示正在真正退出（区分「关闭窗口 = 隐藏到托盘」）。</summary>
     private bool _exiting;
@@ -54,8 +58,7 @@ public sealed partial class MainWindow : Window
 
         _windowState = new WindowStateStore(this, App.Host?.Config ?? new WithWindows.Core.Config.AppConfig(), () => App.Host?.SaveConfig());
         AppWindow.Changed += OnAppWindowChanged;
-        Activated += (_, args) =>
-            LogLifecycle($"主窗口 Activated：{args.WindowActivationState}");
+        Activated += OnWindowActivated;
         NavFrame.Navigating += (_, args) =>
             LogLifecycle($"导航开始：{NavFrame.CurrentSourcePageType?.Name ?? "(无)"} → {args.SourcePageType.Name}");
         NavFrame.Navigated += (_, args) =>
@@ -70,6 +73,58 @@ public sealed partial class MainWindow : Window
     {
         Activated -= OnFirstActivated;
         _windowState.Restore();
+    }
+
+    private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
+    {
+        LogLifecycle($"主窗口 Activated：{args.WindowActivationState}");
+
+        if (args.WindowActivationState == WindowActivationState.Deactivated)
+        {
+            _deactivatedAt = DateTimeOffset.UtcNow;
+            return;
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        bool remount = Core.App.WindowRecoveryPolicy.ShouldRemount(
+            now,
+            _deactivatedAt,
+            StalePageThreshold);
+        _deactivatedAt = null;
+
+        if (remount)
+        {
+            QueuePageRemount("窗口长时间停用后重新激活");
+            return;
+        }
+
+        // 普通激活也检查页面是否还挂载；闲置后 XAML 内容树可能已失效。
+        ScheduleShowRecovery(_navigationGeneration, remainingAttempts: 2);
+    }
+
+    private void QueuePageRemount(string reason)
+    {
+        if (_activationRecoveryQueued || _exiting)
+            return;
+
+        _activationRecoveryQueued = true;
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.High,
+            () =>
+            {
+                _activationRecoveryQueued = false;
+                if (_exiting || App.Host is { IsShuttingDown: true })
+                    return;
+
+                if (NavFrame.CurrentSourcePageType is not { } pageType)
+                    return;
+
+                _showRecoveryTimer?.Stop();
+                _showRecoveryTimer = null;
+                _navigationGeneration++;
+                LogLifecycle($"{reason}，重建页面：{pageType.Name}");
+                NavFrame.Navigate(pageType);
+            });
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
