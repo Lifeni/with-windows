@@ -109,7 +109,7 @@ OpenAiCompatibleChatService
 
 ### 4.1 配置迁移
 
-`AppConfig` 当前版本为 `4`。版本 `1` / `2` / 新格式 `3` 自动迁移；仅 v1 / v2 的空系统提示迁移为内置默认值，新格式 v3 起允许用户主动清空。旧 v3 中带根级 `bindings` 的格式继续按不支持格式重建。
+`AppConfig` 当前版本为 `5`。版本 `1` 至 `4` 自动迁移；仅 v1 / v2 的空系统提示迁移为内置默认值，新格式 v3 起允许用户主动清空。旧 v3 中带根级 `bindings` 的格式继续按不支持格式重建。
 
 版本 `1` / `2` / 新格式 `3` 升级到版本 `4` 时保留：
 
@@ -129,6 +129,8 @@ OpenAiCompatibleChatService
 ```
 
 API Key 不在 `config.json` 中。省略 `systemPrompt` 时使用 `ChatSettings.DefaultSystemPrompt`；版本 `4` 的已知工具列表保持不变，`ai_chat` 是导航页面而不是可绑定热键的动作。
+
+版本 `5` 新增 `windowState.defaultPage`，用于选择从隐藏状态唤出时打开的页面；缺失、类型错误或未知值只回退为 `notepad`，不会重置整份配置。
 
 旧数组格式、带根级 `bindings` 的旧 v3 格式和无法识别的版本仍按现有策略重建默认配置。主文件损坏时继续从 `.bak` 恢复。
 
