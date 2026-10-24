@@ -161,6 +161,6 @@ Core 单元测试覆盖：
 文档同步：
 
 - README 增加待办功能与“提醒需要应用驻留托盘”的说明；
-- CHANGELOG 的「未发布」章节记录新增功能；
+- CHANGELOG 的最新版本章节记录新增功能；
 - 数据文件以 `docs/development.md` 为准，页面与自动化标识以 `ToolCatalog` 和 `docs/agents/ui-baseline.md` 为准；
 - `docs/agents/ui-baseline.md` 记录新增页面与自动化标识。

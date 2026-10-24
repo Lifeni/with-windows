@@ -22,7 +22,7 @@
     <!-- 单文件发布时 WASDK 强制要求开启 MSIX 工具链（已知坑） -->
     <EnableMsixTooling Condition="'$(PublishSingleFile)' == 'true'">true</EnableMsixTooling>
     <EnableMsixTooling Condition="'$(PublishSingleFile)' != 'true'">false</EnableMsixTooling>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

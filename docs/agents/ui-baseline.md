@@ -49,7 +49,7 @@ winapp ui screenshot -a WithWindows
 ## 投影与设置
 
 - 投影：`DisplayEnabledToggle`、`DisplayModesExpander`、`DisplayCurrentMode`
-- 设置：`AutoStartToggle`、`DefaultWindowPageComboBox`、`HotkeyBox_notepad`
+- 设置：`AutoStartToggle`、`DefaultWindowPageComboBox`（记事 / 待办 / AI 对话）、`HotkeyBox_notepad`
 - 关于：`AboutExpander`、`AboutVersion`、`AboutBuildDate`、`AboutRepository`
 
 ## 截图
@@ -57,5 +57,6 @@ winapp ui screenshot -a WithWindows
 - [记事](../images/notepad.png)
 - [待办](../images/todo.png)
 - [AI 对话](../images/ai-chat.png)
+- [投影](../images/projection.png)
 
 新增或重命名 UI Automation 标识时，必须同步更新本文件。

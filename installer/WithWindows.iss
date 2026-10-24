@@ -1,5 +1,5 @@
 ; With Windows 安装器（Inno Setup 6）
-; 编译：ISCC.exe /DAppVersion=0.6.0 WithWindows.iss
+; 编译：ISCC.exe /DAppVersion=0.7.0 WithWindows.iss
 ; 载荷：dist\WithWindows.exe（自包含单文件）与 dist\Assets\*
 
 #ifndef AppVersion
