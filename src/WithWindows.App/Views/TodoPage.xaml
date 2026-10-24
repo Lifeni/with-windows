@@ -117,7 +117,7 @@
             <TextBox
                 x:Name="NewTodoInput"
                 MinHeight="32"
-                Padding="0,6"
+                Padding="0,10,0,2"
                 VerticalContentAlignment="Center"
                 AutomationProperties.AutomationId="TodoNewInput"
                 AutomationProperties.Name="待办标题"
@@ -147,13 +147,20 @@
                 Width="40"
                 Height="40"
                 Padding="0"
+                HorizontalContentAlignment="Center"
+                VerticalAlignment="Center"
+                VerticalContentAlignment="Center"
                 AutomationProperties.AutomationId="TodoAddButton"
                 AutomationProperties.Name="添加待办"
                 Click="OnAddClick"
                 CornerRadius="20"
                 Style="{StaticResource AccentButtonStyle}"
                 ToolTipService.ToolTip="添加待办">
-                <FontIcon FontSize="14" Glyph="&#xE724;" />
+                <FontIcon FontSize="14" Glyph="&#xE724;">
+                    <FontIcon.RenderTransform>
+                        <TranslateTransform Y="1" />
+                    </FontIcon.RenderTransform>
+                </FontIcon>
             </Button>
         </Grid>
 

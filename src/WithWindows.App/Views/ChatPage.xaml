@@ -251,7 +251,7 @@
                 MinHeight="52"
                 MaxHeight="160"
                 Margin="0"
-                Padding="16,10"
+                Padding="16,17,16,3"
                 AcceptsReturn="True"
                 AutomationProperties.AutomationId="ChatInput"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -263,6 +263,7 @@
                 TextCompositionEnded="OnTextCompositionEnded"
                 TextCompositionStarted="OnTextCompositionStarted"
                 TextWrapping="Wrap"
+                VerticalAlignment="Center"
                 VerticalContentAlignment="Center">
                 <TextBox.Resources>
                     <StaticResource x:Key="TextControlBackground" ResourceKey="CardBackgroundFillColorDefaultBrush" />

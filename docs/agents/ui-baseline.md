@@ -91,7 +91,7 @@ AI 服务配置滚动基线：窗口缩到 `1000×600` 物理像素（144 DPI）
 
 标题区：`ChatNewSessionButton` 与记事页 `NotepadFind` 的 UIA 几何均为 `(1510,289 54x48)`；AI 标题区最小高度为 48 DIP，与记事页工具条一致，并允许系统文本缩放时自然增高。大标题和副标题均为 11 px，大标题仅额外加粗。空会话大标题为「AI 对话」，有用户消息后取首条用户消息作为摘要。副标题只显示模型名称，未知模型显示“未配置”。`ChatSearchButton` 在 UI 自动化树中为 0 个匹配。
 
-输入区：`ChatInput` 使用 `CardBackgroundFillColorDefaultBrush`，在深色截图中与消息区有可见层级差；聚焦时边框和底部强调线均为透明。启动后切入 AI 页，以及离开 AI 页再返回时，`winapp ui get-focused` 均返回 `ChatInput Edit "与 AI 对话"`。
+输入区：`ChatInput` 使用 `CardBackgroundFillColorDefaultBrush`，在深色截图中与消息区有可见层级差；聚焦时边框和底部强调线均为透明。单行文字按实际墨迹高度校正到输入栏垂直中心；启动后切入 AI 页，以及离开 AI 页再返回时，`winapp ui get-focused` 均返回 `ChatInput Edit "与 AI 对话"`。
 
 消息列表：加载、发送和流式更新后校正到内部 `ScrollViewer.ScrollableHeight`，长会话停留在最新消息底部；`ChangeView` 失败或滚动范围尚未稳定时有限重试。
 
@@ -834,6 +834,6 @@ Windows App SDK 2.5.1 自包含应用的通知注册在调试版隐藏启动路�
 
 **长时间停用恢复**：2026-10-24 实测窗口持续运行约 10 小时后普通激活，`Microsoft.UI.Xaml.dll` 在 2 秒内原生退出。现在 `MainWindow` 记录停用时间，超过 10 分钟再次激活时重建当前页面；普通激活同时执行页面挂载检查。窗口显示代次与实际导航代次分开记录：停用期间已完成导航时跳过额外重建；排队后发生新导航则丢弃过期任务，避免重复导航用户刚切到的页面。成功导航后不再自动安排恢复重导航；仅当页面仍未挂载时才执行有限次数的重导航，命中上限后写入明确日志。核心阈值、代次判断和恢复步骤由 `WindowRecoveryPolicyTests` 覆盖。
 
-**顶部输入栏实测**：`winapp ui inspect` 可见 `TodoNewInput` 与 `TodoAddButton`，输入框为 945×60 物理像素、按钮为 60×60 物理像素（150% 缩放，即 40×40 DIP），工具条内垂直居中对齐且总高度仍为 48 DIP。普通与程序化聚焦时输入区与工具栏背景一致；用 `shift+tab` 进行键盘聚焦后显示系统焦点框。发送按钮图标取自 WinUI Gallery 的 `Send`（`E724`）。
+**顶部输入栏实测**：`winapp ui inspect` 可见 `TodoNewInput` 与 `TodoAddButton`，输入框宽 945 物理像素、按钮为 60×60 物理像素（150% 缩放，即 40×40 DIP），工具条总高度仍为 48 DIP。150% 截图中的文字与纸飞机字形中心均为 `y=111.5` 物理像素，按钮和输入区域居中对齐；AI 对话单行文字也校正到输入栏垂直中心。普通与程序化聚焦时输入区与工具栏背景一致；用 `shift+tab` 进行键盘聚焦后显示系统焦点框。发送按钮图标取自 WinUI Gallery 的 `Send`（`E724`）。
 
-截图：`artifacts/ui/todo-header-final-2026-10-24.png`（普通状态）、`artifacts/ui/todo-header-keyboard-focus-2026-10-24.png`（键盘焦点）。
+截图：`artifacts/ui/todo-header-aligned-final-2026-10-24.png`（待办）、`artifacts/ui/chat-input-aligned-final-2026-10-24.png`（AI 对话）、`artifacts/ui/todo-header-keyboard-focus-2026-10-24.png`（键盘焦点）。
