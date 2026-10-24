@@ -92,6 +92,7 @@ $prompt | codex exec -C <worktree> -s read-only -
 
 1. 改 `src/WithWindows.App/WithWindows.App.csproj` 的 `<Version>`，并在 `CHANGELOG.md` 顶部加同版本号的 `## [vX.Y.Z] - 日期` 章节；
 2. push 到 `main`：`release.yml` 发现该版本还没有对应的 `vX.Y.Z` tag，就自动跑测试 → 发布自包含单文件 → 编译安装器 → 产出安装器、便携 zip 与 `SHA256SUMS.txt` → 打 tag 并创建 Release。版本号没变时只跑测试，不重复构建；`ci.yml` 只负责 PR 上的构建 + 测试 + 发布链路校验，两者触发条件不重叠。
+3. Release 成功后下载与标签对应的安装器并校验 `SHA256SUMS.txt`，关闭当前安装版进程，使用 `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-` 静默升级，再启动安装版并确认版本号和进程路径。不要创建自动更新任务或常驻升级程序。
 
 本地手动出产物（Inno Setup 6；本机是**用户级安装**，不在 `C:\Program Files (x86)`）：
 
