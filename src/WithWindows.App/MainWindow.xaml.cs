@@ -108,7 +108,7 @@ public sealed partial class MainWindow : Window
             return;
 
         _activationRecoveryQueued = true;
-        DispatcherQueue.TryEnqueue(
+        bool queued = DispatcherQueue.TryEnqueue(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.High,
             () =>
             {
@@ -125,6 +125,8 @@ public sealed partial class MainWindow : Window
                 LogLifecycle($"{reason}，重建页面：{pageType.Name}");
                 NavFrame.Navigate(pageType);
             });
+        if (!queued)
+            _activationRecoveryQueued = false;
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -416,6 +418,9 @@ public sealed partial class MainWindow : Window
             return;
 
         _isHiddenToTray = true;
+        // 隐藏启动时窗口可能从未激活，收不到 Deactivated；以收起时刻作为停用起点，
+        // 保证托盘驻留数小时后首次唤出也会重建可能失效的页面。
+        _deactivatedAt ??= DateTimeOffset.UtcNow;
         LogLifecycle("托盘收起：最小化");
         Core.Interop.WindowInterop.Minimize(Hwnd);
         if (AppWindow.Presenter is OverlappedPresenter)
