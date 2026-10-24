@@ -12,7 +12,8 @@ namespace WithWindows;
 
 public sealed partial class MainWindow : Window
 {
-    private static readonly TimeSpan StalePageThreshold = TimeSpan.FromMinutes(10);
+    // 页面恢复只在显示或导航后短暂运行；2 秒足以避开冷启动和锁屏恢复时的瞬时未挂载。
+    private const int RecoveryCheckCount = 10;
 
     /// <summary>导航项 Tag → 页面类型；由工具目录生成，不手写。</summary>
     private readonly Dictionary<string, Type> _routes = new(StringComparer.Ordinal);
@@ -24,19 +25,19 @@ public sealed partial class MainWindow : Window
     private readonly WindowStateStore _windowState;
 
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _showRecoveryTimer;
-    private DateTimeOffset? _deactivatedAt;
     private int _showGeneration;
     private int _navigationGeneration;
-    private int _navigationGenerationAtDeactivation;
+    private string? _pendingRouteTag;
+    private bool _pendingNavigationAttempted;
+    private IReadOnlyList<string>? _pendingTodoReminderTitles;
     private bool _isHiddenToTray;
-    private bool _activationRecoveryQueued;
 
     /// <summary>true 表示正在真正退出（区分「关闭窗口 = 隐藏到托盘」）。</summary>
     private bool _exiting;
 
     private IntPtr Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
 
-    public MainWindow()
+    public MainWindow(string? initialRouteTag = null)
     {
         InitializeComponent();
 
@@ -49,7 +50,11 @@ public sealed partial class MainWindow : Window
             AppWindow.SetIcon(AppIcon.Preferred);
 
         BuildNavigation();
-        NavView.SelectedItem = NavView.MenuItems[0];
+        NavFrame.Navigating += (_, args) =>
+            LogLifecycle($"导航开始：{NavFrame.CurrentSourcePageType?.Name ?? "(无)"} → {args.SourcePageType.Name}");
+        NavFrame.Navigated += (_, args) =>
+            LogLifecycle($"导航完成：{args.SourcePageType.Name}");
+        InitializeInitialPage(initialRouteTag);
 
         // 关闭（X 或热键）= 隐藏到托盘，不销毁窗口。
         // Window.Closed 在 WinUI 3 里不可取消，必须用 AppWindow.Closing（AppWindowClosingEventArgs.Cancel）。
@@ -61,14 +66,23 @@ public sealed partial class MainWindow : Window
         _windowState = new WindowStateStore(this, App.Host?.Config ?? new WithWindows.Core.Config.AppConfig(), () => App.Host?.SaveConfig());
         AppWindow.Changed += OnAppWindowChanged;
         Activated += OnWindowActivated;
-        NavFrame.Navigating += (_, args) =>
-            LogLifecycle($"导航开始：{NavFrame.CurrentSourcePageType?.Name ?? "(无)"} → {args.SourcePageType.Name}");
-        NavFrame.Navigated += (_, args) =>
-            LogLifecycle($"导航完成：{args.SourcePageType.Name}");
 
         // 普通启动在首次激活后恢复：此时窗口有内容、DPI 已就绪，不会按 100% 误算尺寸；
         // 隐藏启动（--tray）不激活窗口，由 StartHidden() 在创建后立即恢复。
         Activated += OnFirstActivated;
+    }
+
+    private void InitializeInitialPage(string? initialRouteTag)
+    {
+        if (initialRouteTag is not null && _routes.ContainsKey(initialRouteTag))
+        {
+            Navigate(initialRouteTag);
+            if (FindNavigationItem(initialRouteTag) is { } target)
+                NavView.SelectedItem = target;
+            return;
+        }
+
+        NavView.SelectedItem = NavView.MenuItems[0];
     }
 
     private void OnFirstActivated(object sender, WindowActivatedEventArgs args)
@@ -83,78 +97,17 @@ public sealed partial class MainWindow : Window
 
         if (args.WindowActivationState == WindowActivationState.Deactivated)
         {
-            _deactivatedAt = DateTimeOffset.UtcNow;
-            _navigationGenerationAtDeactivation = _navigationGeneration;
+            _showRecoveryTimer?.Stop();
+            _showRecoveryTimer = null;
             return;
         }
 
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        bool remount = Core.App.WindowRecoveryPolicy.ShouldRemountAfterActivation(
-            now,
-            _deactivatedAt,
-            StalePageThreshold,
-            _navigationGenerationAtDeactivation,
-            _navigationGeneration);
-        _deactivatedAt = null;
-
-        if (remount)
-        {
-            if (!QueuePageRemount("窗口长时间停用后重新激活"))
-                ScheduleShowRecovery(_showGeneration, _navigationGeneration, 2, 2);
-            return;
-        }
-
-        // 普通激活也检查页面是否还挂载；闲置后 XAML 内容树可能已失效。
-        ScheduleShowRecovery(_showGeneration, _navigationGeneration, 2, 2);
-    }
-
-    private bool QueuePageRemount(string reason)
-    {
-        if (_activationRecoveryQueued || _exiting)
-            return true;
-
-        if (NavFrame.CurrentSourcePageType is not { } pageType)
-            return false;
-
-        int queuedNavigationGeneration = _navigationGeneration;
-        _activationRecoveryQueued = true;
-        bool queued = DispatcherQueue.TryEnqueue(
-            Microsoft.UI.Dispatching.DispatcherQueuePriority.High,
-            () =>
-            {
-                _activationRecoveryQueued = false;
-                if (_exiting || App.Host is { IsShuttingDown: true })
-                    return;
-
-                if (!Core.App.WindowRecoveryPolicy.ShouldApplyQueuedRemount(
-                        queuedNavigationGeneration,
-                        _navigationGeneration))
-                {
-                    return;
-                }
-
-                _showRecoveryTimer?.Stop();
-                _showRecoveryTimer = null;
-                LogLifecycle($"{reason}，重建页面：{pageType.Name}");
-                bool navigated = NavFrame.Navigate(pageType);
-                if (!navigated)
-                {
-                    LogLifecycle($"{reason}，重建页面失败：{pageType.Name}");
-                    ScheduleShowRecovery(
-                        _showGeneration,
-                        _navigationGeneration,
-                        remainingChecks: 1,
-                        remainingNavigationAttempts: 1);
-                    return;
-                }
-
-                _navigationGeneration++;
-            });
-        if (queued)
-            return true;
-
-        _activationRecoveryQueued = false;
-        return false;
+        // 不直接操作可能已经失效的页面；先等待，仍然未挂载时重启进程恢复。
+        ScheduleShowRecovery(
+            _pendingRouteTag ?? CurrentRouteTag(),
+            _showGeneration,
+            _navigationGeneration,
+            RecoveryCheckCount);
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -211,21 +164,94 @@ public sealed partial class MainWindow : Window
 
     private void Navigate(string tag)
     {
-        if (!_routes.TryGetValue(tag, out Type? pageType) || NavFrame.CurrentSourcePageType == pageType)
+        if (!_routes.TryGetValue(tag, out Type? pageType))
+        {
+            _pendingRouteTag = null;
+            _pendingNavigationAttempted = false;
             return;
+        }
 
+        if (!CanNavigateCurrentPage())
+        {
+            if (_pendingRouteTag != tag)
+                _pendingNavigationAttempted = false;
+            _pendingRouteTag = tag;
+            LogLifecycle($"页面尚未挂载，暂缓导航：{pageType.Name}");
+            ScheduleShowRecovery(
+                tag,
+                _showGeneration,
+                _navigationGeneration,
+                RecoveryCheckCount);
+            return;
+        }
+
+        if (NavFrame.CurrentSourcePageType == pageType)
+        {
+            _pendingRouteTag = null;
+            _pendingNavigationAttempted = false;
+            ScheduleShowRecovery(
+                tag,
+                _showGeneration,
+                _navigationGeneration,
+                RecoveryCheckCount);
+            TryShowPendingTodoReminder();
+            return;
+        }
+
+        _pendingNavigationAttempted = true;
         bool navigated = NavFrame.Navigate(pageType);
         if (!navigated)
+        {
+            _pendingRouteTag = tag;
+            ScheduleShowRecovery(
+                tag,
+                _showGeneration,
+                _navigationGeneration,
+                RecoveryCheckCount);
             return;
+        }
 
         _navigationGeneration++;
+        _pendingRouteTag = null;
+        _pendingNavigationAttempted = false;
+        ScheduleShowRecovery(
+            tag,
+            _showGeneration,
+            _navigationGeneration,
+            RecoveryCheckCount);
+        TryShowPendingTodoReminder();
     }
 
     /// <summary>显示主窗口并切到指定页面；托盘与热键共用（关闭窗口只是隐藏，需要重新显示）。</summary>
     public void ShowAndNavigate(string routeTag)
     {
-        ShowWindow();
+        if (!_routes.ContainsKey(routeTag))
+            return;
 
+        _pendingRouteTag = routeTag;
+        _pendingNavigationAttempted = false;
+        ShowWindow();
+        TryApplyPendingNavigation();
+    }
+
+    private void TryApplyPendingNavigation()
+    {
+        if (_pendingRouteTag is not { } routeTag || !CanNavigateCurrentPage())
+            return;
+
+        NavigationViewItem? target = FindNavigationItem(routeTag);
+
+        // 切换选中项会触发 SelectionChanged → Navigate；事件未同步完成时再直接导航一次兜底。
+        if (target is not null && !ReferenceEquals(NavView.SelectedItem, target))
+            NavView.SelectedItem = target;
+        if (_pendingRouteTag is null || _pendingNavigationAttempted)
+            return;
+
+        Navigate(routeTag);
+    }
+
+    private NavigationViewItem? FindNavigationItem(string routeTag)
+    {
         NavigationViewItem? target = null;
         foreach (object menuItem in NavView.MenuItems)
         {
@@ -236,15 +262,20 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        // 设置页挂在 NavigationView 的特殊设置项上，不在 MenuItems 里
+        // 设置页挂在 NavigationView 的特殊设置项上，不在 MenuItems 里。
         if (target is null && routeTag == SettingsPage.RouteTag && NavView.SettingsItem is NavigationViewItem settingsItem)
             target = settingsItem;
 
-        // 切换选中项会触发 SelectionChanged → Navigate；已是当前选中项时事件不触发，直接切页
-        if (target is not null && !ReferenceEquals(NavView.SelectedItem, target))
-            NavView.SelectedItem = target;
-        else
-            Navigate(routeTag);
+        return target;
+    }
+
+    private bool CanNavigateCurrentPage()
+    {
+        Page? page = NavFrame.Content as Page;
+        return Core.App.WindowRecoveryPolicy.CanNavigatePage(
+            NavFrame.CurrentSourcePageType is not null,
+            page is { IsLoaded: true },
+            page?.XamlRoot is not null);
     }
 
     /// <summary>仅显示并激活窗口，不改变当前页面。</summary>
@@ -270,7 +301,11 @@ public sealed partial class MainWindow : Window
         Activate();
         // Activate() 对「已可见但在别的窗口后面」不可靠（再次启动 / 托盘左键都会走到这里），补一次显式前置
         Core.Interop.WindowInterop.BringToFront(hwnd);
-        ScheduleShowRecovery(showGeneration, _navigationGeneration, 2, 2);
+        ScheduleShowRecovery(
+            _pendingRouteTag ?? CurrentRouteTag(),
+            showGeneration,
+            _navigationGeneration,
+            RecoveryCheckCount);
     }
 
     /// <summary>再次启动应用时显示现有窗口，并保留当前页面。</summary>
@@ -288,29 +323,42 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        _pendingTodoReminderTitles = titles;
         ShowAndNavigate(ToolCatalog.TodoId);
-        DispatcherQueue.TryEnqueue(() =>
+        DispatcherQueue.TryEnqueue(TryShowPendingTodoReminder);
+    }
+
+    private void TryShowPendingTodoReminder()
+    {
+        if (_pendingTodoReminderTitles is not { } titles)
+            return;
+
+        if (NavFrame.Content is not TodoPage { IsLoaded: true, XamlRoot: not null } page)
         {
-            try
-            {
-                if (NavFrame.Content is TodoPage page)
-                    page.ShowReminderNotice(titles);
-                else
-                    App.Host?.Log.Error("待办提醒已到期，但待办页尚未挂载。");
-            }
-            catch (Exception ex)
-            {
-                App.Host?.Log.Error($"显示待办提醒失败：{ex.Message}");
-            }
-        });
+            LogLifecycle("待办提醒已到期，但待办页尚未挂载。");
+            return;
+        }
+
+        _pendingTodoReminderTitles = null;
+        try
+        {
+            page.ShowReminderNotice(titles);
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"显示待办提醒失败：{ex.Message}");
+        }
     }
 
     private void ScheduleShowRecovery(
+        string expectedRouteTag,
         int showGeneration,
         int navigationGeneration,
-        int remainingChecks,
-        int remainingNavigationAttempts)
+        int remainingChecks)
     {
+        if (!_routes.TryGetValue(expectedRouteTag, out Type? expectedPageType))
+            return;
+
         _showRecoveryTimer?.Stop();
         var timer = DispatcherQueue.CreateTimer();
         _showRecoveryTimer = timer;
@@ -328,43 +376,47 @@ public sealed partial class MainWindow : Window
             }
 
             _showRecoveryTimer = null;
-            Type? pageType = NavFrame.CurrentSourcePageType;
+            Page? page = NavFrame.Content as Page;
+            bool expectedPageReady = Core.App.WindowRecoveryPolicy.IsExpectedPageReady(
+                page?.GetType() == expectedPageType,
+                page is { IsLoaded: true },
+                page?.XamlRoot is not null);
             Core.App.WindowRecoveryStep step = Core.App.WindowRecoveryPolicy.DecideShowRecovery(
-                NavFrame.Content is Page { IsLoaded: true },
+                expectedPageReady,
                 remainingChecks,
-                remainingNavigationAttempts,
-                pageType is not null);
+                hasPageType: true);
             switch (step)
             {
                 case Core.App.WindowRecoveryStep.Stop:
+                    if (_pendingRouteTag == expectedRouteTag)
+                    {
+                        _pendingRouteTag = null;
+                        _pendingNavigationAttempted = false;
+                    }
+                    App.MarkPageReady();
+                    TryShowPendingTodoReminder();
                     return;
 
                 case Core.App.WindowRecoveryStep.Wait:
+                    if (_pendingRouteTag is not null
+                        && !_pendingNavigationAttempted
+                        && CanNavigateCurrentPage())
+                    {
+                        TryApplyPendingNavigation();
+                        return;
+                    }
+
                     ScheduleShowRecovery(
+                        expectedRouteTag,
                         showGeneration,
                         navigationGeneration,
-                        remainingChecks - 1,
-                        remainingNavigationAttempts);
+                        remainingChecks - 1);
                     return;
 
-                case Core.App.WindowRecoveryStep.Navigate when pageType is not null:
-                    LogLifecycle($"窗口显示后页面未挂载，恢复导航：{pageType.Name}");
-                    if (NavFrame.Navigate(pageType))
-                    {
-                        _navigationGeneration++;
-                        return;
-                    }
-
-                    if (remainingNavigationAttempts > 1)
-                    {
-                        ScheduleShowRecovery(
-                            showGeneration,
-                            navigationGeneration,
-                            remainingChecks: 1,
-                            remainingNavigationAttempts - 1);
-                        return;
-                    }
-                    break;
+                case Core.App.WindowRecoveryStep.Restart:
+                    LogLifecycle($"窗口激活后目标页面仍未挂载，重启应用以恢复：{expectedPageType.Name}");
+                    RestartApplication(expectedRouteTag);
+                    return;
             }
 
             LogLifecycle("窗口显示后页面未能恢复挂载。");
@@ -442,6 +494,47 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>页面在激活后仍失效时重启进程，避免继续操作已卸载的 XAML 树。</summary>
+    private void RestartApplication(string pageTag)
+    {
+        if (_exiting)
+            return;
+
+        _exiting = true;
+        _showRecoveryTimer?.Stop();
+        _showRecoveryTimer = null;
+        if (!App.TryStartApplicationRestart(pageTag))
+        {
+            _exiting = false;
+            return;
+        }
+
+        _windowState.Dispose();
+        _tray.Dispose();
+        App.ExitForApplicationRestart();
+    }
+
+    private string CurrentRouteTag()
+    {
+        if (NavView.SelectedItem is NavigationViewItem { Tag: string tag })
+            return tag;
+
+        if (NavFrame.CurrentSourcePageType == typeof(SettingsPage))
+            return SettingsPage.RouteTag;
+
+        Type? pageType = NavFrame.CurrentSourcePageType;
+        if (pageType is not null)
+        {
+            foreach ((string route, Type type) in _routes)
+            {
+                if (type == pageType)
+                    return route;
+            }
+        }
+
+        return ToolCatalog.NotepadId;
+    }
+
     /// <summary>真正退出应用；绕过「关闭 = 隐藏」的拦截。</summary>
     public void ExitApplication()
     {
@@ -480,13 +573,8 @@ public sealed partial class MainWindow : Window
             return;
 
         _isHiddenToTray = true;
-        // 隐藏启动时窗口可能从未激活，收不到 Deactivated；以收起时刻作为停用起点，
-        // 保证托盘驻留数小时后首次唤出也会重建可能失效的页面。
-        if (_deactivatedAt is null)
-        {
-            _deactivatedAt = DateTimeOffset.UtcNow;
-            _navigationGenerationAtDeactivation = _navigationGeneration;
-        }
+        _showRecoveryTimer?.Stop();
+        _showRecoveryTimer = null;
         LogLifecycle("托盘收起：最小化");
         Core.Interop.WindowInterop.Minimize(Hwnd);
         if (AppWindow.Presenter is OverlappedPresenter)

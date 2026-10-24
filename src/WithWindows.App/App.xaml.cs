@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WithWindows.Core.App;
@@ -29,6 +30,8 @@ public partial class App : Application
     private Logger? _smokeLog;
     private HotkeyManager? _smokeHotkeys;
     private TodoReminderHost? _todoReminders;
+    private int _recoveryRestartCount;
+    private bool _restarting;
 
     public App()
     {
@@ -47,13 +50,25 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        if (Environment.GetCommandLineArgs().Contains("--smoke", StringComparer.OrdinalIgnoreCase))
+        string[] commandLineArgs = Environment.GetCommandLineArgs();
+        if (commandLineArgs.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
         {
             RunSmoke();
             return;
         }
 
-        bool trayLaunch = AutoStartCommand.IsTrayLaunch(Environment.GetCommandLineArgs());
+        SignalRestartReady(commandLineArgs);
+
+        if (!WaitForPreviousProcess(commandLineArgs))
+        {
+            System.Diagnostics.Debug.WriteLine("等待旧进程退出失败，取消本次重启。");
+            Current.Exit();
+            return;
+        }
+
+        _recoveryRestartCount = RestartCommand.GetRestartCount(commandLineArgs);
+        string? restartPageTag = RestartCommand.GetPageTag(commandLineArgs);
+        bool trayLaunch = AutoStartCommand.IsTrayLaunch(commandLineArgs);
 
         // 手动再次启动 = 唤出已有实例；开机自启重复触发则安静退出，不擅自弹窗
         AppHostStartResult start = AppHost.Start(activateExisting: !trayLaunch);
@@ -67,7 +82,7 @@ public partial class App : Application
         _host = start.Host;
         Host = _host;
 
-        MainWindow = new MainWindow();
+        MainWindow = new MainWindow(start.Host is null ? null : restartPageTag);
         var mainWindow = (MainWindow)MainWindow;
 
         if (start.Host is null)
@@ -122,6 +137,68 @@ public partial class App : Application
         }
 
         _todoReminders.Start();
+
+        if (restartPageTag is { } pageTag)
+        {
+            mainWindow.DispatcherQueue.TryEnqueue(
+                () => mainWindow.ShowAndNavigate(pageTag));
+        }
+    }
+
+    private static bool WaitForPreviousProcess(IEnumerable<string> args)
+    {
+        if (RestartCommand.GetWaitForProcessId(args) is not int processId
+            || processId == Environment.ProcessId)
+        {
+            return true;
+        }
+
+        try
+        {
+            using System.Diagnostics.Process process =
+                System.Diagnostics.Process.GetProcessById(processId);
+            if (!process.WaitForExit(10_000))
+            {
+                // 旧进程已经进入受控退出流程；不能因为固定超时先结束接管进程，
+                // 否则旧进程稍后退出时会留下没有任何实例在运行的状态。
+                System.Diagnostics.Debug.WriteLine(
+                    $"旧进程 {processId} 超过 10 秒仍在退出，继续等待。");
+                process.WaitForExit();
+            }
+
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            // 旧进程已退出时 GetProcessById 会抛 ArgumentException。
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"等待旧进程退出失败：{ex.Message}");
+            return false;
+        }
+    }
+
+    private static void SignalRestartReady(IEnumerable<string> args)
+    {
+        if (RestartCommand.GetWaitForProcessId(args) is not int previousProcessId)
+            return;
+
+        try
+        {
+            using EventWaitHandle ready = EventWaitHandle.OpenExisting(
+                RestartCommand.GetReadyEventName(previousProcessId));
+            ready.Set();
+        }
+        catch (WaitHandleCannotBeOpenedException)
+        {
+            // 旧进程已关闭交接事件时继续正常启动，不把辅助通知当成启动依赖。
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"通知旧进程启动握手失败：{ex.Message}");
+        }
     }
 
     /// <summary>启动失败：在当前窗口上弹对话框后退出。</summary>
@@ -209,6 +286,110 @@ public partial class App : Application
     {
         if (Current is App app)
             app._todoReminders?.Dispose();
+    }
+
+    /// <summary>启动负责接管的新进程；成功后才允许当前进程释放资源并退出。</summary>
+    public static bool TryStartApplicationRestart(string pageTag)
+    {
+        return Current is App app && app.TryStartApplicationRestartCore(pageTag);
+    }
+
+    /// <summary>页面对话框与托盘已释放后，结束当前失效进程。</summary>
+    public static void ExitForApplicationRestart()
+    {
+        if (Current is App app)
+            app.ExitForApplicationRestartCore();
+    }
+
+    /// <summary>页面已稳定挂载，下一次独立失效可从新的自动重启预算开始。</summary>
+    public static void MarkPageReady()
+    {
+        if (Current is App app)
+            app._recoveryRestartCount = 0;
+    }
+
+    private bool TryStartApplicationRestartCore(string pageTag)
+    {
+        if (_restarting)
+            return false;
+
+        if (!WindowRecoveryPolicy.CanRestartRecovery(_recoveryRestartCount))
+        {
+            _host?.Log.Error("页面仍未恢复挂载，已达到自动重启上限。");
+            return false;
+        }
+
+        string? executable = Environment.ProcessPath;
+        if (executable is null)
+        {
+            _host?.Log.Error("无法重启应用：找不到当前可执行文件路径。");
+            return false;
+        }
+
+        string readyEventName = RestartCommand.GetReadyEventName(Environment.ProcessId);
+        using var ready = new EventWaitHandle(
+            initialState: false,
+            EventResetMode.ManualReset,
+            readyEventName);
+
+        var startInfo = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = executable,
+            UseShellExecute = false,
+            WorkingDirectory = AppContext.BaseDirectory,
+        };
+        startInfo.ArgumentList.Add($"--restart-after={Environment.ProcessId}");
+        startInfo.ArgumentList.Add($"--restart-count={_recoveryRestartCount + 1}");
+        startInfo.ArgumentList.Add($"--page={pageTag}");
+
+        try
+        {
+            using System.Diagnostics.Process? process =
+                System.Diagnostics.Process.Start(startInfo);
+            if (process is null)
+            {
+                _host?.Log.Error("重启应用失败：系统未返回子进程。");
+                return false;
+            }
+
+            // 子进程进入 WinUI 启动流程后会设置命名事件；确认握手完成再释放当前实例。
+            if (!ready.WaitOne(5000) || process.HasExited)
+            {
+                if (!process.HasExited)
+                {
+                    try
+                    {
+                        process.Kill();
+                    }
+                    catch (Exception ex)
+                    {
+                        _host?.Log.Error($"终止未完成启动握手的子进程失败：{ex.Message}");
+                    }
+                }
+
+                _host?.Log.Error("重启应用失败：新进程未完成启动握手。");
+                return false;
+            }
+
+            _restarting = true;
+            _host?.Log.Info($"页面失效，正在重启应用并恢复：{pageTag}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _host?.Log.Error($"重启应用失败：{ex.Message}");
+            return false;
+        }
+    }
+
+    private void ExitForApplicationRestartCore()
+    {
+        StopTodoReminders();
+        _host?.Dispose();
+
+        // 页面树已经失效时，Application.Exit() 仍会进入 XAML shutdown 并可能在
+        // coreclr.dll 中崩溃。这里只结束进程；托盘、窗口状态和 AppHost 已先显式释放。
+        Environment.Exit(0);
     }
 
 }

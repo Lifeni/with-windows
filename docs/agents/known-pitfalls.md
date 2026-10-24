@@ -36,7 +36,7 @@
 
 **页面 Unloaded 后禁止继续操作 XAML**：异步请求、图片解码、延迟滚动和窗口激活回调都可能在页面已经卸载后继续执行。此时设置控件属性、调用 `Focus()` 或 `ScrollIntoView()` 会把无效窗口句柄交给 WinUI，表现为黑帧并最终以 `0xC000027B` 退出。所有异步续体必须先检查 `IsLoaded` 和 `XamlRoot is not null`；卸载后只允许保存文件等非 UI 工作。AI 页不再订阅全局 `Window.Activated` 来抢输入焦点。
 
-**长时间停用后的首次激活需要重建页面**：实测窗口持续运行约 10 小时后再激活，`Microsoft.UI.Xaml.dll` 在 2 秒内以 `0xC000027B` 退出，日志只留下一次普通 `Activated`。`MainWindow` 现在记录停用时间：超过 10 分钟再次激活时，通过高优先级 DispatcherQueue 任务重建当前页面；普通激活也会检查页面是否仍挂载。不要改回只依赖 `ShowWindow()` 路径，否则从任务栏、锁屏恢复等普通激活会绕过恢复。
+**页面卸载后不要用 `Frame.Navigate` 抢救**：实测长停用或 UIA 激活后 `Frame` 仍报告 `CurrentSourcePageType`，但页面已经卸载；此时再调用 `Navigate` 会在 `Microsoft.UI.Xaml.dll` 中以 `0xC000027B` 崩溃，WER 前置异常为 `0x80070578`（无效窗口句柄）。所有导航入口都要先检查 `NavFrame.Content is Page { IsLoaded: true, XamlRoot: not null }`，页面失效时只暂存目标并交给恢复计时器；恢复检查必须同时匹配预期页面类型，不能把另一个仍挂载的旧页面当成恢复完成，导航成功后也要基于新代次重新检查目标。仍然失效时启动新进程并传入当前页面；子进程进入 WinUI 启动流程后必须通过命名事件与旧进程握手，旧进程确认握手完成且子进程仍存活，才释放托盘、窗口状态和 `AppHost`，再用 `Environment.Exit(0)` 退出。自动重启最多一次，且只有预期页面稳定挂载后才清空重启预算。不要调用 `Application.Exit()` 处理已经损坏的 XAML 树，也不要继续对旧树导航。
 
 **中文输入法会吃掉/转换注入的字符**：`winapp ui send-keys ... text=AB1CD` 实测结果是 `AB`、`XYZ789` 变成 `XYZ'7'8'9`——根因是**输入法（IME）当时处于中文态**，注入的数字/符号被输入法拦截或改写，**不是应用缺陷**。做注入输入验证前先切到英文输入法，或只注入字母/中文，否则会把输入法问题误判成应用 bug。
 
