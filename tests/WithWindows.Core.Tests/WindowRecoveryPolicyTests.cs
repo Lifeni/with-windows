@@ -42,4 +42,63 @@ public class WindowRecoveryPolicyTests
             Now.AddMinutes(1),
             TimeSpan.FromMinutes(10)));
     }
+
+    [Fact]
+    public void ShouldApplyQueuedRemount_导航代次未变化时执行()
+    {
+        Assert.True(WindowRecoveryPolicy.ShouldApplyQueuedRemount(
+            queuedGeneration: 7,
+            currentGeneration: 7));
+    }
+
+    [Fact]
+    public void ShouldApplyQueuedRemount_产生新导航后跳过过期重建()
+    {
+        Assert.False(WindowRecoveryPolicy.ShouldApplyQueuedRemount(
+            queuedGeneration: 7,
+            currentGeneration: 8));
+    }
+
+    [Fact]
+    public void ShouldRemountAfterActivation_长时间停用且期间未导航时重建()
+    {
+        Assert.True(WindowRecoveryPolicy.ShouldRemountAfterActivation(
+            Now,
+            Now.AddMinutes(-10),
+            TimeSpan.FromMinutes(10),
+            navigationAtDeactivation: 4,
+            currentNavigation: 4));
+    }
+
+    [Fact]
+    public void ShouldRemountAfterActivation_停用期间已完成导航时不重建()
+    {
+        Assert.False(WindowRecoveryPolicy.ShouldRemountAfterActivation(
+            Now,
+            Now.AddMinutes(-10),
+            TimeSpan.FromMinutes(10),
+            navigationAtDeactivation: 4,
+            currentNavigation: 5));
+    }
+
+    [Theory]
+    [InlineData(true, 2, 2, true, WindowRecoveryStep.Stop)]
+    [InlineData(false, 2, 2, true, WindowRecoveryStep.Wait)]
+    [InlineData(false, 0, 2, true, WindowRecoveryStep.Navigate)]
+    [InlineData(false, 0, 0, true, WindowRecoveryStep.GiveUp)]
+    [InlineData(false, 0, 2, false, WindowRecoveryStep.GiveUp)]
+    [InlineData(false, 2, 2, false, WindowRecoveryStep.Wait)]
+    public void DecideShowRecovery_按挂载与剩余次数决定下一步(
+        bool pageLoaded,
+        int remainingChecks,
+        int remainingNavigationAttempts,
+        bool hasPageType,
+        WindowRecoveryStep expected)
+    {
+        Assert.Equal(expected, WindowRecoveryPolicy.DecideShowRecovery(
+            pageLoaded,
+            remainingChecks,
+            remainingNavigationAttempts,
+            hasPageType));
+    }
 }
