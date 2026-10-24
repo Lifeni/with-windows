@@ -38,10 +38,12 @@ public sealed partial class SettingsPage : Page
             AutoStartToggle.IsOn = AutoStart.IsEnabled();
             AutoStartStateText.Text = AutoStartToggle.IsOn ? "开" : "关";
             DefaultWindowPageComboBox.SelectedIndex =
-                WindowDefaultPage.Normalize(Host.Config.WindowState.DefaultPage)
-                    == WindowDefaultPage.AiChat
-                    ? 1
-                    : 0;
+                WindowDefaultPage.Normalize(Host.Config.WindowState.DefaultPage) switch
+                {
+                    WindowDefaultPage.AiChat => 2,
+                    WindowDefaultPage.Todo => 1,
+                    _ => 0,
+                };
             VersionText.Text = $"With Windows {CurrentVersion()}";
             BuildDateText.Text = BuildDate();
         }
@@ -90,7 +92,13 @@ public sealed partial class SettingsPage : Page
 
         Host.Config.WindowState.DefaultPage = page;
         Host.SaveConfig();
-        Host.Log.Info($"默认打开窗口已设为：{(page == WindowDefaultPage.AiChat ? "AI 对话" : "记事")}");
+        string label = page switch
+        {
+            WindowDefaultPage.AiChat => "AI 对话",
+            WindowDefaultPage.Todo => "待办",
+            _ => "记事",
+        };
+        Host.Log.Info($"默认打开窗口已设为：{label}");
     }
 
     private void OnOpenRepositoryClick(object sender, RoutedEventArgs e)

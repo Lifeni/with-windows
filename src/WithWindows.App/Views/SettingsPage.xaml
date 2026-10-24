@@ -67,6 +67,7 @@
                             AutomationProperties.Name="默认打开窗口"
                             SelectionChanged="OnDefaultWindowPageChanged">
                             <ComboBoxItem Content="记事" Tag="notepad" />
+                            <ComboBoxItem Content="待办" Tag="todo" />
                             <ComboBoxItem Content="AI 对话" Tag="ai_chat" />
                         </ComboBox>
                     </controls:CardRow.Trailing>

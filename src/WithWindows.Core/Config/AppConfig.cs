@@ -88,11 +88,12 @@ public sealed class WindowStateConfig
 public static class WindowDefaultPage
 {
     public const string Notepad = "notepad";
+    public const string Todo = "todo";
     public const string AiChat = "ai_chat";
 
     /// <summary>非法或缺失的配置值统一回退到记事。</summary>
     public static string Normalize(string? value)
-        => string.Equals(value, AiChat, StringComparison.Ordinal) ? AiChat : Notepad;
+        => value is Notepad or Todo or AiChat ? value : Notepad;
 }
 
 /// <summary>把类型错误的 defaultPage 局部回退到记事，避免整份配置被判定为未知格式。</summary>

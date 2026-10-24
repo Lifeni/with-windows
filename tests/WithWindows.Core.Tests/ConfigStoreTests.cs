@@ -417,4 +417,17 @@ public class ConfigStoreTests : IDisposable
 
         Assert.Equal(WindowDefaultPage.AiChat, reloaded.WindowState.DefaultPage);
     }
+
+    [Fact]
+    public void Save_默认打开窗口待办_往返一致()
+    {
+        var store = NewStore();
+        var config = new AppConfig();
+        config.WindowState.DefaultPage = WindowDefaultPage.Todo;
+
+        store.Save(config);
+        AppConfig reloaded = store.Load();
+
+        Assert.Equal(WindowDefaultPage.Todo, reloaded.WindowState.DefaultPage);
+    }
 }

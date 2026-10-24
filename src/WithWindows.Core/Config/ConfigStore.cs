@@ -177,7 +177,9 @@ public sealed class ConfigStore
         }
 
         string? value = defaultPage.GetString();
-        return value is WindowDefaultPage.Notepad or WindowDefaultPage.AiChat;
+        return value is WindowDefaultPage.Notepad
+            or WindowDefaultPage.Todo
+            or WindowDefaultPage.AiChat;
     }
 
     /// <summary>自愈：丢弃未知工具、去重、补回缺失的已知工具。返回是否发生了变化。</summary>
