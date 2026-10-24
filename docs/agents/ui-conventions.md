@@ -43,7 +43,7 @@
     ConvertFrom-Json | Where-Object { $_.Name -like '*Monitor*' } | Format-Table Name, Code, Tags
   ```
 
-  例：投影用的 `DeviceMonitorRightPic` = `E7F9`（tags: projection/present），本项目导航与托盘都用它。
+  例：投影用的 `Devices2` = `E975`（tags: displays/hardware），本项目导航与投影页都用它。
 
 ## 六、参考实现（写代码前先看这两处）
 

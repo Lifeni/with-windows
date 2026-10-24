@@ -98,20 +98,19 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid
             x:Name="TodoToolbar"
+            Grid.Row="2"
             MinHeight="48"
             Padding="16,4"
             AutomationProperties.AutomationId="TodoToolbar"
-            Background="{ThemeResource LayerFillColorDefaultBrush}"
-            ColumnSpacing="8">
+            Background="{ThemeResource LayerFillColorDefaultBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <TextBox
@@ -125,7 +124,7 @@
                 BorderThickness="0"
                 FontSize="14"
                 FocusVisualMargin="-4"
-                PlaceholderText="添加待办，按 Enter 保存"
+                PlaceholderText="添加待办"
                 PreviewKeyDown="OnNewInputKeyDown"
                 TextCompositionEnded="OnTextCompositionEnded"
                 TextCompositionStarted="OnTextCompositionStarted"
@@ -141,32 +140,11 @@
                     <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
                 </TextBox.Resources>
             </TextBox>
-
-            <Button
-                Grid.Column="1"
-                Width="40"
-                Height="40"
-                Padding="0"
-                HorizontalContentAlignment="Center"
-                VerticalAlignment="Center"
-                VerticalContentAlignment="Center"
-                AutomationProperties.AutomationId="TodoAddButton"
-                AutomationProperties.Name="添加待办"
-                Click="OnAddClick"
-                CornerRadius="20"
-                Style="{StaticResource AccentButtonStyle}"
-                ToolTipService.ToolTip="添加待办">
-                <FontIcon FontSize="14" Glyph="&#xE724;">
-                    <FontIcon.RenderTransform>
-                        <TranslateTransform Y="1" />
-                    </FontIcon.RenderTransform>
-                </FontIcon>
-            </Button>
         </Grid>
 
         <InfoBar
             x:Name="TodoReminderBar"
-            Grid.Row="1"
+            Grid.Row="0"
             Margin="16,8,16,0"
             AutomationProperties.AutomationId="TodoReminderBar"
             IsClosable="True"
@@ -175,7 +153,7 @@
             Title="待办提醒" />
 
         <Grid
-            Grid.Row="2"
+            Grid.Row="1"
             MaxWidth="900"
             Margin="16,12,16,16"
             HorizontalAlignment="Stretch">
@@ -229,7 +207,7 @@
                         TextAlignment="Center" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="从上方添加第一项；每项都可以设置独立提醒。"
+                        Text="从下方添加第一项；每项都可以设置独立提醒。"
                         TextAlignment="Center"
                         TextWrapping="Wrap" />
                 </StackPanel>

@@ -79,4 +79,12 @@ public class DisplayModeActionTests
         Assert.Equal("extend", target);
         Assert.True(isChange);
     }
+
+    [Theory]
+    [InlineData("internal", "切换：扩展模式")]
+    [InlineData("extend", "切换：当前屏幕")]
+    public void ToggleMenuText_显示下一次切换目标(string current, string expected)
+        => Assert.Equal(
+            expected,
+            DisplayModeAction.ToggleMenuText(current, new[] { "internal", "extend" }));
 }

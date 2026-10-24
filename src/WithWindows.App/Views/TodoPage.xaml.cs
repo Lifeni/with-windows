@@ -116,8 +116,6 @@ public sealed partial class TodoPage : Page
         TextCompositionEndedEventArgs args)
         => _isComposing = false;
 
-    private void OnAddClick(object sender, RoutedEventArgs e) => AddTodo();
-
     private void AddTodo()
     {
         string title = NewTodoInput.Text.Trim();

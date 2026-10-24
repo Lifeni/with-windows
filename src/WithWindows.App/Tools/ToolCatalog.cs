@@ -36,11 +36,11 @@ public static class ToolCatalog
         new ToolEntry(NotepadId, "记事", "\uE70B", typeof(NotepadPage), ShowInNav: true, HasHotkey: true),
         // E9D5 = CheckList（WinUI Gallery 图标表，tags: tasks, items, organize, progress）
         new ToolEntry(TodoId, "待办", "\uE9D5", typeof(TodoPage), ShowInNav: true, HasHotkey: false),
-        // EAB7 = ChatSparkle（WinUI Gallery 图标表，tags: chat, sparkle, ai）
-        new ToolEntry(AiChatId, "AI 对话", "\uEAB7", typeof(ChatPage), ShowInNav: true, HasHotkey: false),
-        // E7F9 = DeviceMonitorRightPic（WinUI Gallery 图标表，tags: projection/present）
-        new ToolEntry(DisplayPageId, "投影", "\uE7F9", typeof(DisplayPage), ShowInNav: true, HasHotkey: false),
-        new ToolEntry(DisplayModeId, "切换投影", "\uE7F9", PageType: null, ShowInNav: false, HasHotkey: true),
+        // E8F2 = ChatBubbles（WinUI Gallery 图标表，tags: chat, messages）
+        new ToolEntry(AiChatId, "AI 对话", "\uE8F2", typeof(ChatPage), ShowInNav: true, HasHotkey: false),
+        // E975 = Devices2（WinUI Gallery 图标表，tags: displays, hardware）
+        new ToolEntry(DisplayPageId, "投影", "\uE975", typeof(DisplayPage), ShowInNav: true, HasHotkey: false),
+        new ToolEntry(DisplayModeId, "切换模式", "\uE975", PageType: null, ShowInNav: false, HasHotkey: true),
     };
 
     /// <summary>导航项的可访问性标识：由工具 ID 生成（如 notepad → NavItemNotepad）。</summary>

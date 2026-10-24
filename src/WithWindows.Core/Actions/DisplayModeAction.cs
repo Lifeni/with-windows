@@ -33,6 +33,10 @@ public sealed class DisplayModeAction : IAction
         return new ActionResult(true, $"已切换显示模式：{ModeDisplayName(target)}");
     }
 
+    /// <summary>托盘菜单显示下一次 toggle 将切换到的模式。</summary>
+    public string GetToggleMenuText()
+        => ToggleMenuText(DisplayTopology.GetCurrentMode(), _toggleModes);
+
     /// <summary>决定目标模式与是否真正变化。纯函数，便于测试。</summary>
     internal static (string Target, bool IsChange) Decide(string? current, string requested, string[] toggleModes)
     {
@@ -50,6 +54,9 @@ public sealed class DisplayModeAction : IAction
         return index >= 0 ? modes[(index + 1) % modes.Length] : modes[0];
     }
 
+    internal static string ToggleMenuText(string? current, string[] toggleModes)
+        => $"切换：{MenuModeDisplayName(PickToggleTarget(current, toggleModes))}";
+
     /// <summary>模式名 → SDC_TOPOLOGY_* 标志数值。供测试断言。</summary>
     internal static uint TopologyFor(string mode) => mode switch
     {
@@ -65,6 +72,14 @@ public sealed class DisplayModeAction : IAction
         "internal" => "仅当前屏幕",
         "extend" => "扩展模式",
         "external" => "仅外接屏幕",
+        _ => "复制模式",
+    };
+
+    private static string MenuModeDisplayName(string mode) => mode switch
+    {
+        "internal" => "当前屏幕",
+        "extend" => "扩展模式",
+        "external" => "外接屏幕",
         _ => "复制模式",
     };
 }

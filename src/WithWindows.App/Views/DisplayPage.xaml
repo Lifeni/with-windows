@@ -76,11 +76,11 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- E7F9 = DeviceMonitorRightPic，与左栏「投影」项同一个字形 -->
+                            <!-- E975 = Devices2，与左栏「投影」项同一个字形 -->
                             <FontIcon
                                 Grid.Column="0"
                                 FontSize="20"
-                                Glyph="&#xE7F9;"
+                                Glyph="&#xE975;"
                                 VerticalAlignment="Center" />
 
                             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">

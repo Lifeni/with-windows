@@ -29,13 +29,13 @@ winapp ui screenshot -a WithWindows
 
 ## 待办
 
-- 顶部工具栏：`TodoToolbar`
-- 输入与发送：`TodoNewInput`、`TodoAddButton`
+- 底部输入栏：`TodoToolbar`
+- 输入：`TodoNewInput`
 - 列表与摘要：`TodoList`、`TodoSummary`
 - 状态提示：`TodoReminderBar`、`TodoErrorBar`、`TodoEmptyState`
 - 行操作：`TodoComplete_*`、`TodoReminder_*`、`TodoDelete_*`
 
-待办工具栏高度为 48 DIP。输入框保持透明背景和透明边框，键盘聚焦时显示系统焦点框；文字与发送图标视觉居中。
+待办输入栏位于页面底部且高度为 48 DIP。输入框保持透明背景和透明边框，键盘聚焦时显示系统焦点框；按 `Enter` 添加，不显示发送按钮。
 
 ## AI 对话
 

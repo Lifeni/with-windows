@@ -3,13 +3,14 @@ using System.IO;
 using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using WinUIEx;
+using WithWindows.Core.Actions;
 using WithWindows.Tools;
 using WithWindows.Views;
 
 namespace WithWindows.Services;
 
 /// <summary>
-/// 托盘宿主：左键唤出主窗口，右键给出「记事 / 待办 / AI 对话 / 切换投影 · 设置 · 退出」。
+/// 托盘宿主：左键唤出主窗口，右键给出「记事 / 待办 / 对话 / 切换模式 · 设置 · 退出」。
 /// 实例必须由字段持有——被 GC 回收后图标会消失且没有任何报错。
 /// </summary>
 public sealed class TrayHost : IDisposable
@@ -84,8 +85,8 @@ public sealed class TrayHost : IDisposable
     }
 
     /// <summary>
-    /// 菜单选项：记事 / 待办 / AI 对话 / 切换投影 · 设置 · 退出。
-    /// 标题统一取自工具目录，避免改名后左栏与托盘叫法不一致。
+    /// 菜单选项：记事 / 待办 / 对话 / 切换模式 · 设置 · 退出。
+    /// 页面入口与左栏保持一致；操作项每次打开菜单时显示实际目标。
     /// </summary>
     private MenuFlyout BuildMenu()
     {
@@ -93,8 +94,14 @@ public sealed class TrayHost : IDisposable
 
         menu.Items.Add(NavigateItem(TitleOf(ToolCatalog.NotepadId), ToolCatalog.NotepadId, "TrayItemNotepad"));
         menu.Items.Add(NavigateItem(TitleOf(ToolCatalog.TodoId), ToolCatalog.TodoId, "TrayItemTodo"));
-        menu.Items.Add(NavigateItem(TitleOf(ToolCatalog.AiChatId), ToolCatalog.AiChatId, "TrayItemAiChat"));
-        menu.Items.Add(ActionItem(TitleOf(ToolCatalog.DisplayModeId), ToolCatalog.DisplayModeId, "TrayItemSwitchDisplay"));
+        menu.Items.Add(NavigateItem("对话", ToolCatalog.AiChatId, "TrayItemAiChat"));
+
+        var displayMode = new DisplayModeAction(
+            App.Host?.Config.DisplayMode.Modes.ToArray() ?? Array.Empty<string>());
+        menu.Items.Add(ActionItem(
+            displayMode.GetToggleMenuText(),
+            ToolCatalog.DisplayModeId,
+            "TrayItemSwitchDisplay"));
 
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(NavigateItem("设置", SettingsPage.RouteTag, "TrayItemSettings"));
