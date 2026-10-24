@@ -21,6 +21,8 @@
 
 ### 其他
 - GitHub Actions 升级 `actions/checkout` 至 `v5`、`softprops/action-gh-release` 至 `v3`，消除 Node.js 20 弃用注解
+- README 精简为软件介绍、截图、下载、更新日志与协议入口；构建、配置和发布说明移至 `docs/development.md`
+- 清理已完成的实施计划、过时交接文档、历史发布产物和界面测试截图，保留当前设计记录与三张 README 截图
 
 ## [v0.6.0] - 2026-10-21
 

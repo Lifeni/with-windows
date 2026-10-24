@@ -12,7 +12,7 @@
 >
 > 另外本文表格里「面向 Win11 21H2 及以上」有误：`TargetPlatformMinVersion` 是 `10.0.22621.0`，即 **Win11 22H2（22621）及以上**。
 >
-> 工作区也变了：`dev` 分支与 `.worktrees/dev` 已合并进 `main` 并清理，当前只有 `main`（见 `docs/HANDOFF.md`）。
+> 工作区也变了：`dev` 分支与 `.worktrees/dev` 已合并进 `main` 并清理。本文为历史设计记录，当前实现以代码、`docs/development.md` 与 `AGENTS.md` 为准。
 
 ## 1. 目标
 

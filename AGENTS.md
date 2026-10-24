@@ -55,11 +55,12 @@ winapp ui screenshot
 
 ```text
 src/WithWindows.App/          未打包 WinUI 3 可执行项目（Views/ Controls/ Services/ Tools/ 与 Assets/）
-src/WithWindows.Core/         纯逻辑类库（Actions/ App/ Config/ Diagnostics/ Hotkeys/ Interop/）
+src/WithWindows.Core/         纯逻辑类库（Actions/ App/ Chat/ Config/ Diagnostics/ Hotkeys/ Interop/ Todos/）
 tests/WithWindows.Core.Tests/ 纯 xunit，只引用 Core
 installer/                    Inno Setup 脚本
 docs/agents/                  项目约定分册（见下）
-docs/superpowers/             设计文档与实现计划
+docs/design/                  历史设计记录
+docs/development.md           开发、构建、配置与发布
 ```
 
 ## 分册索引（按需读取）
@@ -72,7 +73,7 @@ docs/superpowers/             设计文档与实现计划
 | **写界面代码前**：参考库与图标名表（WinUI Gallery / PowerToys） | `docs/agents/ui-conventions.md` 第六节 |
 | P/Invoke、托盘、注册表、显示拓扑 | `docs/agents/interop-and-platform.md` |
 | 遇到奇怪的失败 | `docs/agents/known-pitfalls.md` |
-| **新会话接进度**（无对话记忆时先读） | `docs/HANDOFF.md` |
+| 用户文档入口 | `docs/README.md` |
 
 ## 提交规范
 
