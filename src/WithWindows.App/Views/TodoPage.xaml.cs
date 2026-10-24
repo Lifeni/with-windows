@@ -16,6 +16,7 @@ public sealed partial class TodoPage : Page
 {
     private bool _subscribed;
     private bool _reloadQueued;
+    private bool _isComposing;
 
     public TodoPage()
     {
@@ -54,6 +55,7 @@ public sealed partial class TodoPage : Page
         if (_subscribed && Host is not null)
             Host.Todos.Changed -= OnTodosChanged;
         _subscribed = false;
+        _isComposing = false;
     }
 
     private void OnTodosChanged(object? sender, EventArgs args)
@@ -97,12 +99,22 @@ public sealed partial class TodoPage : Page
 
     private void OnNewInputKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Enter)
+        if (e.Key != VirtualKey.Enter || _isComposing)
             return;
 
         e.Handled = true;
         AddTodo();
     }
+
+    private void OnTextCompositionStarted(
+        TextBox sender,
+        TextCompositionStartedEventArgs args)
+        => _isComposing = true;
+
+    private void OnTextCompositionEnded(
+        TextBox sender,
+        TextCompositionEndedEventArgs args)
+        => _isComposing = false;
 
     private void OnAddClick(object sender, RoutedEventArgs e) => AddTodo();
 
