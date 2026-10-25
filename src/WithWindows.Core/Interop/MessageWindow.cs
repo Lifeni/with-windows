@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -13,15 +14,18 @@ internal sealed class MessageWindow : IDisposable
 {
     private const string ClassName = "WithWindows.HotkeyWindow";
 
-    // 防 GC：窗口过程委托必须存活于窗口生命周期（实例字段随 MessageWindow 存活）
-    private readonly WNDPROC _proc;
+    // 窗口类在进程内只注册一次，因此窗口过程必须与进程同寿命；按 HWND 路由到当前实例。
+    private static readonly WNDPROC StaticProc = StaticWndProc;
+    private static readonly ConcurrentDictionary<nint, MessageWindow> LiveWindows = [];
+
     private readonly Action<IntPtr> _onHotkey;
+    private readonly int _ownerThreadId;
     private HWND _hwnd;
 
     internal unsafe MessageWindow(Action<IntPtr> onHotkey)
     {
         _onHotkey = onHotkey;
-        _proc = WndProc;
+        _ownerThreadId = Environment.CurrentManagedThreadId;
 
         HMODULE module = PInvoke.GetModuleHandle(default(PCWSTR));
         HINSTANCE instance = (HINSTANCE)module.Value;
@@ -32,7 +36,7 @@ internal sealed class MessageWindow : IDisposable
             var wndClass = new WNDCLASSEXW
             {
                 cbSize = (uint)Marshal.SizeOf<WNDCLASSEXW>(),
-                lpfnWndProc = _proc,
+                lpfnWndProc = StaticProc,
                 lpszClassName = name,
                 hInstance = instance,
             };
@@ -51,23 +55,45 @@ internal sealed class MessageWindow : IDisposable
                 instance,
                 null);
         }
+
+        if (!_hwnd.IsNull)
+            LiveWindows[HandleKey(_hwnd)] = this;
     }
 
     internal IntPtr Handle => _hwnd;
 
-    private LRESULT WndProc(HWND hWnd, uint msg, WPARAM wParam, LPARAM lParam)
+    private static unsafe nint HandleKey(HWND hwnd) => (nint)hwnd.Value;
+
+    private static LRESULT StaticWndProc(HWND hWnd, uint msg, WPARAM wParam, LPARAM lParam)
     {
-        if (msg == Win32Constants.WM_HOTKEY)
-            _onHotkey((IntPtr)wParam.Value);
+        if (msg == Win32Constants.WM_HOTKEY
+            && LiveWindows.TryGetValue(HandleKey(hWnd), out MessageWindow? window))
+        {
+            window?._onHotkey((IntPtr)wParam.Value);
+        }
+
         return PInvoke.DefWindowProc(hWnd, msg, wParam, lParam);
     }
 
     public void Dispose()
     {
-        if (!_hwnd.IsNull)
+        if (_hwnd.IsNull)
+            return;
+
+        if (Environment.CurrentManagedThreadId != _ownerThreadId)
         {
-            PInvoke.DestroyWindow(_hwnd);
-            _hwnd = HWND.Null;
+            throw new InvalidOperationException(
+                "热键消息窗口只能在创建它的线程上释放。");
+        }
+
+        HWND hwnd = _hwnd;
+        _hwnd = HWND.Null;
+        LiveWindows.TryRemove(HandleKey(hwnd), out _);
+        if (!PInvoke.DestroyWindow(hwnd))
+        {
+            int error = Marshal.GetLastWin32Error();
+            throw new InvalidOperationException(
+                $"销毁热键消息窗口失败（Win32 错误 {error}）。");
         }
     }
 }
