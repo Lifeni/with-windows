@@ -51,9 +51,11 @@ winapp ui screenshot -a WithWindows
 
 ## 投影与设置
 
-- 投影：`DisplayEnabledToggle`、`DisplayModesExpander`、`DisplayCurrentMode`
+- 投影：`DisplayModesExpander`、`DisplayCurrentMode`
 - 设置：`AutoStartToggle`、`DefaultWindowPageComboBox`（记事 / 待办 / AI 对话）、`HotkeyBox_notepad`
 - 关于：`AboutExpander`、`AboutVersion`、`AboutBuildDate`、`AboutRepository`
+
+投影页与设置页的主要选项组之间统一使用 8 DIP 垂直间距。
 
 ## 截图
 

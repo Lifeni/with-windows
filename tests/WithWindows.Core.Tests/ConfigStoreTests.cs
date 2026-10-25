@@ -69,6 +69,37 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_投影禁用状态_迁移为启用并回写()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 5,
+              "tools": [
+                { "id": "notepad", "enabled": true, "hotkey": null },
+                { "id": "display_mode", "enabled": false, "hotkey": "Ctrl+Alt+P" }
+              ],
+              "windowState": {
+                "width": 1024,
+                "height": 700,
+                "defaultPage": "notepad"
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.True(config.Tools.Single(t => t.Id == "display_mode").Enabled);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        JsonElement displayTool = saved.RootElement
+            .GetProperty("tools")
+            .EnumerateArray()
+            .Single(tool => tool.GetProperty("id").GetString() == "display_mode");
+        Assert.True(displayTool.GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
     public void Load_非法默认页_回退为记事()
     {
         var store = NewStore();

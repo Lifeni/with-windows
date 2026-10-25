@@ -22,28 +22,6 @@
                     Style="{StaticResource TitleTextBlockStyle}"
                     Text="投影" />
 
-                <controls:CardRow
-                    AutomationProperties.AutomationId="DisplayEnabledCard"
-                    Glyph="&#xE7E8;"
-                    Title="启用功能">
-                    <controls:CardRow.Trailing>
-                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <TextBlock
-                                x:Name="EnabledStateText"
-                                VerticalAlignment="Center"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="关" />
-                            <ToggleSwitch
-                                x:Name="EnabledToggle"
-                                AutomationProperties.AutomationId="DisplayEnabledToggle"
-                                MinWidth="0"
-                                OffContent=""
-                                OnContent=""
-                                Toggled="OnEnabledToggled" />
-                        </StackPanel>
-                    </controls:CardRow.Trailing>
-                </controls:CardRow>
-
                 <controls:HotkeyRow
                     x:Name="DisplayHotkeyRow"
                     Glyph="&#xE765;"
@@ -52,7 +30,6 @@
 
                 <!-- 切换模式：默认折叠，展开后是原生多选框（PowerToys 的 SettingsExpander 风格） -->
                 <Expander
-                    Margin="0,8,0,0"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
                     AutomationProperties.AutomationId="DisplayModesExpander"

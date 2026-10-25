@@ -76,7 +76,6 @@
 
             <!-- 关于：参考 WinUI Gallery 的写法——折叠成一项，展开后每个条目一行 -->
             <Expander
-                Margin="0,8,0,0"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 AutomationProperties.AutomationId="AboutExpander"

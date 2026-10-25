@@ -4,14 +4,13 @@ using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using WithWindows.Core.Config;
 using WithWindows.Services;
 
 namespace WithWindows.Views;
 
 /// <summary>
-/// 投影页：功能开关、快捷键，以及展开组件里的原生多选框（候选模式；已勾选的项列在展开组件标题下）。
+/// 投影页：快捷键，以及展开组件里的原生多选框（候选模式；已勾选的项列在展开组件标题下）。
 /// 投影相关设置集中在这里（设置页不再重复）。
 /// </summary>
 public sealed partial class DisplayPage : Page
@@ -38,9 +37,6 @@ public sealed partial class DisplayPage : Page
 
     private static AppHost? Host => App.Host;
 
-    private static ToolBinding? DisplayBinding
-        => Host?.Config.Tools.FirstOrDefault(t => t.Id == Tools.ToolCatalog.DisplayModeId);
-
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (Host is null || ModesHost.Children.Count > 0)
@@ -49,8 +45,6 @@ public sealed partial class DisplayPage : Page
         _initializing = true;
         try
         {
-            EnabledToggle.IsOn = DisplayBinding?.Enabled ?? true;
-            EnabledStateText.Text = EnabledToggle.IsOn ? "开" : "关";
             BuildModeCheckBoxes();
             UpdateModesSummary();
         }
@@ -97,21 +91,6 @@ public sealed partial class DisplayPage : Page
             checkBox.Unchecked += (_, _) => OnModeToggled(capturedMode, isChecked: false, checkBox);
             ModesHost.Children.Add(checkBox);
         }
-    }
-
-    private void OnEnabledToggled(object sender, RoutedEventArgs e)
-    {
-        if (_initializing || Host is null)
-            return;
-
-        ToolBinding? binding = DisplayBinding;
-        if (binding is null)
-            return;
-
-        binding.Enabled = EnabledToggle.IsOn;
-        EnabledStateText.Text = EnabledToggle.IsOn ? "开" : "关";
-        Host.SaveConfig();
-        Host.ReloadBindings();
     }
 
     private void OnModeToggled(string mode, bool isChecked, CheckBox source)

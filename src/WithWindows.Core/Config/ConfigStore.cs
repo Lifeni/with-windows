@@ -210,6 +210,13 @@ public sealed class ConfigStore
             }
         }
 
+        ToolBinding displayMode = config.Tools.Single(t => t.Id == "display_mode");
+        if (!displayMode.Enabled)
+        {
+            displayMode.Enabled = true;
+            changed = true;
+        }
+
         return changed;
     }
 
