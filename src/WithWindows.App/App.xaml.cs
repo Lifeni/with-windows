@@ -7,6 +7,7 @@ using WithWindows.Core.App;
 using WithWindows.Core.Config;
 using WithWindows.Core.Diagnostics;
 using WithWindows.Core.Hotkeys;
+using WithWindows.Core.Todos;
 using WithWindows.Services;
 using WithWindows.Tools;
 
@@ -96,9 +97,39 @@ public partial class App : Application
         AppHost host = start.Host;
         host.ToolInvoker = toolId => new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
 
+        Microsoft.UI.Dispatching.DispatcherQueue dispatcher = mainWindow.DispatcherQueue;
         _todoReminders = new TodoReminderHost(
             host,
-            mainWindow.ShowTodoReminder);
+            titles =>
+            {
+                var completion = new TaskCompletionSource<TodoReminderDeliveryResult>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                if (!dispatcher.TryEnqueue(() =>
+                    {
+                        try
+                        {
+                            completion.SetResult(mainWindow.DeliverTodoReminder(titles));
+                        }
+                        catch (Exception ex)
+                        {
+                            host.Log.Error($"待办提醒 UI 处理失败：{ex.Message}");
+                            completion.SetResult(TodoReminderDeliveryResult.Failed);
+                        }
+                    }))
+                {
+                    return TodoReminderDeliveryResult.Failed;
+                }
+
+                return completion.Task.GetAwaiter().GetResult();
+            });
+        mainWindow.Activated += (_, args) =>
+        {
+            if (args.WindowActivationState != WindowActivationState.Deactivated
+                && !host.IsShuttingDown)
+            {
+                _todoReminders?.NotifyWindowOpened();
+            }
+        };
 
         // 再次双击 exe / 点开始菜单：已有实例把窗口叫出来，保留当前页面。
         host.ActivationRequested = () => mainWindow.DispatcherQueue.TryEnqueue(() =>

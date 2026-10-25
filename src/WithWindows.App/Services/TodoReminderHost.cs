@@ -16,7 +16,7 @@ public sealed class TodoReminderHost : IDisposable
     private readonly AppHost _host;
     private readonly TodoStore _store;
     private Timer? _timer;
-    private readonly Action<IReadOnlyList<string>> _showReminder;
+    private readonly Func<IReadOnlyList<string>, TodoReminderDeliveryResult> _showReminder;
     private readonly object _scheduleGate = new();
     private readonly Dictionary<string, DateTimeOffset> _suppressedDeliveries =
         new(StringComparer.Ordinal);
@@ -24,10 +24,11 @@ public sealed class TodoReminderHost : IDisposable
     private bool _started;
     private volatile bool _processingDue;
     private volatile bool _disposed;
+    private volatile bool _waitingForWindow;
 
     public TodoReminderHost(
         AppHost host,
-        Action<IReadOnlyList<string>> showReminder)
+        Func<IReadOnlyList<string>, TodoReminderDeliveryResult> showReminder)
     {
         _host = host;
         _store = host.Todos;
@@ -47,7 +48,7 @@ public sealed class TodoReminderHost : IDisposable
     /// <summary>重新按最早的提醒时间设置单次计时器；由待办变更或提醒处理后调用。</summary>
     public void RefreshSchedule()
     {
-        if (_disposed)
+        if (_disposed || _waitingForWindow)
             return;
 
         lock (_scheduleGate)
@@ -117,8 +118,9 @@ public sealed class TodoReminderHost : IDisposable
         _processingDue = true;
         try
         {
+            IReadOnlyList<TodoItem> items = _store.GetAll();
             IReadOnlyList<TodoItem> due = TodoReminderPolicy.GetDue(
-                    _store.GetAll(),
+                    items,
                     DateTimeOffset.UtcNow)
                 .Where(item => !IsSuppressed(item))
                 .ToList();
@@ -127,10 +129,25 @@ public sealed class TodoReminderHost : IDisposable
 
             try
             {
-                _showReminder(
+                TodoReminderDeliveryResult result = _showReminder(
                     due.Select(item => item.Title)
                         .Where(title => !string.IsNullOrWhiteSpace(title))
                         .ToArray());
+                if (result == TodoReminderDeliveryResult.Deferred)
+                {
+                    _waitingForWindow = true;
+                    _host.Log.Info("待办提醒：主窗口未打开，等待下次显示");
+                    return;
+                }
+
+                if (result == TodoReminderDeliveryResult.Failed)
+                {
+                    foreach (TodoItem item in due)
+                        Suppress(item);
+                    _host.Log.Error(
+                        "待办提醒：系统通知与应用内回退均未能显示，本次运行不再重试。");
+                    return;
+                }
             }
             catch (Exception ex)
             {
@@ -163,8 +180,19 @@ public sealed class TodoReminderHost : IDisposable
         finally
         {
             _processingDue = false;
-            RefreshSchedule();
+            if (!_waitingForWindow)
+                RefreshSchedule();
         }
+    }
+
+    /// <summary>主窗口重新显示后，再处理此前被暂缓的到期项。</summary>
+    public void NotifyWindowOpened()
+    {
+        lock (_scheduleGate)
+            _waitingForWindow = false;
+
+        if (_started)
+            RefreshSchedule();
     }
 
     private bool IsSuppressed(TodoItem item)

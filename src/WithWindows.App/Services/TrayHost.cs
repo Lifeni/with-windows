@@ -4,6 +4,8 @@ using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using WinUIEx;
 using WithWindows.Core.Actions;
+using WithWindows.Core.Interop;
+using WithWindows.Core.Todos;
 using WithWindows.Tools;
 using WithWindows.Views;
 
@@ -17,6 +19,7 @@ public sealed class TrayHost : IDisposable
 {
     private readonly MainWindow _window;
     private readonly TrayIcon? _trayIcon;
+    private readonly TrayNotificationService? _notifications;
 
     public TrayHost(MainWindow window)
     {
@@ -40,6 +43,7 @@ public sealed class TrayHost : IDisposable
             // 高位通常是 0——传 AppWindow.Id（几百万的大数）时永远对不上，事件会被整个丢掉。
             const uint iconId = 0;
             _trayIcon = new TrayIcon(iconId, AppIcon.Preferred, "With Windows");
+            _notifications = new TrayNotificationService(iconId);
             // 显式置为可见：默认值不可依赖，且 Win11 会先把新图标收进溢出区
             _trayIcon.IsVisible = true;
             _trayIcon.Selected += (_, _) =>
@@ -82,6 +86,25 @@ public sealed class TrayHost : IDisposable
     {
         if (_trayIcon is not null)
             _trayIcon.Tooltip = text;
+    }
+
+    /// <summary>通过现有托盘图标显示 Windows 原生通知横幅。</summary>
+    public bool ShowTodoNotification(IReadOnlyList<string> titles)
+    {
+        if (_notifications is null)
+            return false;
+
+        try
+        {
+            return _notifications.Show(
+                TodoReminderNotificationFormatter.Title,
+                TodoReminderNotificationFormatter.FormatBody(titles));
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"显示系统通知失败：{ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>

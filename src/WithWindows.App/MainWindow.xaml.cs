@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using WithWindows.Services;
+using WithWindows.Core.Todos;
 using WithWindows.Tools;
 using WithWindows.Views;
 
@@ -311,7 +312,31 @@ public sealed partial class MainWindow : Window
     /// <summary>再次启动应用时显示现有窗口，并保留当前页面。</summary>
     public void ShowCurrentPage() => ShowWindow();
 
-    /// <summary>把到期项作为应用内提醒显示，并唤出待办页。</summary>
+    /// <summary>在 UI 线程完成窗口状态判断、原生通知和失败回退。</summary>
+    public TodoReminderDeliveryResult DeliverTodoReminder(IReadOnlyList<string> titles)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+            return TodoReminderDeliveryResult.Failed;
+
+        if (!Core.Todos.TodoReminderVisibilityPolicy.CanNotify(
+                Core.Interop.WindowInterop.IsVisible(Hwnd),
+                Core.Interop.WindowInterop.IsMinimized(Hwnd)))
+        {
+            return TodoReminderDeliveryResult.Deferred;
+        }
+
+        if (_tray.ShowTodoNotification(titles))
+        {
+            App.Host?.Log.Info("待办提醒：已显示 Windows 系统通知");
+            return TodoReminderDeliveryResult.Delivered;
+        }
+
+        App.Host?.Log.Info("待办提醒：Windows 系统通知不可用，回退到应用内提醒");
+        ShowTodoReminder(titles);
+        return TodoReminderDeliveryResult.Delivered;
+    }
+
+    /// <summary>系统通知不可用时，在 UI 线程显示应用内提醒并唤出待办页。</summary>
     public void ShowTodoReminder(IReadOnlyList<string> titles)
     {
         if (titles.Count == 0)
