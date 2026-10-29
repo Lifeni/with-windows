@@ -15,4 +15,11 @@ public static class WindowPlacement
             && y > MinimizedSentinel
             && width > 0
             && height > 0;
+
+    /// <summary>
+    /// 只有成功恢复过窗口状态后，才允许把当前矩形写回配置。
+    /// <c>--tray</c> 首次启动会保留窗口的初始未显示状态；若用户从未唤出窗口，当前矩形是默认值，不能覆盖已保存的位置和尺寸。
+    /// </summary>
+    public static bool CanPersist(bool stateRestored, int x, int y, int width, int height)
+        => stateRestored && IsUsable(x, y, width, height);
 }

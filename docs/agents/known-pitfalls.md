@@ -6,6 +6,8 @@
 
 **托盘收起不要隐藏顶层 WinUI 窗口**：`AppWindow.Hide()` / `AppWindow.Show()` 和 `SW_HIDE` 都可能让当前页面触发 `Unloaded`，再次显示时只恢复顶层窗口，不会把整棵 XAML 内容重新挂载；投影、AI 对话等页面会黑屏，随后伴随 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。本机还实测到 `OverlappedPresenter.Minimize()` 与 `Restore()` 会直接破坏 XAML 内容树，即使用按钮事件排队执行也无效。当前正常路径是：收起时用 CsWin32 `ShowWindow(SW_MINIMIZE)`，再设 `AppWindow.IsShownInSwitchers = false`；唤回时先设回 `true`，再调用 `ShowWindow(SW_SHOWNOACTIVATE)`，最后 `Activate()` 和 `BringToFront()`。不要移动窗口到屏幕外，也不要用 `SW_HIDE`。
 
+**首次 `--tray` 启动不要主动最小化或隐藏窗口**：新创建的 WinUI 窗口本来就是未显示状态；在首次显示前调用 `_windowState.Restore()`、`SW_MINIMIZE` 或 `SW_SHOWMINNOACTIVE` 都可能触发 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`（WER 前置异常为 `E_INVALIDARG`）。`--tray` 启动只标记托盘状态并保留窗口初始隐藏状态；尺寸在用户首次唤出、窗口激活后恢复。只有窗口已经正常显示后，关闭按钮和显示 / 隐藏热键才能走 `SW_MINIMIZE`。
+
 **系统关闭按钮会留下 caption 悬停状态**：窗口使用内置 `TitleBar` 时，点击系统关闭按钮会结束非客户区鼠标跟踪；若在 `AppWindow.Closing` 中取消关闭并立即收起，窗口可能收不到 pointer-exited，唤回后关闭按钮仍是红色。收起仍走 `SW_MINIMIZE`，唤回前先调用 `WindowInterop.ClearCaptionButtonHover` 发送 `WM_NCMOUSEMOVE` / `HTNOWHERE`。该清理对标准标题栏无副作用。
 
 **关闭回调不要直接切换 presenter**：`AppWindow.Closing` 中先设置 `Cancel = true`，再用 `DispatcherQueue.TryEnqueue` 执行收起；事件回调栈内直接改变窗口状态会与 WinUI 消息处理重入。真正退出只由托盘菜单触发。

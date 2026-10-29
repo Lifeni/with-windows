@@ -23,4 +23,22 @@ public class WindowPlacementTests
     [Fact]
     public void IsUsable_宽高为负_为假()
         => Assert.False(WindowPlacement.IsUsable(x: 100, y: 100, width: 800, height: -1));
+
+    [Fact]
+    public void CanPersist_窗口状态尚未恢复_为假()
+        => Assert.False(WindowPlacement.CanPersist(
+            stateRestored: false,
+            x: 100,
+            y: 100,
+            width: 800,
+            height: 600));
+
+    [Fact]
+    public void CanPersist_窗口状态已恢复且矩形可用_为真()
+        => Assert.True(WindowPlacement.CanPersist(
+            stateRestored: true,
+            x: 100,
+            y: 100,
+            width: 800,
+            height: 600));
 }

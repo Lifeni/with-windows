@@ -27,7 +27,7 @@ Windows 11 的轻量托盘工具箱，使用 WinUI 3 构建。关闭窗口后继
 
 ## 下载
 
-当前版本为 `v0.8.1`。前往 [GitHub Release](https://github.com/Lifeni/with-windows/releases/latest) 下载。
+当前版本为 `v0.8.2`。前往 [GitHub Release](https://github.com/Lifeni/with-windows/releases/latest) 下载。
 
 [查看更新日志](CHANGELOG.md)
 

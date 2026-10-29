@@ -24,6 +24,7 @@ public sealed class WindowStateStore : IDisposable
     private readonly Action _save;
     private readonly DispatcherQueueTimer _debounce;
     private bool _restoring;
+    private bool _stateRestored;
 
     public WindowStateStore(Window window, AppConfig config, Action save)
     {
@@ -74,28 +75,33 @@ public sealed class WindowStateStore : IDisposable
                     // 混合缩放多屏下，用移动前的 DPI 会把窗口尺寸算错（副屏 150% 时会小三成）
                     _window.AppWindow.Move(point);
                     _window.AppWindow.Resize(ScaledSize(state));
-                    return;
                 }
-
-                // 位置已不在任何显示器内：回到主屏居中
-                RectInt32 work = DisplayArea.GetFromWindowId(_window.AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
-                SizeInt32 size = ScaledSize(state);
-                _window.AppWindow.MoveAndResize(new RectInt32(
-                    work.X + Math.Max(0, (work.Width - size.Width) / 2),
-                    work.Y + Math.Max(0, (work.Height - size.Height) / 2),
-                    size.Width,
-                    size.Height));
-                return;
+                else
+                {
+                    // 位置已不在任何显示器内：回到主屏居中
+                    RectInt32 work = DisplayArea.GetFromWindowId(
+                        _window.AppWindow.Id,
+                        DisplayAreaFallback.Primary).WorkArea;
+                    SizeInt32 size = ScaledSize(state);
+                    _window.AppWindow.MoveAndResize(new RectInt32(
+                        work.X + Math.Max(0, (work.Width - size.Width) / 2),
+                        work.Y + Math.Max(0, (work.Height - size.Height) / 2),
+                        size.Width,
+                        size.Height));
+                }
+            }
+            else
+            {
+                _window.AppWindow.Resize(ScaledSize(state));
             }
 
-            _window.AppWindow.Resize(ScaledSize(state));
+            // 最小尺寸依赖恢复后的显示器 DPI，必须在窗口落位后计算。
+            ApplyMinimumSize();
+            _stateRestored = true;
         }
         finally
         {
             _restoring = false;
-            // 放在 finally 里：无论走「按保存位置恢复」「超屏回主屏」「仅恢复尺寸」哪条分支，
-            // 都要在窗口落位后按目标显示器的 DPI 换算最小尺寸（三个分支都有 return）
-            ApplyMinimumSize();
         }
     }
 
@@ -140,7 +146,12 @@ public sealed class WindowStateStore : IDisposable
             double scale = Scale;
             int width = (int)Math.Round(size.Width / scale);
             int height = (int)Math.Round(size.Height / scale);
-            if (!WindowPlacement.IsUsable(position.X, position.Y, width, height))
+            if (!WindowPlacement.CanPersist(
+                    _stateRestored,
+                    position.X,
+                    position.Y,
+                    width,
+                    height))
                 return;
 
             _config.WindowState.Width = width;

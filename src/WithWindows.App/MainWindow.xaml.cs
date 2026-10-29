@@ -68,8 +68,8 @@ public sealed partial class MainWindow : Window
         AppWindow.Changed += OnAppWindowChanged;
         Activated += OnWindowActivated;
 
-        // 普通启动在首次激活后恢复：此时窗口有内容、DPI 已就绪，不会按 100% 误算尺寸；
-        // 隐藏启动（--tray）不激活窗口，由 StartHidden() 在创建后立即恢复。
+        // 普通启动和 --tray 首次唤出都在首次激活后恢复：此时窗口有内容、DPI 已就绪，
+        // 不会按 100% 误算尺寸；--tray 启动时不能提前操作尚未显示的窗口。
         Activated += OnFirstActivated;
     }
 
@@ -453,14 +453,12 @@ public sealed partial class MainWindow : Window
     public bool IsTrayAvailable => _tray.IsAvailable;
 
     /// <summary>
-    /// 以「隐藏到托盘」方式启动（开机自启带 <c>--tray</c>）：不激活窗口，主窗口只待在托盘里，
-    /// 用户点托盘图标或按热键时再唤出。
-    /// 尺寸/位置在这里就恢复好：窗口一直没激活过，等首次唤出才恢复会先按默认尺寸闪一下再跳成保存的尺寸。
+    /// 以「隐藏到托盘」方式启动（开机自启带 <c>--tray</c>）：保留新窗口的初始未显示状态，
+    /// 不激活、最小化或提前恢复尺寸。用户点托盘图标或按热键时再显示并由首次激活恢复尺寸。
     /// </summary>
     public void StartHidden()
     {
-        _windowState.Restore();
-        HideToTray();
+        HideToTray(initialStartup: true);
     }
 
     /// <summary>
@@ -592,7 +590,7 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    private void HideToTray()
+    private void HideToTray(bool initialStartup = false)
     {
         if (_isHiddenToTray)
             return;
@@ -600,6 +598,15 @@ public sealed partial class MainWindow : Window
         _isHiddenToTray = true;
         _showRecoveryTimer?.Stop();
         _showRecoveryTimer = null;
+        if (initialStartup)
+        {
+            // 新创建的 WinUI 窗口本就未显示。此时不要最小化或隐藏：在 OnLaunched 栈内
+            // 改变从未激活窗口的状态会触发 Microsoft.UI.Xaml.dll 的 0xC000027B。
+            LogLifecycle("托盘启动：窗口保持未显示");
+            LogLifecycle("托盘收起：完成");
+            return;
+        }
+
         LogLifecycle("托盘收起：最小化");
         Core.Interop.WindowInterop.Minimize(Hwnd);
         if (AppWindow.Presenter is OverlappedPresenter)

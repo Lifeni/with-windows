@@ -65,6 +65,12 @@ $prompt | codex exec -C <worktree> -s read-only -
 | `winapp ui search <text>` | 按名称或 AutomationId 查找元素 |
 | `winapp ui set-value <selector> <value>` | 给输入框赋值 |
 
+隐藏启动回归（需先关闭现有实例；脚本会让测试实例在检查后自行退出）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/test-tray-startup.ps1 -ExePath <WithWindows.exe 路径>
+```
+
 选择器依赖 `AutomationProperties.AutomationId`，所以**新增可交互控件必须同时加 AutomationId**。
 
 `winapp` CLI 目前是公共预览版，命令语法可能变动。执行前用 `winapp --help` 核对其「选择目标窗口」的参数，不要凭记忆拼参数。
