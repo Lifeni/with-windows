@@ -195,14 +195,17 @@ public sealed partial class ChatPage : Page
 
     private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Escape)
-        {
-            if (_isSending)
-            {
-                e.Handled = true;
-                _requestCts?.Cancel();
-            }
-        }
+        if (e.Key != VirtualKey.Escape || !_isSending)
+            return;
+
+        e.Handled = true;
+        _requestCts?.Cancel();
+    }
+
+    private void OnStopReplyClick(object sender, RoutedEventArgs e)
+    {
+        if (_isSending)
+            _requestCts?.Cancel();
     }
 
     private void FocusInput()
@@ -400,6 +403,7 @@ public sealed partial class ChatPage : Page
                 history,
                 _requestCts.Token))
             {
+                bool firstContent = streamedContent.Length == 0;
                 streamedContent.Append(delta.Content);
                 if (!CanTouchUi)
                 {
@@ -409,6 +413,9 @@ public sealed partial class ChatPage : Page
                         stoppedAssistantContent: streamedContent.ToString());
                     return;
                 }
+
+                if (firstContent && streamedContent.Length > 0)
+                    ChatReplyStatusText.Text = "AI 正在回复…";
 
                 assistantMessage.Content = streamedContent.ToString();
                 ScrollToLatest();
@@ -792,7 +799,12 @@ public sealed partial class ChatPage : Page
             return;
 
         ChatInput.IsEnabled = !sending && !_initializingSession;
-        ChatInput.PlaceholderText = sending ? "正在回复…按 Esc 停止" : "与 AI 对话";
+        ChatInput.PlaceholderText = "与 AI 对话";
+        if (sending)
+            ChatReplyStatusText.Text = "AI 正在思考…";
+        UpdateComposerVisibility();
+        if (sending)
+            FocusReplyStatus();
         UpdateBusyRing();
     }
 
@@ -804,7 +816,10 @@ public sealed partial class ChatPage : Page
         ChatNewSessionButton.IsEnabled = true;
         ChatConfigureButton.IsEnabled = true;
         ChatInput.IsEnabled = !_isSending && !_initializingSession;
-        ChatInput.PlaceholderText = _isSending ? "正在回复…按 Esc 停止" : "与 AI 对话";
+        ChatInput.PlaceholderText = "与 AI 对话";
+        UpdateComposerVisibility();
+        if (_isSending)
+            FocusReplyStatus();
         UpdateBusyRing();
         UpdateEmptyState();
         UpdatePendingAttachmentsBar();
@@ -825,12 +840,27 @@ public sealed partial class ChatPage : Page
         ChatInput.IsEnabled = !initializing && !_isSending;
         ChatInput.PlaceholderText = initializing
             ? "正在加载会话…"
-            : _isSending
-                ? "正在回复…按 Esc 停止"
-                : "与 AI 对话";
+            : "与 AI 对话";
         ChatNewSessionButton.IsEnabled = !initializing;
         ChatConfigureButton.IsEnabled = !initializing;
+        UpdateComposerVisibility();
         UpdateBusyRing();
+    }
+
+    private void UpdateComposerVisibility()
+    {
+        ChatInput.Visibility = _isSending ? Visibility.Collapsed : Visibility.Visible;
+        ChatReplyStatus.Visibility = _isSending ? Visibility.Visible : Visibility.Collapsed;
+        ChatReplyStatusRing.IsActive = _isSending;
+    }
+
+    private void FocusReplyStatus()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_isSending && CanTouchUi)
+                ChatReplyStatus.Focus(FocusState.Programmatic);
+        });
     }
 
     private void UpdateBusyRing()
@@ -838,7 +868,7 @@ public sealed partial class ChatPage : Page
         if (!CanTouchUi)
             return;
 
-        bool busy = _isSending || _isReadingClipboard || _initializingSession;
+        bool busy = _isReadingClipboard || _initializingSession;
         ChatBusyRing.IsActive = busy;
         ChatBusyRing.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }

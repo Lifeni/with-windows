@@ -46,8 +46,9 @@ winapp ui screenshot -a WithWindows
 - 操作：`ChatNewSessionButton`、`ChatConfigureButton`、`ChatBusyRing`
 - 消息：`ChatMessageList`、`ChatEmptyState`、`ChatErrorBar`
 - 输入与附件：`ChatInput`、`ChatPendingAttachments`、`ChatRemoveAttachmentButton`
+- 发送状态与停止按钮：`ChatReplyStatus`、`ChatReplyStatusText`
 
-空状态使用与待办页一致的 42 DIP 字体图标和说明文字。输入栏使用主题填充色和透明边框，单行文字垂直居中。`Enter` 发送，`Shift+Enter` 换行，输入法组合期间不发送。
+空状态使用与待办页一致的 42 DIP 字体图标和说明文字。输入栏使用主题填充色和透明边框，单行文字垂直居中。`Enter` 发送，`Shift+Enter` 换行，输入法组合期间不发送。发送期间输入栏暂时替换为发送状态按钮，显示进度环和“AI 正在思考…” / “AI 正在回复…”，可按 `Esc` 或点击其所在状态条停止，完成或停止后恢复输入栏。
 
 ## 投影与设置
 

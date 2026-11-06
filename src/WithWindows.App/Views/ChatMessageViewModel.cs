@@ -37,7 +37,14 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
         Role == ChatRole.User ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility AssistantVisibility =>
-        Role == ChatRole.Assistant ? Visibility.Visible : Visibility.Collapsed;
+        Role == ChatRole.Assistant && HasText
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public Visibility MessageVisibility =>
+        Role == ChatRole.User || HasText
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
     public bool HasText => !string.IsNullOrWhiteSpace(Content);
     public bool HasAttachments => Attachments.Count > 0;
@@ -56,6 +63,8 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Content)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasText)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TextVisibility)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AssistantVisibility)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MessageVisibility)));
         }
     }
 

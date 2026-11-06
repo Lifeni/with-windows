@@ -58,7 +58,7 @@
 | 项 | 值 |
 |---|---|
 | 语言 / 运行时 | C# 14 / .NET 10（LTS） |
-| UI | WinUI 3，Windows App SDK 2.5.x（组件包引用，与现状一致） |
+| UI | WinUI 3，Windows App SDK 2.6.4（组件包引用，与现状一致） |
 | TFM | `net10.0-windows10.0.22621.0` |
 | 平台 | 仅 x64（`-p:Platform=x64`，RID `win-x64`） |
 | MVVM | CommunityToolkit.Mvvm（源生成器） |

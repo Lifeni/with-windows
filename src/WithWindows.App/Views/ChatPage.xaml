@@ -64,7 +64,9 @@
         </DataTemplate>
 
         <DataTemplate x:Key="ChatMessageTemplate" x:DataType="local:ChatMessageViewModel">
-            <Grid Margin="8,4">
+            <Grid
+                Margin="8,4"
+                Visibility="{x:Bind MessageVisibility, Mode=OneWay}">
                 <Border
                     MaxWidth="760"
                     Padding="14,10"
@@ -100,7 +102,7 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Visibility="{x:Bind AssistantVisibility}">
+                    Visibility="{x:Bind AssistantVisibility, Mode=OneWay}">
                     <controls:MarkdownMessageView
                         IsMarkdown="{x:Bind IsMarkdown, Mode=OneWay}"
                         Text="{x:Bind Content, Mode=OneWay}" />
@@ -286,6 +288,52 @@
                     <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
                 </TextBox.Resources>
             </TextBox>
+
+            <Button
+                x:Name="ChatReplyStatus"
+                Grid.Row="1"
+                MinHeight="52"
+                Padding="16,0"
+                AutomationProperties.AutomationId="ChatReplyStatus"
+                AutomationProperties.Name="停止 AI 回复"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderThickness="0"
+                Click="OnStopReplyClick"
+                CornerRadius="0"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Center"
+                Visibility="Collapsed">
+                <Grid
+                    VerticalAlignment="Center"
+                    ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ProgressRing
+                        x:Name="ChatReplyStatusRing"
+                        Width="20"
+                        Height="20"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        IsActive="False" />
+                    <TextBlock
+                        Grid.Column="1"
+                        x:Name="ChatReplyStatusText"
+                        AutomationProperties.AutomationId="ChatReplyStatusText"
+                        AutomationProperties.LiveSetting="Polite"
+                        FontSize="{x:Bind ChatInput.FontSize}"
+                        FontWeight="SemiBold"
+                        Text="AI 正在思考…"
+                        VerticalAlignment="Center"
+                        TextWrapping="NoWrap">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform Y="-2" />
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                </Grid>
+            </Button>
         </Grid>
     </Grid>
 </Page>

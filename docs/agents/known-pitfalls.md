@@ -74,7 +74,7 @@
 
 **WindowsAppSDK 2.5 元包默认带 AI / ML / Search / Widgets**：即使项目不使用这些 API，`Microsoft.WindowsAppSDK` 也会把 ONNX Runtime、DirectML、语义索引等组件带进自包含发布（约 50 MB）。官方在 [WindowsAppSDK#6015](https://github.com/microsoft/WindowsAppSDK/issues/6015) 建议自包含应用直接引用需要的组件包；[#6464](https://github.com/microsoft/WindowsAppSDK/issues/6464) 也记录了相同问题和其他用户的排除做法。本项目的 App 现在直接引用 Base / Foundation / InteractiveExperiences / WinUI / DWrite / Runtime，不再引用元包；升级 WASDK 或改用新组件时要重新跑全页面回归。
 
-**系统通知不要重新引入 `AppNotificationManager`**：Windows App SDK 2.5.1 的未打包自包含组合仍有注册崩溃。待办提醒复用现有 WinUIEx 托盘图标：先枚举当前进程窗口并用 `Shell_NotifyIconGetRect` 找到图标宿主，再通过 `Shell_NotifyIcon(NIF_INFO)` 显示原生横幅。该路径只在主窗口可见且未最小化时调用，隐藏期间到期的项目在窗口重新激活后补发；Windows 11 横幅是短暂的，不保证进入通知中心。
+**系统通知当前仍使用托盘横幅**：Windows App SDK 2.5.1 的未打包自包含组合曾出现通知注册崩溃；2.6.4 的发布说明修复了 `AppNotificationManager` / `AppInstance` 调用崩溃，以及自包含应用注册通知时缺少 `Microsoft.WindowsAppRuntime.Insights.Resource.dll` 的问题。当前待办提醒继续复用现有 WinUIEx 托盘图标：先枚举当前进程窗口并用 `Shell_NotifyIconGetRect` 找到图标宿主，再通过 `Shell_NotifyIcon(NIF_INFO)` 显示原生横幅。该路径只在主窗口可见且未最小化时调用，隐藏期间到期的项目在窗口重新激活后补发；Windows 11 横幅是短暂的，不保证进入通知中心。后续若改回 `AppNotificationManager`，仍必须在未打包自包含与 `--tray` 启动组合下实际回归。
 
 **WinUI 语言资源不受 `SatelliteResourceLanguages` 控制**：`Microsoft.ui.xaml.dll.mui` 等原生资源会随 WindowsAppSDK 一起进入发布目录，`SatelliteResourceLanguages` 只影响 .NET 卫星程序集。要在单文件里真正删掉其它语言，必须在 `_ComputeFilesToBundle` **之前**过滤 `ResolvedFileToPublish`；写成 `BeforeTargets="GenerateSingleFileBundle"` 时，`_ComputeFilesToBundle` 已经把条目搬进 `_FilesToBundle`，过滤不会生效（实测尺寸完全不变）。
 
