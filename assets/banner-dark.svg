@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 560"
+  width="1680" height="560" role="img" aria-label="With Windows">
+  <defs>
+    <pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="15" cy="15" r="3.5" fill="#8fb2d6" fill-opacity="0.16"/>
+    </pattern>
+  </defs>
+  <rect width="1680" height="560" fill="#0e1114"/>
+  <rect width="1680" height="560" fill="url(#dots)"/>
+  <g transform="translate(88 371) scale(0.109375)">
+<rect width="1024" height="1024" rx="512" fill="url(#paint0_linear_4767_43)"/>
+<g filter="url(#filter0_d_4767_43)">
+<path d="M543.25 190.734L530.272 186.759C530.272 186.759 540.25 177.5 541 181.5C541.75 185.5 543.25 190.734 543.25 190.734Z" fill="#F4F4F4"/>
+</g>
+<g filter="url(#filter1_d_4767_43)">
+<path d="M545.749 175L546.356 175.034L546.896 175.067L549.698 175.236L550.069 175.304H550.44L551.723 175.607L553.477 175.877L554.017 176.08L554.389 176.114L555.367 176.485L557.122 176.957L557.764 177.261L558.27 177.396L559.215 177.869L560.565 178.442L561.273 178.847L562.016 179.185L562.792 179.691L563.838 180.265L564.986 181.075L565.593 181.446L566.032 181.851L566.842 182.424L568.125 183.572L568.867 184.146L569.137 184.483L569.609 184.888L570.824 186.272L571.702 187.183L571.904 187.487C575.954 192.447 578.519 198.353 579.262 204.799L579.295 205.204L579.363 206.588L579.498 208.747V411.231H748.243C754.158 411.23 759.969 412.783 765.095 415.735C770.22 418.687 774.48 422.934 777.447 428.051C780.414 433.168 781.984 438.974 782 444.889C782.016 450.804 780.477 456.619 777.537 461.751L775.512 464.822L505.52 836.043C486.351 862.467 444.502 848.867 444.502 816.2V613.716H275.757C269.842 613.717 264.031 612.164 258.905 609.212C253.78 606.26 249.52 602.013 246.553 596.896C243.586 591.779 242.016 585.973 242 580.058C241.984 574.143 243.524 568.328 246.463 563.196L248.488 560.125L518.48 188.904L518.817 188.465L519.425 187.655L520.539 186.373L521.146 185.63L521.45 185.36L521.888 184.888L523.238 183.673L524.183 182.796L524.453 182.593C528.409 179.356 533.048 177.06 538.02 175.877L538.392 175.844L539.303 175.675L541.8 175.236L542.172 175.202L543.555 175.135L545.749 175Z" fill="#F4F4F4"/>
+</g>
+<defs>
+<filter id="filter0_d_4767_43" x="410.272" y="72.4973" width="252.978" height="250.237" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="12"/>
+<feGaussianBlur stdDeviation="60"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.1 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_4767_43"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_4767_43" result="shape"/>
+</filter>
+<filter id="filter1_d_4767_43" x="122" y="67" width="780" height="915" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="12"/>
+<feGaussianBlur stdDeviation="60"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.1 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_4767_43"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_4767_43" result="shape"/>
+</filter>
+<linearGradient id="paint0_linear_4767_43" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFF720"/>
+<stop offset="1" stop-color="#3CD500"/>
+</linearGradient>
+</defs>
+  </g>
+  <text x="236" y="430" fill="#eceff3"
+    font-family="DejaVu Sans Mono, Consolas, monospace"
+    font-size="76" font-weight="700" letter-spacing="-3">With Windows</text>
+  <text x="236" y="472" fill="#a7b0bb"
+    font-family="DejaVu Sans Mono, Consolas, monospace"
+    font-size="22">WinUI 3 tray toolbox for Windows 11</text>
+</svg>

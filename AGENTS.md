@@ -44,6 +44,8 @@ Windows 常驻托盘的工具箱应用：配置驱动的全局热键 → 动作�
 dotnet build src/WithWindows.App/WithWindows.App.csproj -p:Platform=x64
 dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -p:Platform=x64
 dotnet run --project src/WithWindows.App/WithWindows.App.csproj -p:Platform=x64
+# 修改 assets/icon.svg 后重建 README 图片和应用 ICO
+pwsh scripts/generate-icons.ps1
 # 界面自检（应用需先处于运行状态）
 winapp ui inspect
 winapp ui screenshot
