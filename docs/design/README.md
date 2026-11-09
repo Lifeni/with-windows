@@ -5,3 +5,4 @@
 - [WinUI 3 工具箱重构设计](2026-10-09-winui3-toolbox-design.md)
 - [AI 对话第一阶段设计](2026-10-20-ai-chat-design.md)
 - [待办与提醒设计](2026-10-23-todo-reminders-design.md)
+- [定时 Python 任务设计](2026-11-09-scheduled-python-tasks-design.md)
