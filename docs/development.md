@@ -59,7 +59,7 @@ docs/                           用户、开发与设计文档
 - `scheduled-tasks/tasks.json`：Lua 脚本定义
 - `scheduled-tasks/runs.json`：最近执行历史
 - `scheduled-tasks/scripts/`：内联 Lua 脚本的运行副本
-- `scheduled-tasks/logs/`：每次运行的 stdout 与 stderr 日志
+- `scheduled-tasks/logs/`：每次运行的 stdout 与 stderr 日志，逐行保存时间戳、顺序和输出流类型
 - `scheduled-tasks/runner/`：隐藏 script helper 的短生命周期运行规格
 - `chat/current.json`：当前 AI 会话
 - `chat/credential.bin`：DPAPI 保护的 API Key

@@ -205,8 +205,27 @@ public sealed partial class ScheduledTasksPage : Page
                 return;
             }
 
+            DateTimeOffset requestedAt = DateTimeOffset.UtcNow;
             await _coordinator.RunNowAsync(id);
             Reload();
+            if (!IsLoaded || XamlRoot is null
+                || _coordinator.Tasks.Get(id) is not { } task)
+            {
+                return;
+            }
+
+            ScheduledTaskRun? latest = _coordinator.Runs
+                .GetAll(id)
+                .FirstOrDefault(run =>
+                    run.StartedAt is { } started
+                    && started >= requestedAt);
+            if (latest is not null)
+            {
+                await ScheduledTaskHistoryDialog.ShowAsync(
+                    XamlRoot,
+                    task,
+                    _coordinator.Runs.GetAll(id));
+            }
         }
         catch (Exception ex)
         {

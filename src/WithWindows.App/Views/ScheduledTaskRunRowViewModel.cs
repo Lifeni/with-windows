@@ -19,6 +19,8 @@ public sealed class ScheduledTaskRunRowViewModel
         StartedText = (run.StartedAt ?? run.ScheduledFor) is { } started
             ? started.ToLocalTime().ToString("M 月 d 日 HH:mm:ss")
             : "时间未知";
+        StartedAt = run.StartedAt ?? run.ScheduledFor;
+        FinishedAt = run.FinishedAt;
         ListText = (run.StartedAt ?? run.ScheduledFor) is { } listStarted
             ? $"{listStarted.ToLocalTime():M/d HH:mm:ss}・{StatusText}"
             : $"时间未知・{StatusText}";
@@ -28,6 +30,8 @@ public sealed class ScheduledTaskRunRowViewModel
             : "无退出码";
         DetailText = $"{StartedText}・{StatusText}";
         MetaText = $"{StatusText}・{TriggerText}・{DurationText}・{ExitCodeText}";
+        HeaderText =
+            $"{StartedText}・{StatusText}・{TriggerText}・{DurationText}";
         AutomationId = $"ScheduledTaskRunItem_{run.Id}";
         StdoutLogPath = run.StdoutLogPath;
         StderrLogPath = run.StderrLogPath;
@@ -39,11 +43,14 @@ public sealed class ScheduledTaskRunRowViewModel
     public string StatusText { get; }
     public string TriggerText { get; }
     public string StartedText { get; }
+    public DateTimeOffset? StartedAt { get; }
+    public DateTimeOffset? FinishedAt { get; }
     public string ListText { get; }
     public string DurationText { get; }
     public string ExitCodeText { get; }
     public string DetailText { get; }
     public string MetaText { get; }
+    public string HeaderText { get; }
     public string AutomationId { get; }
     public string? StdoutLogPath { get; }
     public string? StderrLogPath { get; }

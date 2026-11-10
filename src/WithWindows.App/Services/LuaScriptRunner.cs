@@ -122,15 +122,20 @@ public sealed class LuaScriptRunner : IDisposable
                 throw new InvalidOperationException("script helper 未完成启动握手。");
 
             cancellationToken.ThrowIfCancellationRequested();
+            var outputSequence = new OutputSequenceCounter();
             start.Set();
             stdoutTask = CopyToLogAsync(
                 helper.StandardOutput,
                 request.StdoutLogPath,
-                MaximumBytesPerStream);
+                MaximumBytesPerStream,
+                ScheduledTaskOutputStream.StandardOutput,
+                outputSequence);
             stderrTask = CopyToLogAsync(
                 helper.StandardError,
                 request.StderrLogPath,
-                MaximumBytesPerStream);
+                MaximumBytesPerStream,
+                ScheduledTaskOutputStream.StandardError,
+                outputSequence);
 
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
@@ -306,7 +311,9 @@ public sealed class LuaScriptRunner : IDisposable
     private static async Task<bool> CopyToLogAsync(
         StreamReader reader,
         string path,
-        int maximumBytes)
+        int maximumBytes,
+        ScheduledTaskOutputStream stream,
+        OutputSequenceCounter sequence)
     {
         bool truncated = false;
         var budget = new OutputBudget(maximumBytes);
@@ -321,55 +328,139 @@ public sealed class LuaScriptRunner : IDisposable
             file,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
+        async Task EmitLineAsync(string line)
+        {
+            if (budget.IsExhausted)
+            {
+                truncated = true;
+                return;
+            }
+
+            const int LogEntryOverheadBytes = 128;
+            if (budget.Accept(LogEntryOverheadBytes) < LogEntryOverheadBytes)
+            {
+                truncated = true;
+                return;
+            }
+
+            int byteCount = Encoding.UTF8.GetByteCount(line);
+            if (byteCount == 0)
+            {
+                await WriteEntryAsync(writer, stream, "", sequence);
+                return;
+            }
+
+            int allowed = budget.Accept(byteCount);
+            if (allowed == 0)
+            {
+                truncated = true;
+                return;
+            }
+
+            string output = allowed == byteCount
+                ? line
+                : TakeUtf8Prefix(line, allowed);
+            if (allowed < byteCount)
+                truncated = true;
+            await WriteEntryAsync(writer, stream, output, sequence);
+        }
+
+        const int MaximumBufferedLineCharacters = 64 * 1024;
         char[] buffer = new char[4096];
+        var pendingLine = new StringBuilder();
+        bool skipRemainderOfLine = false;
+        bool previousWasCarriageReturn = false;
         while (true)
         {
             int count = await reader.ReadAsync(buffer);
             if (count == 0)
                 break;
 
-            int byteCount = Encoding.UTF8.GetByteCount(buffer, 0, count);
-            int allowed = budget.Accept(byteCount);
-            if (allowed == 0)
+            for (int index = 0; index < count; index++)
             {
-                truncated = true;
-                continue;
+                char current = buffer[index];
+                if (current is not ('\r' or '\n'))
+                {
+                    previousWasCarriageReturn = false;
+                    if (skipRemainderOfLine)
+                        continue;
+
+                    pendingLine.Append(current);
+                    if (pendingLine.Length >= MaximumBufferedLineCharacters)
+                    {
+                        await EmitLineAsync(pendingLine.ToString());
+                        pendingLine.Clear();
+                        skipRemainderOfLine = true;
+                        truncated = true;
+                    }
+                    continue;
+                }
+
+                if (current == '\n' && previousWasCarriageReturn)
+                {
+                    previousWasCarriageReturn = false;
+                    continue;
+                }
+
+                previousWasCarriageReturn = current == '\r';
+                if (!skipRemainderOfLine)
+                    await EmitLineAsync(pendingLine.ToString());
+                pendingLine.Clear();
+                skipRemainderOfLine = false;
             }
-
-            if (allowed == byteCount)
-            {
-                await writer.WriteAsync(buffer.AsMemory(0, count));
-                continue;
-            }
-
-            int writtenChars = 0;
-            int writtenBytes = 0;
-            while (writtenChars < count)
-            {
-                int charLength = char.IsHighSurrogate(buffer[writtenChars])
-                    && writtenChars + 1 < count
-                        ? 2
-                        : 1;
-                int charBytes = Encoding.UTF8.GetByteCount(
-                    buffer,
-                    writtenChars,
-                    charLength);
-                if (writtenBytes + charBytes > allowed)
-                    break;
-
-                await writer.WriteAsync(
-                    buffer.AsMemory(writtenChars, charLength));
-                writtenChars += charLength;
-                writtenBytes += charBytes;
-            }
-
-            truncated = true;
         }
 
+        if (pendingLine.Length > 0 && !skipRemainderOfLine)
+            await EmitLineAsync(pendingLine.ToString());
         if (truncated)
-            await writer.WriteLineAsync("输出已截断");
+            await WriteEntryAsync(writer, stream, "输出已截断", sequence);
         await writer.FlushAsync();
         return truncated;
+    }
+
+    private static Task WriteEntryAsync(
+        StreamWriter writer,
+        ScheduledTaskOutputStream stream,
+        string text,
+        OutputSequenceCounter sequence)
+    {
+        var entry = new ScheduledTaskOutputLogEntry(
+            DateTimeOffset.Now,
+            sequence.Next(),
+            stream,
+            text);
+        return writer.WriteLineAsync(ScheduledTaskOutputLogCodec.Serialize(entry));
+    }
+
+    private static string TakeUtf8Prefix(string text, int maximumBytes)
+    {
+        int characters = 0;
+        int bytes = 0;
+        while (characters < text.Length)
+        {
+            int length = char.IsHighSurrogate(text[characters])
+                && characters + 1 < text.Length
+                && char.IsLowSurrogate(text[characters + 1])
+                    ? 2
+                    : 1;
+            int characterBytes = Encoding.UTF8.GetByteCount(
+                text.AsSpan(characters, length));
+            if (bytes + characterBytes > maximumBytes)
+                break;
+
+            characters += length;
+            bytes += characterBytes;
+        }
+
+        return text[..characters];
+    }
+
+    private sealed class OutputSequenceCounter
+    {
+        private long _value;
+
+        public long Next()
+            => Interlocked.Increment(ref _value);
     }
 
     private static void Terminate(Process process, WindowsJob job)

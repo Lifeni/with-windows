@@ -58,11 +58,11 @@ winapp ui screenshot -a WithWindows
 - 状态提示：`ScheduledTaskErrorBar`
 - 编辑对话框：`ScheduledTaskEditorDialog`、`ScheduledTaskNameBox`、`ScheduledTaskScheduleTypeComboBox`、`ScheduledTaskDatePicker`、`ScheduledTaskTimePicker`、`ScheduledTaskWeekdaySelector`、`ScheduledTaskDayOfMonthBox`
 - 脚本与运行：`ScheduledTaskScriptEditor`、`ScheduledTaskTimeoutBox`、`ScheduledTaskEditorValidation`
-- 运行日志对话框：`ScheduledTaskHistoryDialog`、`ScheduledTaskRunSummary`、`ScheduledTaskRunHistoryList`、`ScheduledTaskRunItem_<runId>`、`ScheduledTaskRunDetails`、`ScheduledTaskRunMetadata`、`ScheduledTaskOutputTabs`、`ScheduledTaskStdoutTab`、`ScheduledTaskStderrTab`、`ScheduledTaskStdoutOutput`、`ScheduledTaskStderrOutput`
+- 运行日志：`ScheduledTaskHistoryDialog`、`ScheduledTaskRunHistoryList`、`ScheduledTaskRunItem_<runId>`、`ScheduledTaskRunEmptyState`、`ScheduledTaskRunDetails`、`ScheduledTaskCombinedOutput`、`ScheduledTaskOutputEmptyState`
 
 页面以脚本列表为主体，添加和编辑都在独立对话框中完成。标题区与 AI 对话页共用 48 DIP 高度，左上角以 14 DIP 单行文字显示脚本数量。执行方式包含仅手动、单次、每天、每周和每月；应用退出后不再执行计划，关闭窗口并驻留托盘时继续调度。单次模式沿用待办提醒对话框的日期、时间双列样式，两个选择器均为 40 DIP 且宽度一致。代码编辑器使用内置 `RichEditBox`，提供 Lua 基础词法高亮和同步行号；计划设置在编辑器下方。
 
-运行日志对话框与编辑对话框使用相同宽度上限。左侧为运行记录，右侧为选中记录的状态摘要、标准输出和错误输出；打开对话框时默认选中最近一次运行。
+运行日志与编辑对话框使用相同宽度上限。左侧切换运行记录，右侧只显示一个合并输出区；每行按实际到达顺序显示毫秒时间戳，用系统图标和颜色区分标准输出与错误输出。手动运行结束后自动打开，默认选中最近一次运行；窗口使用原生轻触关闭，可点击空白处或按 `Esc` 关闭。
 
 ## 投影与设置
 
