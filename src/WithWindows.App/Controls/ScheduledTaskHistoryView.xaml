@@ -13,7 +13,9 @@
         </DataTemplate>
 
         <Style x:Key="RunListItemStyle" TargetType="ListViewItem">
+            <Setter Property="CornerRadius" Value="6" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,2" />
             <Setter Property="MinHeight" Value="36" />
             <Setter Property="Padding" Value="8,6" />
         </Style>
@@ -25,9 +27,20 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Grid>
+        <Grid RowSpacing="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock
+                FontSize="13"
+                FontWeight="SemiBold"
+                Text="运行记录" />
+
             <ListView
                 x:Name="RunList"
+                Grid.Row="1"
                 AutomationProperties.AutomationId="ScheduledTaskRunHistoryList"
                 AutomationProperties.Name="运行记录"
                 HorizontalContentAlignment="Stretch"

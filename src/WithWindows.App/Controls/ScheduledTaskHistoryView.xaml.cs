@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Shapes;
 using WithWindows.Core.Scheduling;
 using WithWindows.Views;
 
@@ -65,12 +66,6 @@ public sealed partial class ScheduledTaskHistoryView : UserControl
             {
                 Margin = new Thickness(0, 0, 0, 2),
             };
-            Symbol symbol = entry.Stream switch
-            {
-                ScheduledTaskOutputStream.StandardError => Symbol.Important,
-                ScheduledTaskOutputStream.System => Symbol.Message,
-                _ => Symbol.Play,
-            };
             string colorKey = entry.Stream switch
             {
                 ScheduledTaskOutputStream.StandardError =>
@@ -92,18 +87,25 @@ public sealed partial class ScheduledTaskHistoryView : UserControl
                 ScheduledTaskOutputStream.System => "系统消息",
                 _ => "标准输出",
             };
-            var icon = new SymbolIcon(symbol)
+            var dotHost = new Grid
             {
-                Width = 14,
-                Height = 14,
-                Foreground = iconBrush,
+                Width = 8,
+                Height = 15,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            AutomationProperties.SetName(icon, streamName);
+            dotHost.Children.Add(new Ellipse
+            {
+                Width = 6,
+                Height = 6,
+                Fill = iconBrush,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            AutomationProperties.SetName(dotHost, streamName);
 
             paragraph.Inlines.Add(new InlineUIContainer
             {
-                Child = icon,
+                Child = dotHost,
             });
             paragraph.Inlines.Add(new Run
             {
