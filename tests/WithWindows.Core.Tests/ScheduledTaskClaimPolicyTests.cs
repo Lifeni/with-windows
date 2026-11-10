@@ -106,6 +106,26 @@ public sealed class ScheduledTaskClaimPolicyTests
         Assert.Equal(Local(9, 0), occurrence.ScheduledFor);
     }
 
+    [Fact]
+    public void GetDueClaims_每天任务到点后认领最近一次()
+    {
+        ScheduledTask task = Once("task", Local(9, 0));
+        task.Schedule = new TaskSchedule
+        {
+            Kind = ScheduleKind.Daily,
+            TimeOfDay = new TimeOnly(9, 0),
+        };
+
+        ScheduledTaskOccurrence occurrence = Assert.Single(
+            ScheduledTaskClaimPolicy.GetDueClaims(
+                [task],
+                Local(9, 0).AddHours(27),
+                Utc8,
+                notBefore: Local(9, 0).AddDays(-1)));
+
+        Assert.Equal(Local(9, 0).AddDays(1), occurrence.ScheduledFor);
+    }
+
     private static ScheduledTask Once(string id, DateTimeOffset runAt) => new()
     {
         Id = id,

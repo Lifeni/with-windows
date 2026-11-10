@@ -132,12 +132,7 @@ public sealed partial class ScheduledTasksPage : Page
                 _coordinator.IsTaskRunning(task.Id)));
         }
 
-        int running = tasks.Count(task => _coordinator.IsTaskRunning(task.Id));
-        SummaryText.Text = tasks.Length == 0
-            ? "暂无脚本"
-            : running > 0
-                ? $"共 {tasks.Length} 个脚本 · {running} 个正在运行"
-                : $"共 {tasks.Length} 个脚本";
+        SummaryText.Text = $"{tasks.Length} 个脚本";
         EmptyState.Visibility = tasks.Length == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -248,7 +243,7 @@ public sealed partial class ScheduledTasksPage : Page
         }
         catch (Exception ex)
         {
-            ShowError($"查看执行历史失败：{ex.Message}");
+            ShowError($"查看运行日志失败：{ex.Message}");
         }
     }
 

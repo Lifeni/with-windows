@@ -89,12 +89,12 @@
                             Height="36"
                             Padding="0"
                             AutomationProperties.AutomationId="{x:Bind HistoryAutomationId}"
-                            AutomationProperties.Name="查看执行历史"
+                            AutomationProperties.Name="查看运行日志"
                             Background="Transparent"
                             BorderThickness="0"
                             Click="OnHistoryClick"
                             Tag="{x:Bind Id}"
-                            ToolTipService.ToolTip="查看执行历史">
+                            ToolTipService.ToolTip="查看运行日志">
                             <FontIcon FontSize="16" Glyph="&#xE81C;" />
                         </Button>
                         <Button
@@ -148,18 +148,14 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel VerticalAlignment="Center" Spacing="0">
-                <TextBlock
-                    FontSize="11"
-                    FontWeight="SemiBold"
-                    Text="Lua 脚本" />
-                <TextBlock
-                    x:Name="SummaryText"
-                    AutomationProperties.AutomationId="ScheduledTaskSummary"
-                    FontSize="11"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Text="暂无脚本" />
-            </StackPanel>
+            <TextBlock
+                x:Name="SummaryText"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="ScheduledTaskSummary"
+                FontSize="14"
+                FontWeight="SemiBold"
+                Text="0 个脚本"
+                TextTrimming="CharacterEllipsis" />
 
             <Button
                 Grid.Column="1"

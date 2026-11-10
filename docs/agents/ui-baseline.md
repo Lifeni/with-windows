@@ -56,11 +56,13 @@ winapp ui screenshot -a WithWindows
 - 列表与空状态：`ScheduledTaskList`、`ScheduledTaskEmptyState`、`ScheduledTaskListItem_<taskId>`
 - 行操作：`ScheduledTaskRun_<taskId>`、`ScheduledTaskStop_<taskId>`、`ScheduledTaskHistory_<taskId>`、`ScheduledTaskEdit_<taskId>`、`ScheduledTaskDelete_<taskId>`
 - 状态提示：`ScheduledTaskErrorBar`
-- 编辑对话框：`ScheduledTaskEditorDialog`、`ScheduledTaskNameBox`、`ScheduledTaskScheduleTypeComboBox`、`ScheduledTaskDatePicker`、`ScheduledTaskTimePicker`
-- 脚本与运行：`ScheduledTaskImportButton`、`ScheduledTaskScriptEditor`、`ScheduledTaskTimeoutBox`、`ScheduledTaskEditorValidation`
-- 历史对话框：`ScheduledTaskHistoryDialog`、`ScheduledTaskRunSummary`、`ScheduledTaskRunHistoryList`、`ScheduledTaskRunItem_<runId>`、`ScheduledTaskStdoutOutput`、`ScheduledTaskStderrOutput`
+- 编辑对话框：`ScheduledTaskEditorDialog`、`ScheduledTaskNameBox`、`ScheduledTaskScheduleTypeComboBox`、`ScheduledTaskDatePicker`、`ScheduledTaskTimePicker`、`ScheduledTaskWeekdaySelector`、`ScheduledTaskDayOfMonthBox`
+- 脚本与运行：`ScheduledTaskScriptEditor`、`ScheduledTaskTimeoutBox`、`ScheduledTaskEditorValidation`
+- 运行日志对话框：`ScheduledTaskHistoryDialog`、`ScheduledTaskRunSummary`、`ScheduledTaskRunHistoryList`、`ScheduledTaskRunItem_<runId>`、`ScheduledTaskRunDetails`、`ScheduledTaskRunMetadata`、`ScheduledTaskOutputTabs`、`ScheduledTaskStdoutTab`、`ScheduledTaskStderrTab`、`ScheduledTaskStdoutOutput`、`ScheduledTaskStderrOutput`
 
-页面以脚本列表为主体，添加和编辑都在独立对话框中完成。标题区与 AI 对话页共用 48 DIP 高度，标题和副标题均为 11 DIP、标题仅加粗。脚本只有“仅手动运行”和“单次定时执行”两种方式；应用退出后不再执行单次计划，关闭窗口并驻留托盘时继续调度。单次模式沿用待办提醒对话框的日期、时间双列样式，两个选择器均为 40 DIP 且宽度一致。
+页面以脚本列表为主体，添加和编辑都在独立对话框中完成。标题区与 AI 对话页共用 48 DIP 高度，左上角以 14 DIP 单行文字显示脚本数量。执行方式包含仅手动、单次、每天、每周和每月；应用退出后不再执行计划，关闭窗口并驻留托盘时继续调度。单次模式沿用待办提醒对话框的日期、时间双列样式，两个选择器均为 40 DIP 且宽度一致。代码编辑器使用内置 `RichEditBox`，提供 Lua 基础词法高亮和同步行号；计划设置在编辑器下方。
+
+运行日志对话框与编辑对话框使用相同宽度上限。左侧为运行记录，右侧为选中记录的状态摘要、标准输出和错误输出；打开对话框时默认选中最近一次运行。
 
 ## 投影与设置
 

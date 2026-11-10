@@ -136,7 +136,7 @@ public sealed class ScheduledTaskStoreTests : IDisposable
     }
 
     [Fact]
-    public void UpdatePlan_递增计划修订号并清除旧认领()
+    public void UpdatePlan_递增计划修订号并记录计划生效时间()
     {
         ScheduledTaskStore store = NewStore();
         ScheduledTask task = SampleTask("单次脚本");
@@ -162,8 +162,37 @@ public sealed class ScheduledTaskStoreTests : IDisposable
             Now.AddMinutes(1));
 
         Assert.Equal(2, updated.ScheduleRevision);
-        Assert.Null(updated.LastHandledScheduledFor);
+        Assert.Equal(Now.AddMinutes(1), updated.LastHandledScheduledFor);
         Assert.Null(updated.LastHandledRunId);
+    }
+
+    [Fact]
+    public void UpdatePlan_定期计划改为今天已过时间时不立即补跑()
+    {
+        ScheduledTaskStore store = NewStore();
+        ScheduledTask task = SampleTask("每日脚本");
+        task.CreatedAt = Now.AddDays(-1);
+        task = store.Add(task);
+        DateTimeOffset changedAt = Now.AddHours(1);
+
+        ScheduledTask updated = store.Update(
+            task.Id,
+            current => current.Schedule = new TaskSchedule
+            {
+                Kind = ScheduleKind.Daily,
+                TimeOfDay = new TimeOnly(7, 0),
+            },
+            changedAt);
+
+        TimeZoneInfo utc8 = TimeZoneInfo.CreateCustomTimeZone(
+            "UTC+8",
+            TimeSpan.FromHours(8),
+            "UTC+8",
+            "UTC+8");
+        Assert.Empty(ScheduledTaskClaimPolicy.GetDueClaims(
+            [updated],
+            changedAt.AddMinutes(30),
+            utc8));
     }
 
     [Fact]
@@ -197,6 +226,35 @@ public sealed class ScheduledTaskStoreTests : IDisposable
                 updated.Schedule,
                 Now.AddMinutes(1),
                 TimeZoneInfo.Utc));
+    }
+
+    [Fact]
+    public void Add_每周任务缺少星期时拒绝保存()
+    {
+        ScheduledTaskStore store = NewStore();
+        ScheduledTask task = SampleTask("每周任务");
+        task.Schedule = new TaskSchedule
+        {
+            Kind = ScheduleKind.Weekly,
+            TimeOfDay = new TimeOnly(9, 0),
+        };
+
+        Assert.Throws<ArgumentException>(() => store.Add(task));
+    }
+
+    [Fact]
+    public void Add_每月任务日期越界时拒绝保存()
+    {
+        ScheduledTaskStore store = NewStore();
+        ScheduledTask task = SampleTask("每月任务");
+        task.Schedule = new TaskSchedule
+        {
+            Kind = ScheduleKind.Monthly,
+            TimeOfDay = new TimeOnly(9, 0),
+            DayOfMonth = 32,
+        };
+
+        Assert.Throws<ArgumentException>(() => store.Add(task));
     }
 
     private static ScheduledTask SampleTask(string name) => new()

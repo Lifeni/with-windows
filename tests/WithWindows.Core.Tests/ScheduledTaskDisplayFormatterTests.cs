@@ -80,4 +80,41 @@ public sealed class ScheduledTaskDisplayFormatterTests
                 0,
                 TimeSpan.FromHours(8))));
     }
+
+    [Fact]
+    public void ScheduleText_显示每天每周和每月计划()
+    {
+        Assert.Equal(
+            "每天 09:30",
+            ScheduledTaskDisplayFormatter.ScheduleText(new ScheduledTask
+            {
+                Schedule = new TaskSchedule
+                {
+                    Kind = ScheduleKind.Daily,
+                    TimeOfDay = new TimeOnly(9, 30),
+                },
+            }));
+        Assert.Equal(
+            "每周五 18:05",
+            ScheduledTaskDisplayFormatter.ScheduleText(new ScheduledTask
+            {
+                Schedule = new TaskSchedule
+                {
+                    Kind = ScheduleKind.Weekly,
+                    TimeOfDay = new TimeOnly(18, 5),
+                    DaysOfWeek = [DayOfWeek.Friday],
+                },
+            }));
+        Assert.Equal(
+            "每月 15 日 08:00",
+            ScheduledTaskDisplayFormatter.ScheduleText(new ScheduledTask
+            {
+                Schedule = new TaskSchedule
+                {
+                    Kind = ScheduleKind.Monthly,
+                    TimeOfDay = new TimeOnly(8, 0),
+                    DayOfMonth = 15,
+                },
+            }));
+    }
 }

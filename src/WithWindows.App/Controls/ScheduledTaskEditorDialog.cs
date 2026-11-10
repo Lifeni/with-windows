@@ -5,14 +5,12 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 using WithWindows.Core.Scheduling;
 
 namespace WithWindows.Controls;
 
 /// <summary>
-/// Lua 脚本编辑对话框。脚本只会导入为应用内文本，不关联外部脚本文件。
+/// Lua 脚本编辑对话框。脚本只保存在应用内，不关联外部脚本文件。
 /// </summary>
 public static class ScheduledTaskEditorDialog
 {
@@ -21,8 +19,13 @@ public static class ScheduledTaskEditorDialog
         ScheduledTask? current)
     {
         DateTimeOffset localNow = DateTimeOffset.Now;
-        DateTimeOffset initialRunAt = current?.Schedule.OneTimeRunAt?.ToLocalTime()
+        DateTimeOffset defaultRunAt = current?.Schedule.OneTimeRunAt?.ToLocalTime()
             ?? RoundUpToFiveMinutes(localNow.AddHours(1));
+        TimeSpan initialTime = current?.Schedule.TimeOfDay?.ToTimeSpan()
+            ?? defaultRunAt.TimeOfDay;
+        DateTimeOffset initialRunAt = current?.Schedule.Kind == ScheduleKind.Once
+            ? defaultRunAt
+            : new DateTimeOffset(DateTime.Today.Add(initialTime));
 
         var nameBox = new TextBox
         {
@@ -52,8 +55,29 @@ public static class ScheduledTaskEditorDialog
             Content = "单次定时执行",
             Tag = ScheduleKind.Once,
         });
-        scheduleMode.SelectedIndex =
-            current?.Schedule.Kind == ScheduleKind.Once ? 1 : 0;
+        scheduleMode.Items.Add(new ComboBoxItem
+        {
+            Content = "每天",
+            Tag = ScheduleKind.Daily,
+        });
+        scheduleMode.Items.Add(new ComboBoxItem
+        {
+            Content = "每周",
+            Tag = ScheduleKind.Weekly,
+        });
+        scheduleMode.Items.Add(new ComboBoxItem
+        {
+            Content = "每月",
+            Tag = ScheduleKind.Monthly,
+        });
+        scheduleMode.SelectedIndex = current?.Schedule.Kind switch
+        {
+            ScheduleKind.Once => 1,
+            ScheduleKind.Daily => 2,
+            ScheduleKind.Weekly => 3,
+            ScheduleKind.Monthly => 4,
+            _ => 0,
+        };
 
         var datePicker = new CalendarDatePicker
         {
@@ -116,6 +140,103 @@ public static class ScheduledTaskEditorDialog
         Grid.SetRow(timePicker, 1);
         scheduleFields.Children.Add(timePicker);
 
+        CheckBox CreateWeekday(
+            string text,
+            DayOfWeek day,
+            string automationId)
+        {
+            var checkBox = new CheckBox
+            {
+                Content = text,
+                MinWidth = 0,
+                IsChecked = current?.Schedule.DaysOfWeek.Contains(day) == true,
+            };
+            AutomationProperties.SetAutomationId(checkBox, automationId);
+            AutomationProperties.SetName(checkBox, ScheduledTaskDisplayFormatter.WeekdayText(day));
+            return checkBox;
+        }
+
+        CheckBox mondayCheck = CreateWeekday(
+            "一",
+            DayOfWeek.Monday,
+            "ScheduledTaskWeekdayMondayCheckbox");
+        CheckBox tuesdayCheck = CreateWeekday(
+            "二",
+            DayOfWeek.Tuesday,
+            "ScheduledTaskWeekdayTuesdayCheckbox");
+        CheckBox wednesdayCheck = CreateWeekday(
+            "三",
+            DayOfWeek.Wednesday,
+            "ScheduledTaskWeekdayWednesdayCheckbox");
+        CheckBox thursdayCheck = CreateWeekday(
+            "四",
+            DayOfWeek.Thursday,
+            "ScheduledTaskWeekdayThursdayCheckbox");
+        CheckBox fridayCheck = CreateWeekday(
+            "五",
+            DayOfWeek.Friday,
+            "ScheduledTaskWeekdayFridayCheckbox");
+        CheckBox saturdayCheck = CreateWeekday(
+            "六",
+            DayOfWeek.Saturday,
+            "ScheduledTaskWeekdaySaturdayCheckbox");
+        CheckBox sundayCheck = CreateWeekday(
+            "日",
+            DayOfWeek.Sunday,
+            "ScheduledTaskWeekdaySundayCheckbox");
+        var weekdayPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+        };
+        AutomationProperties.SetAutomationId(
+            weekdayPanel,
+            "ScheduledTaskWeekdaySelector");
+        foreach (CheckBox checkBox in new[]
+        {
+            mondayCheck,
+            tuesdayCheck,
+            wednesdayCheck,
+            thursdayCheck,
+            fridayCheck,
+            saturdayCheck,
+            sundayCheck,
+        })
+        {
+            weekdayPanel.Children.Add(checkBox);
+        }
+
+        var weekdaySection = new StackPanel
+        {
+            Spacing = 4,
+            Visibility = Visibility.Collapsed,
+        };
+        weekdaySection.Children.Add(new TextBlock
+        {
+            FontSize = 12,
+            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Text = "星期",
+        });
+        weekdaySection.Children.Add(weekdayPanel);
+
+        var dayOfMonthBox = new NumberBox
+        {
+            Header = "每月日期",
+            Minimum = 1,
+            Maximum = 31,
+            SmallChange = 1,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            Value = Math.Clamp(
+                current?.Schedule.DayOfMonth ?? 1,
+                1,
+                31),
+            Visibility = Visibility.Collapsed,
+        };
+        AutomationProperties.SetAutomationId(
+            dayOfMonthBox,
+            "ScheduledTaskDayOfMonthBox");
+        AutomationProperties.SetName(dayOfMonthBox, "每月执行日期");
+
         var timeoutBox = new NumberBox
         {
             Header = "超时（秒）",
@@ -131,59 +252,27 @@ public static class ScheduledTaskEditorDialog
         AutomationProperties.SetAutomationId(timeoutBox, "ScheduledTaskTimeoutBox");
         AutomationProperties.SetName(timeoutBox, "脚本超时秒数");
 
-        var scriptEditor = new TextBox
+        var scriptEditor = new LuaCodeEditor
         {
-            AcceptsReturn = true,
-            FontFamily = new FontFamily("Cascadia Mono, Consolas"),
-            FontSize = 13,
-            Height = 320,
-            IsSpellCheckEnabled = false,
-            PlaceholderText = "在此填写 Lua 脚本，或从 .lua 文件导入",
-            Text = current?.ScriptText ?? "",
-            TextWrapping = TextWrapping.NoWrap,
+            Height = 260,
         };
-        AutomationProperties.SetAutomationId(
-            scriptEditor,
-            "ScheduledTaskScriptEditor");
-        AutomationProperties.SetName(scriptEditor, "Lua 脚本");
-        ScrollViewer.SetHorizontalScrollBarVisibility(
-            scriptEditor,
-            ScrollBarVisibility.Auto);
-        ScrollViewer.SetVerticalScrollBarVisibility(
-            scriptEditor,
-            ScrollBarVisibility.Auto);
-
-        var scriptHeader = new Grid
-        {
-            ColumnSpacing = 12,
-        };
-        scriptHeader.ColumnDefinitions.Add(
-            new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        scriptHeader.ColumnDefinitions.Add(
-            new ColumnDefinition { Width = GridLength.Auto });
+        scriptEditor.SetText(current?.ScriptText ?? "");
         var scriptTitle = new TextBlock
         {
             VerticalAlignment = VerticalAlignment.Center,
             Text = "Lua 脚本",
         };
-        scriptHeader.Children.Add(scriptTitle);
-        var importButton = new Button
-        {
-            Content = "导入 .lua",
-        };
-        AutomationProperties.SetAutomationId(importButton, "ScheduledTaskImportButton");
-        AutomationProperties.SetName(importButton, "导入 Lua 脚本文件");
-        Grid.SetColumn(importButton, 1);
-        scriptHeader.Children.Add(importButton);
         var form = new StackPanel
         {
             Spacing = 12,
         };
         form.Children.Add(nameBox);
+        form.Children.Add(scriptTitle);
+        form.Children.Add(scriptEditor);
         form.Children.Add(scheduleMode);
         form.Children.Add(scheduleFields);
-        form.Children.Add(scriptHeader);
-        form.Children.Add(scriptEditor);
+        form.Children.Add(weekdaySection);
+        form.Children.Add(dayOfMonthBox);
         form.Children.Add(timeoutBox);
 
         var validation = new TextBlock
@@ -226,50 +315,85 @@ public static class ScheduledTaskEditorDialog
             validation.Visibility = Visibility.Visible;
         }
 
-        importButton.Click += async (_, _) =>
-        {
-            try
-            {
-                var picker = new FileOpenPicker();
-                picker.FileTypeFilter.Add(".lua");
-                if (App.MainWindow is not { } window)
-                    throw new InvalidOperationException("主窗口尚未就绪。");
-                WinRT.Interop.InitializeWithWindow.Initialize(
-                    picker,
-                    WinRT.Interop.WindowNative.GetWindowHandle(window));
-                StorageFile? file = await picker.PickSingleFileAsync();
-                if (file is null)
-                    return;
-
-                scriptEditor.Text = await FileIO.ReadTextAsync(file);
-                validation.Visibility = Visibility.Collapsed;
-            }
-            catch (Exception ex)
-            {
-                ShowValidation($"导入脚本失败：{ex.Message}");
-            }
-        };
-
         void UpdateContentHeight()
-            => scroll.MaxHeight = Math.Clamp(
-                xamlRoot.Size.Height - 220,
-                min: 280,
-                max: 680);
+        {
+            scroll.MaxHeight = Math.Clamp(
+                xamlRoot.Size.Height - 340,
+                min: 240,
+                max: 440);
+            content.Width = Math.Clamp(
+                xamlRoot.Size.Width - 280,
+                min: 420,
+                max: 600);
+        }
 
         void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
             => UpdateContentHeight();
 
-        UpdateContentHeight();
-        scheduleFields.Visibility = scheduleMode.SelectedIndex == 1
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        scheduleMode.SelectionChanged += (_, _) =>
+        ScheduleKind SelectedScheduleKind()
+            => (scheduleMode.SelectedItem as ComboBoxItem)?.Tag as ScheduleKind?
+                ?? ScheduleKind.Manual;
+
+        void UpdateScheduleVisibility()
         {
-            scheduleFields.Visibility = scheduleMode.SelectedIndex == 1
+            ScheduleKind kind = SelectedScheduleKind();
+            bool once = kind == ScheduleKind.Once;
+            bool recurring = kind is ScheduleKind.Daily
+                or ScheduleKind.Weekly
+                or ScheduleKind.Monthly;
+
+            scheduleFields.Visibility = kind == ScheduleKind.Manual
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+            dateLabel.Visibility = once ? Visibility.Visible : Visibility.Collapsed;
+            datePicker.Visibility = once ? Visibility.Visible : Visibility.Collapsed;
+            timeLabel.Visibility = kind == ScheduleKind.Manual
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+            timePicker.Visibility = kind == ScheduleKind.Manual
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+            Grid.SetColumn(timeLabel, once ? 1 : 0);
+            Grid.SetColumn(timePicker, once ? 1 : 0);
+            Grid.SetColumnSpan(timePicker, once ? 1 : 2);
+            weekdaySection.Visibility = kind == ScheduleKind.Weekly
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+            dayOfMonthBox.Visibility = kind == ScheduleKind.Monthly
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            if (recurring && timePicker.SelectedTime is null)
+                timePicker.SelectedTime = new TimeSpan(9, 30, 0);
+        }
+
+        UpdateContentHeight();
+        UpdateScheduleVisibility();
+        scheduleMode.SelectionChanged += (_, _) =>
+        {
+            UpdateScheduleVisibility();
             validation.Visibility = Visibility.Collapsed;
         };
+
+        List<DayOfWeek> SelectedWeekdays()
+        {
+            var days = new List<DayOfWeek>();
+            if (mondayCheck.IsChecked == true)
+                days.Add(DayOfWeek.Monday);
+            if (tuesdayCheck.IsChecked == true)
+                days.Add(DayOfWeek.Tuesday);
+            if (wednesdayCheck.IsChecked == true)
+                days.Add(DayOfWeek.Wednesday);
+            if (thursdayCheck.IsChecked == true)
+                days.Add(DayOfWeek.Thursday);
+            if (fridayCheck.IsChecked == true)
+                days.Add(DayOfWeek.Friday);
+            if (saturdayCheck.IsChecked == true)
+                days.Add(DayOfWeek.Saturday);
+            if (sundayCheck.IsChecked == true)
+                days.Add(DayOfWeek.Sunday);
+            return days;
+        }
 
         ScheduledTask? result = null;
         var dialog = new ContentDialog
@@ -281,6 +405,7 @@ public static class ScheduledTaskEditorDialog
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Primary,
         };
+        dialog.Resources["ContentDialogMaxWidth"] = 660d;
         AutomationProperties.SetAutomationId(
             dialog,
             "ScheduledTaskEditorDialog");
@@ -296,7 +421,7 @@ public static class ScheduledTaskEditorDialog
             }
 
             string name = nameBox.Text.Trim();
-            string script = scriptEditor.Text.ReplaceLineEndings("\n");
+            string script = scriptEditor.GetText();
             if (name.Length == 0)
             {
                 args.Cancel = true;
@@ -306,18 +431,20 @@ public static class ScheduledTaskEditorDialog
             if (string.IsNullOrWhiteSpace(script))
             {
                 args.Cancel = true;
-                ShowValidation("请输入或导入 Lua 脚本。");
+                ShowValidation("请输入 Lua 脚本。");
                 return;
             }
 
             ScheduleKind kind =
                 (scheduleMode.SelectedItem as ComboBoxItem)?.Tag as ScheduleKind?
                 ?? ScheduleKind.Manual;
+            TimeSpan selectedTime = timePicker.SelectedTime
+                ?? new TimeSpan(9, 30, 0);
             DateTimeOffset? runAt = null;
             if (kind == ScheduleKind.Once)
             {
                 if (datePicker.Date is not { } date
-                    || timePicker.SelectedTime is not { } time)
+                    || timePicker.SelectedTime is null)
                 {
                     args.Cancel = true;
                     ShowValidation("请选择单次执行日期和时间。");
@@ -325,7 +452,7 @@ public static class ScheduledTaskEditorDialog
                 }
 
                 DateTime local = DateTime.SpecifyKind(
-                    date.Date.Add(time),
+                    date.Date.Add(selectedTime),
                     DateTimeKind.Unspecified);
                 runAt = new DateTimeOffset(local);
                 if (runAt <= DateTimeOffset.Now)
@@ -334,6 +461,26 @@ public static class ScheduledTaskEditorDialog
                     ShowValidation("单次执行时间必须晚于当前时间。");
                     return;
                 }
+            }
+
+            List<DayOfWeek> weekdays = kind == ScheduleKind.Weekly
+                ? SelectedWeekdays()
+                : [];
+            if (kind == ScheduleKind.Weekly && weekdays.Count == 0)
+            {
+                args.Cancel = true;
+                ShowValidation("每周任务至少选择一天。");
+                return;
+            }
+
+            if (kind == ScheduleKind.Monthly
+                && (double.IsNaN(dayOfMonthBox.Value)
+                    || dayOfMonthBox.Value is < 1 or > 31
+                    || dayOfMonthBox.Value != Math.Truncate(dayOfMonthBox.Value)))
+            {
+                args.Cancel = true;
+                ShowValidation("请选择 1 至 31 之间的整数日期。");
+                return;
             }
 
             result = new ScheduledTask
@@ -347,6 +494,15 @@ public static class ScheduledTaskEditorDialog
                 {
                     Kind = kind,
                     OneTimeRunAt = runAt,
+                    TimeOfDay = kind is ScheduleKind.Daily
+                        or ScheduleKind.Weekly
+                        or ScheduleKind.Monthly
+                            ? TimeOnly.FromTimeSpan(selectedTime)
+                            : null,
+                    DaysOfWeek = weekdays,
+                    DayOfMonth = kind == ScheduleKind.Monthly
+                        ? (int)dayOfMonthBox.Value
+                        : null,
                     OneTimeConsumedAt =
                         kind == ScheduleKind.Once
                         && current?.Schedule.Kind == ScheduleKind.Once

@@ -57,12 +57,19 @@ public sealed class ScheduledTaskRowViewModel
             return "正在运行";
         if (task.Schedule.Kind == ScheduleKind.Manual)
             return "按需运行";
-        if (task.Schedule.OneTimeConsumedAt is not null)
-            return "单次计划已执行";
-        if (ScheduledTaskDisplayFormatter.IsExpired(task, DateTimeOffset.UtcNow))
-            return "单次计划已过期";
+        if (task.Schedule.Kind == ScheduleKind.Once)
+        {
+            if (task.Schedule.OneTimeConsumedAt is not null)
+                return "单次计划已执行";
+            if (ScheduledTaskDisplayFormatter.IsExpired(task, DateTimeOffset.UtcNow))
+                return "单次计划已过期";
+            return nextRun is { } once
+                ? $"下次：{once.ToLocalTime():M 月 d 日 HH:mm}"
+                : "单次计划未安排";
+        }
+
         return nextRun is { } next
             ? $"下次：{next.ToLocalTime():M 月 d 日 HH:mm}"
-            : "单次计划未安排";
+            : "定期计划无效";
     }
 }

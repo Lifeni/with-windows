@@ -86,6 +86,9 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                     {
                         Kind = task.Schedule.Kind,
                         OneTimeRunAt = task.Schedule.OneTimeRunAt,
+                        TimeOfDay = task.Schedule.TimeOfDay,
+                        DaysOfWeek = [.. task.Schedule.DaysOfWeek],
+                        DayOfMonth = task.Schedule.DayOfMonth,
                         OneTimeConsumedAt = task.Schedule.OneTimeConsumedAt,
                     };
                     current.ScriptText = task.ScriptText;

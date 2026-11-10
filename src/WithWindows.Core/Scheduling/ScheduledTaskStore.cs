@@ -148,7 +148,7 @@ public sealed class ScheduledTaskStore
             if (planChanged && !allowSamePlan)
             {
                 next.ScheduleRevision = Math.Max(1, next.ScheduleRevision + 1);
-                next.LastHandledScheduledFor = null;
+                next.LastHandledScheduledFor = now;
                 next.LastHandledRunId = null;
                 next.Schedule.OneTimeConsumedAt = null;
             }
@@ -248,6 +248,7 @@ public sealed class ScheduledTaskStore
                     || !ScheduledTaskValidation.IsValidTaskId(task.Id)
                     || task.Name is null
                     || task.Schedule is null
+                    || task.Schedule.DaysOfWeek is null
                     || task.ScriptText is null))
             {
                 return false;

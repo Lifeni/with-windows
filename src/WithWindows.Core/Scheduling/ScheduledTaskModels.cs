@@ -4,6 +4,9 @@ public enum ScheduleKind
 {
     Manual,
     Once,
+    Daily,
+    Weekly,
+    Monthly,
 }
 
 public enum ScheduledTaskRunStatus
@@ -58,6 +61,9 @@ public sealed class TaskSchedule
 {
     public ScheduleKind Kind { get; set; }
     public DateTimeOffset? OneTimeRunAt { get; set; }
+    public TimeOnly? TimeOfDay { get; set; }
+    public List<DayOfWeek> DaysOfWeek { get; set; } = [];
+    public int? DayOfMonth { get; set; }
     public DateTimeOffset? OneTimeConsumedAt { get; set; }
 }
 
@@ -112,6 +118,9 @@ internal static class ScheduledTaskClone
     {
         Kind = schedule.Kind,
         OneTimeRunAt = schedule.OneTimeRunAt,
+        TimeOfDay = schedule.TimeOfDay,
+        DaysOfWeek = [.. schedule.DaysOfWeek],
+        DayOfMonth = schedule.DayOfMonth,
         OneTimeConsumedAt = schedule.OneTimeConsumedAt,
     };
 
