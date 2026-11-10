@@ -58,7 +58,7 @@ winapp ui screenshot
 
 ```text
 src/WithWindows.App/          未打包 WinUI 3 可执行项目（Views/ Controls/ Services/ Tools/ 与 Assets/）
-src/WithWindows.Core/         纯逻辑类库（Actions/ App/ Chat/ Config/ Diagnostics/ Hotkeys/ Interop/ Todos/）
+src/WithWindows.Core/         纯逻辑类库（Actions/ App/ Chat/ Config/ Diagnostics/ Hotkeys/ Interop/ Scheduling/ Todos/）
 tests/WithWindows.Core.Tests/ 纯 xunit，只引用 Core
 installer/                    Inno Setup 脚本
 docs/agents/                  项目约定分册（见下）

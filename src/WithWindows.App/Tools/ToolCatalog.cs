@@ -27,6 +27,7 @@ public static class ToolCatalog
     public const string NotepadId = "notepad";
     public const string TodoId = "todo";
     public const string AiChatId = "ai_chat";
+    public const string ScheduledId = "scheduled";
     public const string DisplayPageId = "display";
     public const string DisplayModeId = "display_mode";
 
@@ -38,6 +39,8 @@ public static class ToolCatalog
         new ToolEntry(TodoId, "待办", "\uE9D5", typeof(TodoPage), ShowInNav: true, HasHotkey: false),
         // E8F2 = ChatBubbles（WinUI Gallery 图标表，tags: chat, messages）
         new ToolEntry(AiChatId, "AI 对话", "\uE8F2", typeof(ChatPage), ShowInNav: true, HasHotkey: false),
+        // E917 = Clock（WinUI Gallery 图标表，tags: clock, time）
+        new ToolEntry(ScheduledId, "定时任务", "\uE917", typeof(ScheduledTasksPage), ShowInNav: true, HasHotkey: false),
         // E975 = Devices2（WinUI Gallery 图标表，tags: displays, hardware）
         new ToolEntry(DisplayPageId, "投影", "\uE975", typeof(DisplayPage), ShowInNav: true, HasHotkey: false),
         new ToolEntry(DisplayModeId, "切换模式", "\uE975", PageType: null, ShowInNav: false, HasHotkey: true),

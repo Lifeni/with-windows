@@ -224,4 +224,19 @@ public sealed class TodoReminderHost : IDisposable
         _timer = null;
         _store.Changed -= OnTodosChanged;
     }
+
+    /// <summary>停止计时器并等待已经进入回调的提醒处理结束。</summary>
+    public async Task StopAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _timer?.Dispose();
+        _timer = null;
+        _store.Changed -= OnTodosChanged;
+
+        for (int attempt = 0; attempt < 100 && _processingDue; attempt++)
+            await Task.Delay(20);
+    }
 }

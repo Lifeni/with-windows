@@ -625,7 +625,7 @@ public sealed partial class ChatPage : Page
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
         };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        if (await App.ShowDialogAsync(dialog) != ContentDialogResult.Primary)
             return;
 
         _requestCts?.Cancel();

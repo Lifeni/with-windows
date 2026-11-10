@@ -1,0 +1,474 @@
+<Page
+    x:Class="WithWindows.Views.ScheduledTasksPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WithWindows.Views"
+    SizeChanged="OnPageSizeChanged">
+
+    <Page.Resources>
+        <DataTemplate x:Key="TaskRowTemplate" x:DataType="local:ScheduledTaskRowViewModel">
+            <Border
+                Margin="0,0,0,8"
+                Padding="12,10"
+                AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="3">
+                    <TextBlock
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind Title}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind ScheduleText}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind NextRunText}"
+                        TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind EnabledText}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind LastRunText}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="RunRowTemplate" x:DataType="local:ScheduledTaskRunRowViewModel">
+            <Grid
+                MinHeight="40"
+                Padding="8,4"
+                AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="{x:Bind StartedText}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind StatusText}" />
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid x:Name="PageRoot">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel
+            Grid.Row="0"
+            Margin="16,8,16,0"
+            Spacing="6">
+            <InfoBar
+                x:Name="PythonStatusBar"
+                AutomationProperties.AutomationId="ScheduledTaskPythonStatusBar"
+                IsClosable="True"
+                IsOpen="False"
+                Severity="Warning"
+                Title="Python 环境" />
+            <InfoBar
+                x:Name="ErrorBar"
+                AutomationProperties.AutomationId="ScheduledTaskErrorBar"
+                IsClosable="True"
+                IsOpen="False"
+                Severity="Error" />
+        </StackPanel>
+
+        <CommandBar
+            Grid.Row="1"
+            Margin="8,0"
+            DefaultLabelPosition="Right"
+            OverflowButtonVisibility="Auto">
+            <CommandBar.PrimaryCommands>
+                <AppBarButton
+                    Click="OnNewTaskClick"
+                    Icon="Add"
+                    Label="新建"
+                    AutomationProperties.AutomationId="ScheduledTaskNewButton"
+                    AutomationProperties.Name="新建定时任务" />
+                <AppBarButton
+                    x:Name="SaveButton"
+                    Click="OnSaveTaskClick"
+                    Icon="Save"
+                    Label="保存"
+                    AutomationProperties.AutomationId="ScheduledTaskSaveButton"
+                    AutomationProperties.Name="保存定时任务" />
+                <AppBarButton
+                    x:Name="RunNowButton"
+                    Click="OnRunNowClick"
+                    Icon="Play"
+                    Label="立即运行"
+                    AutomationProperties.AutomationId="ScheduledTaskRunNowButton"
+                    AutomationProperties.Name="立即运行定时任务" />
+                <AppBarButton
+                    x:Name="StopButton"
+                    Click="OnStopClick"
+                    Icon="Stop"
+                    Label="停止"
+                    AutomationProperties.AutomationId="ScheduledTaskStopButton"
+                    AutomationProperties.Name="停止定时任务" />
+                <AppBarButton
+                    x:Name="DeleteButton"
+                    Click="OnDeleteTaskClick"
+                    Icon="Delete"
+                    Label="删除"
+                    AutomationProperties.AutomationId="ScheduledTaskDeleteButton"
+                    AutomationProperties.Name="删除定时任务" />
+            </CommandBar.PrimaryCommands>
+        </CommandBar>
+
+        <Grid
+            Grid.Row="2"
+            Margin="16,0,16,16"
+            ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="TaskListColumn" Width="280" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid>
+                <ListView
+                    x:Name="TaskList"
+                    AutomationProperties.AutomationId="ScheduledTaskList"
+                    AutomationProperties.Name="定时任务列表"
+                    ContainerContentChanging="OnTaskContainerContentChanging"
+                    HorizontalContentAlignment="Stretch"
+                    ItemTemplate="{StaticResource TaskRowTemplate}"
+                    ItemsSource="{x:Bind Tasks}"
+                    SelectionChanged="OnTaskSelectionChanged"
+                    SelectionMode="Single">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+
+                <StackPanel
+                    x:Name="EmptyState"
+                    MaxWidth="240"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="10">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="42"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Glyph="&#xE917;" />
+                    <TextBlock
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="还没有定时任务"
+                        TextAlignment="Center" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="新建任务后，可以粘贴 Python 代码或关联现有 .py 文件。"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+
+            <ScrollViewer
+                x:Name="EditorScroll"
+                Grid.Column="1"
+                HorizontalScrollBarVisibility="Disabled"
+                HorizontalScrollMode="Disabled">
+                <StackPanel
+                    x:Name="EditorPanel"
+                    MaxWidth="760"
+                    HorizontalAlignment="Stretch"
+                    Spacing="12">
+                    <ComboBox
+                        x:Name="NarrowTaskSelector"
+                        Header="当前任务"
+                        AutomationProperties.AutomationId="ScheduledTaskListSelector"
+                        AutomationProperties.Name="当前定时任务"
+                        DisplayMemberPath="Title"
+                        ItemsSource="{x:Bind Tasks}"
+                        Visibility="Collapsed"
+                        SelectionChanged="OnNarrowTaskSelectionChanged" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="定时任务" />
+
+                    <TextBox
+                        x:Name="TaskNameBox"
+                        Header="任务名称"
+                        AutomationProperties.AutomationId="ScheduledTaskNameBox"
+                        AutomationProperties.Name="任务名称"
+                        PlaceholderText="例如：生成日报" />
+
+                    <ToggleSwitch
+                        x:Name="EnabledToggle"
+                        AutomationProperties.AutomationId="ScheduledTaskEnabledToggle"
+                        AutomationProperties.Name="启用定时任务"
+                        Header="启用"
+                        OffContent="停用"
+                        OnContent="启用" />
+
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                        Margin="0,8,0,0"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="执行计划" />
+
+                    <StackPanel
+                        x:Name="ScheduleFieldsPanel"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <ComboBox
+                            x:Name="ScheduleTypeComboBox"
+                            Width="160"
+                            Header="计划"
+                            AutomationProperties.AutomationId="ScheduledTaskScheduleTypeComboBox"
+                            AutomationProperties.Name="执行计划类型"
+                            SelectionChanged="OnScheduleTypeChanged">
+                            <ComboBoxItem Content="一次性" Tag="once" />
+                            <ComboBoxItem Content="每天" Tag="daily" />
+                            <ComboBoxItem Content="每周" Tag="weekly" />
+                        </ComboBox>
+                        <CalendarDatePicker
+                            x:Name="ScheduleDatePicker"
+                            Width="172"
+                            Header="日期"
+                            AutomationProperties.AutomationId="ScheduledTaskDatePicker"
+                            AutomationProperties.Name="一次性任务日期" />
+                        <TimePicker
+                            x:Name="ScheduleTimePicker"
+                            ClockIdentifier="24HourClock"
+                            Header="时间"
+                            HorizontalAlignment="Left"
+                            MinWidth="152"
+                            MinuteIncrement="1"
+                            AutomationProperties.AutomationId="ScheduledTaskTimePicker"
+                            AutomationProperties.Name="任务执行时间" />
+                    </StackPanel>
+
+                    <StackPanel
+                        x:Name="WeekdayPanel"
+                        AutomationProperties.AutomationId="ScheduledTaskWeekdaySelector"
+                        Spacing="6">
+                        <TextBlock Text="星期" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <CheckBox x:Name="MondayCheck" AutomationProperties.AutomationId="ScheduledTaskWeekdayMondayCheckbox" AutomationProperties.Name="星期一" Content="一" Tag="Monday" />
+                            <CheckBox x:Name="TuesdayCheck" AutomationProperties.AutomationId="ScheduledTaskWeekdayTuesdayCheckbox" AutomationProperties.Name="星期二" Content="二" Tag="Tuesday" />
+                            <CheckBox x:Name="WednesdayCheck" AutomationProperties.AutomationId="ScheduledTaskWeekdayWednesdayCheckbox" AutomationProperties.Name="星期三" Content="三" Tag="Wednesday" />
+                            <CheckBox x:Name="ThursdayCheck" AutomationProperties.AutomationId="ScheduledTaskWeekdayThursdayCheckbox" AutomationProperties.Name="星期四" Content="四" Tag="Thursday" />
+                            <CheckBox x:Name="FridayCheck" AutomationProperties.AutomationId="ScheduledTaskWeekdayFridayCheckbox" AutomationProperties.Name="星期五" Content="五" Tag="Friday" />
+                            <CheckBox x:Name="SaturdayCheck" AutomationProperties.AutomationId="ScheduledTaskWeekdaySaturdayCheckbox" AutomationProperties.Name="星期六" Content="六" Tag="Saturday" />
+                            <CheckBox x:Name="SundayCheck" AutomationProperties.AutomationId="ScheduledTaskWeekdaySundayCheckbox" AutomationProperties.Name="星期日" Content="日" Tag="Sunday" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                        Margin="0,8,0,0"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="Python 脚本" />
+
+                    <ComboBox
+                        x:Name="SourceKindComboBox"
+                        Header="来源"
+                        AutomationProperties.AutomationId="ScheduledTaskSourceSelector"
+                        AutomationProperties.Name="脚本来源"
+                        SelectionChanged="OnSourceKindChanged">
+                        <ComboBoxItem Content="粘贴脚本" Tag="inline" />
+                        <ComboBoxItem Content="关联文件" Tag="file" />
+                    </ComboBox>
+
+                    <TextBox
+                        x:Name="ScriptEditor"
+                        Height="220"
+                        AcceptsReturn="True"
+                        AutomationProperties.AutomationId="ScheduledTaskScriptEditor"
+                        AutomationProperties.Name="Python 脚本"
+                        FontFamily="Cascadia Mono, Consolas"
+                        FontSize="13"
+                        IsSpellCheckEnabled="False"
+                        PlaceholderText="在这里粘贴 Python 代码"
+                        ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto"
+                        TextWrapping="NoWrap" />
+
+                    <StackPanel
+                        x:Name="FileSourcePanel"
+                        Spacing="8"
+                        Visibility="Collapsed">
+                        <TextBox
+                            x:Name="PythonFilePath"
+                            Header="Python 文件"
+                            IsReadOnly="True"
+                            AutomationProperties.AutomationId="ScheduledTaskFilePath"
+                            AutomationProperties.Name="Python 文件路径" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button
+                                Click="OnChoosePythonFileClick"
+                                AutomationProperties.AutomationId="ScheduledTaskFilePickerButton"
+                                AutomationProperties.Name="选择 Python 文件"
+                                Content="选择文件" />
+                            <Button
+                                Click="OnOpenPythonFolderClick"
+                                AutomationProperties.AutomationId="ScheduledTaskOpenFolderButton"
+                                AutomationProperties.Name="打开 Python 文件所在文件夹"
+                                Content="打开所在文件夹" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                        Margin="0,8,0,0"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="执行环境" />
+
+                    <Grid
+                        x:Name="InterpreterGrid"
+                        ColumnSpacing="8"
+                        RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition x:Name="InterpreterInputColumn" Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox
+                            x:Name="InterpreterComboBox"
+                            Header="Python 解释器"
+                            MinWidth="260"
+                            AutomationProperties.AutomationId="ScheduledTaskInterpreterComboBox"
+                            AutomationProperties.Name="Python 解释器"
+                            DisplayMemberPath="DisplayText"
+                            ItemsSource="{x:Bind Interpreters}"
+                            SelectionChanged="OnInterpreterChanged" />
+                        <StackPanel
+                            x:Name="InterpreterButtonsPanel"
+                            Grid.Column="1"
+                            VerticalAlignment="Bottom"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                Click="OnDetectPythonClick"
+                                AutomationProperties.AutomationId="ScheduledTaskDetectPythonButton"
+                                AutomationProperties.Name="重新检测 Python"
+                                Content="重新检测" />
+                            <Button
+                                Click="OnBrowsePythonClick"
+                                AutomationProperties.AutomationId="ScheduledTaskBrowsePythonButton"
+                                AutomationProperties.Name="手动选择 Python 解释器"
+                                Content="选择解释器" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid
+                        x:Name="WorkingDirectoryGrid"
+                        ColumnSpacing="8"
+                        RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox
+                            x:Name="WorkingDirectoryBox"
+                            Header="工作目录"
+                            AutomationProperties.AutomationId="ScheduledTaskWorkingDirectoryBox"
+                            AutomationProperties.Name="工作目录"
+                            PlaceholderText="留空则使用脚本所在目录或用户主目录" />
+                        <Button
+                            x:Name="WorkingDirectoryButton"
+                            Grid.Column="1"
+                            VerticalAlignment="Bottom"
+                            Click="OnChooseWorkingDirectoryClick"
+                            AutomationProperties.AutomationId="ScheduledTaskBrowseWorkingDirectoryButton"
+                            AutomationProperties.Name="选择工作目录"
+                            Content="选择目录" />
+                    </Grid>
+
+                    <NumberBox
+                        x:Name="TimeoutBox"
+                        Header="超时（秒）"
+                        Minimum="5"
+                        Maximum="86400"
+                        SmallChange="30"
+                        SpinButtonPlacementMode="Compact"
+                        Value="600"
+                        AutomationProperties.AutomationId="ScheduledTaskTimeoutBox"
+                        AutomationProperties.Name="任务超时秒数" />
+
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                        Margin="0,8,0,0"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="执行历史" />
+
+                    <ListView
+                        x:Name="RunHistoryList"
+                        Height="140"
+                        AutomationProperties.AutomationId="ScheduledTaskRunHistoryList"
+                        ContainerContentChanging="OnRunContainerContentChanging"
+                        ItemTemplate="{StaticResource RunRowTemplate}"
+                        ItemsSource="{x:Bind Runs}"
+                        SelectionChanged="OnRunSelectionChanged"
+                        SelectionMode="Single" />
+
+                    <TextBlock
+                        x:Name="RunSummaryText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="选择一条执行记录查看输出。" />
+
+                    <TextBox
+                        x:Name="StdoutOutput"
+                        Height="120"
+                        AcceptsReturn="True"
+                        AutomationProperties.AutomationId="ScheduledTaskStdoutOutput"
+                        AutomationProperties.Name="标准输出"
+                        FontFamily="Cascadia Mono, Consolas"
+                        Header="标准输出"
+                        IsReadOnly="True"
+                        TextWrapping="Wrap" />
+
+                    <TextBox
+                        x:Name="StderrOutput"
+                        Height="120"
+                        AcceptsReturn="True"
+                        AutomationProperties.AutomationId="ScheduledTaskStderrOutput"
+                        AutomationProperties.Name="错误输出"
+                        FontFamily="Cascadia Mono, Consolas"
+                        Header="错误输出"
+                        IsReadOnly="True"
+                        TextWrapping="Wrap" />
+
+                    <Button
+                        HorizontalAlignment="Left"
+                        Click="OnOpenLogFolderClick"
+                        AutomationProperties.AutomationId="ScheduledTaskOpenLogFolderButton"
+                        AutomationProperties.Name="打开日志目录"
+                        Content="打开日志目录" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Page>

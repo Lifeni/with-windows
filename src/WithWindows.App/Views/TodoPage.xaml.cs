@@ -201,7 +201,7 @@ public sealed partial class TodoPage : Page
                 DefaultButton = ContentDialogButton.Close,
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await App.ShowDialogAsync(dialog) == ContentDialogResult.Primary)
                 Host!.Todos.Delete(id);
         }
         catch (Exception ex)

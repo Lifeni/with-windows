@@ -118,6 +118,10 @@ public sealed class TrayHost : IDisposable
         menu.Items.Add(NavigateItem(TitleOf(ToolCatalog.NotepadId), ToolCatalog.NotepadId, "TrayItemNotepad"));
         menu.Items.Add(NavigateItem(TitleOf(ToolCatalog.TodoId), ToolCatalog.TodoId, "TrayItemTodo"));
         menu.Items.Add(NavigateItem("对话", ToolCatalog.AiChatId, "TrayItemAiChat"));
+        menu.Items.Add(NavigateItem(
+            TitleOf(ToolCatalog.ScheduledId),
+            ToolCatalog.ScheduledId,
+            "TrayItemScheduled"));
 
         var displayMode = new DisplayModeAction(
             App.Host?.Config.DisplayMode.Modes.ToArray() ?? Array.Empty<string>());
@@ -132,7 +136,17 @@ public sealed class TrayHost : IDisposable
 
         var exit = new MenuFlyoutItem { Text = "退出" };
         AutomationId(exit, "TrayItemExit");
-        exit.Click += (_, _) => _window.ExitApplication();
+        exit.Click += async (_, _) =>
+        {
+            try
+            {
+                await _window.ExitApplicationAsync();
+            }
+            catch (Exception ex)
+            {
+                App.Host?.Log.Error($"托盘退出失败：{ex}");
+            }
+        };
         menu.Items.Add(exit);
 
         return menu;

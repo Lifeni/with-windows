@@ -1,4 +1,6 @@
 CreateWindowEx
+AssignProcessToJobObject
+CreateJobObject
 AllowSetForegroundWindow
 DefWindowProc
 DestroyWindow
@@ -13,15 +15,20 @@ IsIconic
 IsWindowVisible
 NOTIFYICONDATAW
 NOTIFYICONIDENTIFIER
+JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+JOBOBJECTINFOCLASS
+JOB_OBJECT_LIMIT
 QueryDisplayConfig
 RegisterClassEx
 RegisterHotKey
 SendMessage
 SetDisplayConfig
 SetForegroundWindow
+SetInformationJobObject
 Shell_NotifyIcon
 Shell_NotifyIconGetRect
 ShowWindow
 UnregisterHotKey
+TerminateJobObject
 WNDCLASSEXW
 WNDPROC

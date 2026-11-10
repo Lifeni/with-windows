@@ -63,7 +63,7 @@ public static class HotkeyDialog
             DefaultButton = ContentDialogButton.Primary,
         };
 
-        ContentDialogResult result = await dialog.ShowAsync();
+        ContentDialogResult result = await App.ShowDialogAsync(dialog);
         return new HotkeyDialogResult(result == ContentDialogResult.Primary, capture.HotkeyText);
     }
 }

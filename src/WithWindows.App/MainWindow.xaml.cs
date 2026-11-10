@@ -35,6 +35,7 @@ public sealed partial class MainWindow : Window
 
     /// <summary>true 表示正在真正退出（区分「关闭窗口 = 隐藏到托盘」）。</summary>
     private bool _exiting;
+    private bool _exitRequested;
 
     private IntPtr Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
 
@@ -518,7 +519,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>页面在激活后仍失效时重启进程，避免继续操作已卸载的 XAML 树。</summary>
-    private void RestartApplication(string pageTag)
+    private async void RestartApplication(string pageTag)
     {
         if (_exiting)
             return;
@@ -532,9 +533,19 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        _windowState.Dispose();
-        _tray.Dispose();
-        App.ExitForApplicationRestart();
+        try
+        {
+            await App.ShutdownAsync();
+            _windowState.Dispose();
+            _tray.Dispose();
+            App.Host?.Dispose();
+            App.ExitForApplicationRestart();
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"页面恢复重启的关闭流程失败：{ex}");
+            Environment.Exit(1);
+        }
     }
 
     private string CurrentRouteTag()
@@ -558,18 +569,60 @@ public sealed partial class MainWindow : Window
         return ToolCatalog.NotepadId;
     }
 
-    /// <summary>真正退出应用；绕过「关闭 = 隐藏」的拦截。</summary>
-    public void ExitApplication()
+    /// <summary>真正退出应用；先等待所有后台回调与脚本停止。</summary>
+    public async Task ExitApplicationAsync()
     {
-        _exiting = true;
-        App.StopTodoReminders();
-        _showRecoveryTimer?.Stop();
-        _showRecoveryTimer = null;
-        _windowState.Dispose();
-        _tray.Dispose();
-        // 显式释放热键、日志与单实例互斥体（AppHost 由 App 字段持有，这里主动收尾）
-        App.Host?.Dispose();
-        Application.Current.Exit();
+        if (_exiting || _exitRequested)
+            return;
+
+        _exitRequested = true;
+        try
+        {
+            if (App.Scheduler?.HasActiveTasks == true)
+            {
+                if (_isHiddenToTray || Core.Interop.WindowInterop.IsMinimized(Hwnd))
+                    ShowWindow();
+                await Task.Yield();
+
+                if (Content.XamlRoot is not { } xamlRoot)
+                {
+                    App.Host?.Log.Error("有脚本正在运行，但主窗口尚未挂载，无法显示退出确认。");
+                    _exitRequested = false;
+                    return;
+                }
+
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = xamlRoot,
+                    Title = "脚本正在运行",
+                    Content = "退出 With Windows 将停止所有正在运行的 Python 脚本。",
+                    PrimaryButtonText = "停止并退出",
+                    CloseButtonText = "取消",
+                    DefaultButton = ContentDialogButton.Close,
+                };
+                if (await App.ShowDialogAsync(dialog) != ContentDialogResult.Primary)
+                {
+                    _exitRequested = false;
+                    return;
+                }
+            }
+
+            _exiting = true;
+            _showRecoveryTimer?.Stop();
+            _showRecoveryTimer = null;
+            await App.ShutdownAsync();
+            _windowState.Dispose();
+            _tray.Dispose();
+            // 显式释放热键、日志与单实例互斥体（AppHost 由 App 字段持有，这里主动收尾）
+            App.Host?.Dispose();
+            Application.Current.Exit();
+        }
+        catch (Exception ex)
+        {
+            App.Host?.Log.Error($"退出应用失败：{ex}");
+            _exiting = false;
+            _exitRequested = false;
+        }
     }
 
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
@@ -581,12 +634,12 @@ public sealed partial class MainWindow : Window
         // 在事件回调栈里直接切换 presenter 会与 WinUI 的消息处理重入，
         // 因此先取消关闭，再排队收起窗口。
         args.Cancel = true;
-        DispatcherQueue.TryEnqueue(() =>
+        DispatcherQueue.TryEnqueue(async () =>
         {
             if (_tray.IsAvailable)
                 HideToTray();
             else
-                ExitApplication();
+                await ExitApplicationAsync();
         });
     }
 

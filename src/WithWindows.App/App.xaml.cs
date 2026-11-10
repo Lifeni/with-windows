@@ -24,6 +24,15 @@ public partial class App : Application
     /// <summary>应用宿主（配置、热键、日志）；页面通过它读写配置。启动失败时为 null。</summary>
     public static AppHost? Host { get; private set; }
 
+    /// <summary>定时任务协调器；页面和调度宿主共享。</summary>
+    public static ScheduledTaskCoordinator? Scheduler { get; private set; }
+
+    /// <summary>Python 环境检测入口。</summary>
+    public static PythonEnvironmentDetector? PythonEnvironments { get; private set; }
+
+    /// <summary>定时调度宿主；页面用于订阅系统时间/时区变化。</summary>
+    public static ScheduledTaskHost? TaskHost { get; private set; }
+
     // 生命周期等于进程：必须以字段持有，禁止局部 using（否则第二个实例照样能起）
     private AppHost? _host;
 
@@ -31,8 +40,14 @@ public partial class App : Application
     private Logger? _smokeLog;
     private HotkeyManager? _smokeHotkeys;
     private TodoReminderHost? _todoReminders;
+    private PythonScriptRunner? _scriptRunner;
+    private ScheduledTaskCoordinator? _scheduledTasks;
+    private ScheduledTaskHost? _scheduledTaskHost;
     private int _recoveryRestartCount;
     private bool _restarting;
+    private readonly SemaphoreSlim _shutdownGate = new(1, 1);
+    private static readonly SemaphoreSlim DialogGate = new(1, 1);
+    private bool _shutdownCompleted;
 
     public App()
     {
@@ -52,6 +67,9 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         string[] commandLineArgs = Environment.GetCommandLineArgs();
+        if (ScriptHelperHost.TryRun(commandLineArgs))
+            return;
+
         if (commandLineArgs.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
         {
             RunSmoke();
@@ -96,6 +114,15 @@ public partial class App : Application
 
         AppHost host = start.Host;
         host.ToolInvoker = toolId => new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
+
+        _scriptRunner = new PythonScriptRunner();
+        PythonEnvironments = new PythonEnvironmentDetector();
+        _scheduledTasks = new ScheduledTaskCoordinator(
+            host,
+            _scriptRunner);
+        Scheduler = _scheduledTasks;
+        _scheduledTaskHost = new ScheduledTaskHost(host, _scheduledTasks);
+        TaskHost = _scheduledTaskHost;
 
         Microsoft.UI.Dispatching.DispatcherQueue dispatcher = mainWindow.DispatcherQueue;
         _todoReminders = new TodoReminderHost(
@@ -168,6 +195,7 @@ public partial class App : Application
         }
 
         _todoReminders.Start();
+        _scheduledTaskHost.Start();
 
         if (restartPageTag is { } pageTag)
         {
@@ -244,7 +272,7 @@ public partial class App : Application
                 Content = message,
                 CloseButtonText = "退出",
             };
-            await dialog.ShowAsync();
+            await ShowDialogAsync(dialog);
         }
         catch (Exception ex)
         {
@@ -312,11 +340,74 @@ public partial class App : Application
         Current.Exit();
     }
 
-    /// <summary>真正退出前停止提醒计时器并解除仓储订阅。</summary>
-    public static void StopTodoReminders()
+    /// <summary>等待所有后台宿主和脚本退出，再允许释放 AppHost。</summary>
+    public static Task ShutdownAsync()
+        => Current is App app
+            ? app.ShutdownCoreAsync()
+            : Task.CompletedTask;
+
+    /// <summary>串行显示同一 XamlRoot 上的 ContentDialog，避免 WinUI 重入异常。</summary>
+    public static async Task<ContentDialogResult> ShowDialogAsync(
+        ContentDialog dialog)
     {
-        if (Current is App app)
-            app._todoReminders?.Dispose();
+        await DialogGate.WaitAsync();
+        try
+        {
+            return await dialog.ShowAsync();
+        }
+        finally
+        {
+            DialogGate.Release();
+        }
+    }
+
+    private async Task ShutdownCoreAsync()
+    {
+        await _shutdownGate.WaitAsync();
+        try
+        {
+            if (_shutdownCompleted)
+                return;
+            _shutdownCompleted = true;
+            _host?.BeginShutdown();
+            _scheduledTasks?.BeginShutdown();
+
+            if (_todoReminders is not null)
+            {
+                try
+                {
+                    await _todoReminders.StopAsync();
+                }
+                catch (Exception ex)
+                {
+                    _host?.Log.Error($"停止待办提醒失败：{ex.Message}");
+                }
+            }
+
+            if (_scheduledTaskHost is not null)
+            {
+                try
+                {
+                    await _scheduledTaskHost.ShutdownAsync();
+                }
+                catch (Exception ex)
+                {
+                    _host?.Log.Error($"停止定时任务宿主失败：{ex.Message}");
+                }
+            }
+
+            _scheduledTasks?.Dispose();
+            _scriptRunner?.Dispose();
+            _todoReminders?.Dispose();
+            _scheduledTaskHost?.Dispose();
+            Scheduler = null;
+            PythonEnvironments = null;
+            TaskHost = null;
+        }
+        finally
+        {
+            _shutdownGate.Release();
+        }
     }
 
     /// <summary>启动负责接管的新进程；成功后才允许当前进程释放资源并退出。</summary>
@@ -415,11 +506,8 @@ public partial class App : Application
 
     private void ExitForApplicationRestartCore()
     {
-        StopTodoReminders();
-        _host?.Dispose();
-
         // 页面树已经失效时，Application.Exit() 仍会进入 XAML shutdown 并可能在
-        // coreclr.dll 中崩溃。这里只结束进程；托盘、窗口状态和 AppHost 已先显式释放。
+        // coreclr.dll 中崩溃。调用方已经完成 ShutdownAsync 并释放窗口、托盘与 AppHost。
         Environment.Exit(0);
     }
 

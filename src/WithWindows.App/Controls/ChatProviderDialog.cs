@@ -173,7 +173,7 @@ public static class ChatProviderDialog
         try
         {
             xamlRoot.Changed += OnXamlRootChanged;
-            shown = await dialog.ShowAsync();
+            shown = await App.ShowDialogAsync(dialog);
         }
         finally
         {

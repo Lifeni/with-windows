@@ -25,6 +25,30 @@ public static class AppPaths
     /// <summary>待办数据文件路径。</summary>
     public static string TodoPath { get; } = Path.Combine(DataRoot, "todos.json");
 
+    /// <summary>定时任务数据目录。</summary>
+    public static string ScheduledTasksDirectory { get; } =
+        Path.Combine(DataRoot, "scheduled-tasks");
+
+    /// <summary>定时任务定义文件路径。</summary>
+    public static string ScheduledTasksPath { get; } =
+        Path.Combine(ScheduledTasksDirectory, "tasks.json");
+
+    /// <summary>定时任务执行历史文件路径。</summary>
+    public static string ScheduledTaskRunsPath { get; } =
+        Path.Combine(ScheduledTasksDirectory, "runs.json");
+
+    /// <summary>内联脚本运行副本目录。</summary>
+    public static string ScheduledTaskScriptsDirectory { get; } =
+        Path.Combine(ScheduledTasksDirectory, "scripts");
+
+    /// <summary>执行日志目录。</summary>
+    public static string ScheduledTaskLogsDirectory { get; } =
+        Path.Combine(ScheduledTasksDirectory, "logs");
+
+    /// <summary>隐藏 script helper 的一次性运行规格目录。</summary>
+    public static string ScheduledTaskRunnerDirectory { get; } =
+        Path.Combine(ScheduledTasksDirectory, "runner");
+
     /// <summary>AI 对话数据目录。</summary>
     public static string ChatDirectory { get; } = Path.Combine(DataRoot, "chat");
 

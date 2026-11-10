@@ -5,4 +5,11 @@ internal static class Win32Constants
 {
     /// <summary>热键消息。</summary>
     internal const uint WM_HOTKEY = 0x0312;
+
+    /// <summary>系统时间变化消息。</summary>
+    internal const uint WM_TIMECHANGE = 0x001E;
+
+    /// <summary>系统设置变化消息。</summary>
+    internal const uint WM_SETTINGCHANGE = 0x001A;
+
 }

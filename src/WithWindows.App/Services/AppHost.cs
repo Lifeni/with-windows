@@ -2,6 +2,7 @@ using WithWindows.Core.App;
 using WithWindows.Core.Config;
 using WithWindows.Core.Diagnostics;
 using WithWindows.Core.Hotkeys;
+using WithWindows.Core.Scheduling;
 using WithWindows.Core.Todos;
 
 namespace WithWindows.Services;
@@ -20,6 +21,8 @@ public sealed class AppHost : IDisposable
 {
     private readonly SingleInstance _singleInstance;
     private TodoStore? _todos;
+    private ScheduledTaskStore? _scheduledTasks;
+    private RunHistoryStore? _scheduledTaskRuns;
     private Thread? _activationThread;
     private volatile bool _shuttingDown;
 
@@ -48,6 +51,36 @@ public sealed class AppHost : IDisposable
             }
 
             return _todos;
+        }
+    }
+
+    public ScheduledTaskStore ScheduledTasks
+    {
+        get
+        {
+            if (_scheduledTasks is null)
+            {
+                _scheduledTasks = new ScheduledTaskStore(AppPaths.ScheduledTasksPath);
+                if (_scheduledTasks.LastLoadError is { } error)
+                    Log.Error(error);
+            }
+
+            return _scheduledTasks;
+        }
+    }
+
+    public RunHistoryStore ScheduledTaskRuns
+    {
+        get
+        {
+            if (_scheduledTaskRuns is null)
+            {
+                _scheduledTaskRuns = new RunHistoryStore(AppPaths.ScheduledTaskRunsPath);
+                if (_scheduledTaskRuns.LastLoadError is { } error)
+                    Log.Error(error);
+            }
+
+            return _scheduledTaskRuns;
         }
     }
     public HttpClient HttpClient { get; } = new(
@@ -127,6 +160,9 @@ public sealed class AppHost : IDisposable
         _activationThread.Start();
     }
 
+    /// <summary>关闭流程开始时立即阻止新的热键动作和激活请求。</summary>
+    public void BeginShutdown() => _shuttingDown = true;
+
     private void ActivationLoop()
     {
         while (!_shuttingDown)
@@ -178,6 +214,9 @@ public sealed class AppHost : IDisposable
 
     private void OnHotkey(string toolId)
     {
+        if (_shuttingDown)
+            return;
+
         try
         {
             ToolInvoker?.Invoke(toolId);
@@ -203,7 +242,7 @@ public sealed class AppHost : IDisposable
 
     public void Dispose()
     {
-        _shuttingDown = true;
+        BeginShutdown();
 
         // 先停监听线程：它可能正在回调或写日志；唤醒等待避免 join 空等 500 ms
         if (_activationThread is not null)

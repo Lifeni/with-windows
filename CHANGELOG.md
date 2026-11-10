@@ -1,5 +1,19 @@
 # 更新日志
 
+## [Unreleased]
+
+### 新增
+- 新增「定时任务」页：支持一次性、每天和每周计划，在应用运行期间执行 Python 脚本
+- 支持粘贴 Python 代码或关联现有 `.py` 文件；外部文件每次执行时使用磁盘上的最新内容
+- 自动检测 PATH、Python Launcher 和常见安装目录中的 Python 3 环境，并允许为每个任务选择独立解释器
+- 支持立即运行、停止、超时终止和每个任务最近 100 条执行历史；标准输出与错误输出分别保存
+- 定时任务定义、执行历史和日志独立保存在 `%APPDATA%\WithWindows\scheduled-tasks\`，不修改 `config.json`
+
+### 安全
+- Python 进程通过隐藏 helper 启动，先加入 Windows Job Object 再执行脚本；退出应用、超时或手动停止时终止完整进程树
+- Microsoft Store Python 仅在确认对应包已安装时才探测，避免零字节 App Execution Alias 误开 Microsoft Store
+- 任务或历史文件损坏时进入只读故障态，保留原文件，不静默覆盖
+
 ## [v0.9.0] - 2026-11-08
 
 ### 依赖

@@ -156,7 +156,7 @@ public static class TodoReminderDialog
         try
         {
             xamlRoot.Changed += OnXamlRootChanged;
-            shown = await dialog.ShowAsync();
+            shown = await App.ShowDialogAsync(dialog);
         }
         finally
         {

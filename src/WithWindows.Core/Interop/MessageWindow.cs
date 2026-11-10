@@ -19,12 +19,16 @@ internal sealed class MessageWindow : IDisposable
     private static readonly ConcurrentDictionary<nint, MessageWindow> LiveWindows = [];
 
     private readonly Action<IntPtr> _onHotkey;
+    private readonly Action? _onSystemTimeChanged;
     private readonly int _ownerThreadId;
     private HWND _hwnd;
 
-    internal unsafe MessageWindow(Action<IntPtr> onHotkey)
+    internal unsafe MessageWindow(
+        Action<IntPtr> onHotkey,
+        Action? onSystemTimeChanged = null)
     {
         _onHotkey = onHotkey;
+        _onSystemTimeChanged = onSystemTimeChanged;
         _ownerThreadId = Environment.CurrentManagedThreadId;
 
         HMODULE module = PInvoke.GetModuleHandle(default(PCWSTR));
@@ -70,6 +74,12 @@ internal sealed class MessageWindow : IDisposable
             && LiveWindows.TryGetValue(HandleKey(hWnd), out MessageWindow? window))
         {
             window?._onHotkey((IntPtr)wParam.Value);
+        }
+        else if (LiveWindows.TryGetValue(HandleKey(hWnd), out MessageWindow? timeWindow)
+            && (msg == Win32Constants.WM_TIMECHANGE
+                || msg == Win32Constants.WM_SETTINGCHANGE))
+        {
+            timeWindow?._onSystemTimeChanged?.Invoke();
         }
 
         return PInvoke.DefWindowProc(hWnd, msg, wParam, lParam);
