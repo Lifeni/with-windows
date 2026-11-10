@@ -25,15 +25,15 @@ public static class AppPaths
     /// <summary>待办数据文件路径。</summary>
     public static string TodoPath { get; } = Path.Combine(DataRoot, "todos.json");
 
-    /// <summary>定时任务数据目录。</summary>
+    /// <summary>脚本任务数据目录。</summary>
     public static string ScheduledTasksDirectory { get; } =
         Path.Combine(DataRoot, "scheduled-tasks");
 
-    /// <summary>定时任务定义文件路径。</summary>
+    /// <summary>脚本定义文件路径。</summary>
     public static string ScheduledTasksPath { get; } =
         Path.Combine(ScheduledTasksDirectory, "tasks.json");
 
-    /// <summary>定时任务执行历史文件路径。</summary>
+    /// <summary>脚本执行历史文件路径。</summary>
     public static string ScheduledTaskRunsPath { get; } =
         Path.Combine(ScheduledTasksDirectory, "runs.json");
 

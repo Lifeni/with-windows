@@ -185,8 +185,7 @@ public sealed class RunHistoryStoreTests : IDisposable
         Trigger = ScheduledTaskRunTrigger.Manual,
         StartedAt = Now.AddSeconds(index),
         Status = ScheduledTaskRunStatus.Running,
-        PythonPath = @"C:\Python313\python.exe",
-        ScriptSource = ScriptSourceKind.Inline,
+        RuntimeVersion = "5.4",
         StdoutLogPath = Path.Combine(
             _directory,
             "logs",

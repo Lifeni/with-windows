@@ -19,6 +19,7 @@
     <!-- 只保留中文与英文的 .NET 卫星资源；WinUI 原生 .mui 由下面的发布过滤处理 -->
     <SatelliteResourceLanguages>en;en-US;zh-CN;zh-TW</SatelliteResourceLanguages>
     <PublishSingleFile>false</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <!-- 单文件发布时 WASDK 强制要求开启 MSIX 工具链（已知坑） -->
     <EnableMsixTooling Condition="'$(PublishSingleFile)' == 'true'">true</EnableMsixTooling>
     <EnableMsixTooling Condition="'$(PublishSingleFile)' != 'true'">false</EnableMsixTooling>
@@ -36,6 +37,7 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="WinUIEx" />
     <PackageReference Include="Markdig" />
+    <PackageReference Include="KeraLua" />
   </ItemGroup>
 
   <ItemGroup>

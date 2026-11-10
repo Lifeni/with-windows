@@ -11,9 +11,9 @@ using WithWindows.Core.Scheduling;
 namespace WithWindows.Services;
 
 /// <summary>
-/// 启动隐藏 helper，先加入 Job Object，再让 helper 启动 Python；负责超时、取消和输出落盘。
+/// 启动隐藏 helper，先加入 Job Object，再让 helper 执行 Lua；负责超时、取消和输出落盘。
 /// </summary>
-public sealed class PythonScriptRunner : IDisposable
+public sealed class LuaScriptRunner : IDisposable
 {
     private const int MaximumBytesPerStream = 2 * 1024 * 1024;
     private readonly object _gate = new();
@@ -21,14 +21,14 @@ public sealed class PythonScriptRunner : IDisposable
     private bool _stopping;
     private bool _disposed;
 
-    public async Task<PythonRunResult> RunAsync(
-        PythonRunRequest request,
+    public async Task<LuaRunResult> RunAsync(
+        LuaRunRequest request,
         CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (cancellationToken.IsCancellationRequested)
         {
-            return new PythonRunResult(
+            return new LuaRunResult(
                 ScheduledTaskRunStatus.Cancelled,
                 ExitCode: null,
                 ErrorMessage: "脚本尚未启动即被停止。",
@@ -39,7 +39,7 @@ public sealed class PythonScriptRunner : IDisposable
         {
             if (_stopping)
             {
-                return new PythonRunResult(
+                return new LuaRunResult(
                     ScheduledTaskRunStatus.Cancelled,
                     ExitCode: null,
                     ErrorMessage: "应用正在退出。",
@@ -48,14 +48,9 @@ public sealed class PythonScriptRunner : IDisposable
             }
         }
 
-        if (!File.Exists(request.PythonPath))
-        {
-            return Failed($"Python 解释器不存在：{request.PythonPath}");
-        }
-
         if (!File.Exists(request.ScriptPath))
         {
-            return Failed($"Python 脚本不存在：{request.ScriptPath}");
+            return Failed($"Lua 脚本不存在：{request.ScriptPath}");
         }
 
         if (!Directory.Exists(request.WorkingDirectory))
@@ -73,8 +68,7 @@ public sealed class PythonScriptRunner : IDisposable
         string suffix = Guid.NewGuid().ToString("N");
         string readyEventName = $@"Local\WithWindows.ScriptRunner.Ready.{suffix}";
         string startEventName = $@"Local\WithWindows.ScriptRunner.Start.{suffix}";
-        var spec = new PythonRunSpec(
-            request.PythonPath,
+        var spec = new LuaRunSpec(
             request.ScriptPath,
             request.WorkingDirectory);
         File.WriteAllText(specPath, spec.Serialize());
@@ -209,12 +203,12 @@ public sealed class PythonScriptRunner : IDisposable
                 ScheduledTaskRunStatus.TimedOut => $"脚本超过 {request.TimeoutSeconds} 秒。",
                 ScheduledTaskRunStatus.Cancelled => "脚本已停止。",
                 ScheduledTaskRunStatus.Interrupted => "脚本输出流未能正常收尾。",
-                ScheduledTaskRunStatus.Failed => $"Python 退出码为 {helper.ExitCode}。",
+                ScheduledTaskRunStatus.Failed => $"Lua 退出码为 {helper.ExitCode}。",
                 _ => null,
             };
             if (outputError is not null)
                 error = string.IsNullOrWhiteSpace(error) ? outputError : error + " " + outputError;
-            return new PythonRunResult(
+            return new LuaRunResult(
                 status,
                 exitCode,
                 error,
@@ -225,7 +219,7 @@ public sealed class PythonScriptRunner : IDisposable
         {
             if (helper is not null)
                 Terminate(helper, job);
-            return new PythonRunResult(
+            return new LuaRunResult(
                 ScheduledTaskRunStatus.Cancelled,
                 ExitCode: null,
                 ErrorMessage: "脚本已停止。",
@@ -258,7 +252,7 @@ public sealed class PythonScriptRunner : IDisposable
                         CancellationToken.None,
                         TaskContinuationOptions.OnlyOnFaulted,
                         TaskScheduler.Default);
-                    return new PythonRunResult(
+                    return new LuaRunResult(
                         ScheduledTaskRunStatus.Interrupted,
                         ExitCode: helper.HasExited ? helper.ExitCode : null,
                         ErrorMessage: $"{ex.Message} 脚本输出流未能正常收尾。",
@@ -398,7 +392,7 @@ public sealed class PythonScriptRunner : IDisposable
         }
     }
 
-    private static PythonRunResult Failed(string message)
+    private static LuaRunResult Failed(string message)
         => new(
             ScheduledTaskRunStatus.Failed,
             ExitCode: null,

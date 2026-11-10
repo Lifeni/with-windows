@@ -24,11 +24,8 @@ public partial class App : Application
     /// <summary>应用宿主（配置、热键、日志）；页面通过它读写配置。启动失败时为 null。</summary>
     public static AppHost? Host { get; private set; }
 
-    /// <summary>定时任务协调器；页面和调度宿主共享。</summary>
+    /// <summary>Lua 脚本协调器；页面和调度宿主共享。</summary>
     public static ScheduledTaskCoordinator? Scheduler { get; private set; }
-
-    /// <summary>Python 环境检测入口。</summary>
-    public static PythonEnvironmentDetector? PythonEnvironments { get; private set; }
 
     /// <summary>定时调度宿主；页面用于订阅系统时间/时区变化。</summary>
     public static ScheduledTaskHost? TaskHost { get; private set; }
@@ -40,7 +37,7 @@ public partial class App : Application
     private Logger? _smokeLog;
     private HotkeyManager? _smokeHotkeys;
     private TodoReminderHost? _todoReminders;
-    private PythonScriptRunner? _scriptRunner;
+    private LuaScriptRunner? _scriptRunner;
     private ScheduledTaskCoordinator? _scheduledTasks;
     private ScheduledTaskHost? _scheduledTaskHost;
     private int _recoveryRestartCount;
@@ -115,8 +112,7 @@ public partial class App : Application
         AppHost host = start.Host;
         host.ToolInvoker = toolId => new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
 
-        _scriptRunner = new PythonScriptRunner();
-        PythonEnvironments = new PythonEnvironmentDetector();
+        _scriptRunner = new LuaScriptRunner();
         _scheduledTasks = new ScheduledTaskCoordinator(
             host,
             _scriptRunner);
@@ -392,7 +388,7 @@ public partial class App : Application
                 }
                 catch (Exception ex)
                 {
-                    _host?.Log.Error($"停止定时任务宿主失败：{ex.Message}");
+                    _host?.Log.Error($"停止 Lua 脚本宿主失败：{ex.Message}");
                 }
             }
 
@@ -401,7 +397,6 @@ public partial class App : Application
             _todoReminders?.Dispose();
             _scheduledTaskHost?.Dispose();
             Scheduler = null;
-            PythonEnvironments = null;
             TaskHost = null;
         }
         finally

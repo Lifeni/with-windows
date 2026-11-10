@@ -595,7 +595,7 @@ public sealed partial class MainWindow : Window
                 {
                     XamlRoot = xamlRoot,
                     Title = "脚本正在运行",
-                    Content = "退出 With Windows 将停止所有正在运行的 Python 脚本。",
+                    Content = "退出 With Windows 将停止所有正在运行的 Lua 脚本及其子进程。",
                     PrimaryButtonText = "停止并退出",
                     CloseButtonText = "取消",
                     DefaultButton = ContentDialogButton.Close,

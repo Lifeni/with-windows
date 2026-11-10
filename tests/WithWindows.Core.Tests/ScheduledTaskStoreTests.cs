@@ -92,7 +92,7 @@ public sealed class ScheduledTaskStoreTests : IDisposable
     {
         File.WriteAllText(
             Path.Combine(_directory, "tasks.json"),
-            """{"version":1,"tasks":[{"id":"..","name":"坏任务","schedule":{},"source":{}}]}""");
+            """{"version":2,"tasks":[{"id":"..","name":"坏任务","schedule":{},"scriptText":"print('ok')"}]}""");
 
         ScheduledTaskStore store = NewStore();
 
@@ -104,7 +104,7 @@ public sealed class ScheduledTaskStoreTests : IDisposable
     {
         File.WriteAllText(
             Path.Combine(_directory, "tasks.json"),
-            """{"version":1,"tasks":[{"id":"d35ec245bf9c4cf1888649d29c84a966","name":null,"schedule":{},"source":{}}]}""");
+            """{"version":2,"tasks":[{"id":"d35ec245bf9c4cf1888649d29c84a966","name":null,"schedule":{},"scriptText":"print('ok')"}]}""");
 
         ScheduledTaskStore store = NewStore();
 
@@ -139,7 +139,13 @@ public sealed class ScheduledTaskStoreTests : IDisposable
     public void UpdatePlan_递增计划修订号并清除旧认领()
     {
         ScheduledTaskStore store = NewStore();
-        ScheduledTask task = store.Add(SampleTask("日报"));
+        ScheduledTask task = SampleTask("单次脚本");
+        task.Schedule = new TaskSchedule
+        {
+            Kind = ScheduleKind.Once,
+            OneTimeRunAt = Now,
+        };
+        task = store.Add(task);
         store.ClaimOccurrence(
             task.Id,
             new ScheduledTaskOccurrence(task.Id, task.ScheduleRevision, Now),
@@ -150,8 +156,8 @@ public sealed class ScheduledTaskStoreTests : IDisposable
             task.Id,
             schedule =>
             {
-                schedule.Kind = ScheduleKind.Daily;
-                schedule.TimeOfDay = new TimeOnly(10, 30);
+                schedule.Kind = ScheduleKind.Manual;
+                schedule.OneTimeRunAt = null;
             },
             Now.AddMinutes(1));
 
@@ -196,21 +202,11 @@ public sealed class ScheduledTaskStoreTests : IDisposable
     private static ScheduledTask SampleTask(string name) => new()
     {
         Name = name,
-        Enabled = false,
         Schedule = new TaskSchedule
         {
-            Kind = ScheduleKind.Daily,
-            TimeOfDay = new TimeOnly(9, 30),
+            Kind = ScheduleKind.Manual,
         },
-        Source = new ScriptSource
-        {
-            Kind = ScriptSourceKind.Inline,
-            ScriptText = "print('hello')",
-        },
-        PythonPath = @"C:\Python313\python.exe",
-        PythonSource = PythonInterpreterSource.Manual,
-        PythonResolvedPath = @"C:\Python313\python.exe",
-        WorkingDirectory = @"C:\Users\Example",
+        ScriptText = "print('hello')",
         TimeoutSeconds = 60,
         CreatedAt = Now,
         UpdatedAt = Now,

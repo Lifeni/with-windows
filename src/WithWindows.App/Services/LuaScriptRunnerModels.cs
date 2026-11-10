@@ -2,18 +2,15 @@ using WithWindows.Core.Scheduling;
 
 namespace WithWindows.Services;
 
-public sealed record PythonRunRequest(
+public sealed record LuaRunRequest(
     string RunId,
-    string PythonPath,
-    string PythonVersion,
     string ScriptPath,
     string WorkingDirectory,
     int TimeoutSeconds,
     string StdoutLogPath,
-    string StderrLogPath,
-    ScriptSourceKind ScriptSource);
+    string StderrLogPath);
 
-public sealed record PythonRunResult(
+public sealed record LuaRunResult(
     ScheduledTaskRunStatus Status,
     int? ExitCode,
     string? ErrorMessage,

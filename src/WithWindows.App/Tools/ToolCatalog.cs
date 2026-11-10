@@ -39,8 +39,8 @@ public static class ToolCatalog
         new ToolEntry(TodoId, "待办", "\uE9D5", typeof(TodoPage), ShowInNav: true, HasHotkey: false),
         // E8F2 = ChatBubbles（WinUI Gallery 图标表，tags: chat, messages）
         new ToolEntry(AiChatId, "AI 对话", "\uE8F2", typeof(ChatPage), ShowInNav: true, HasHotkey: false),
-        // E917 = Clock（WinUI Gallery 图标表，tags: clock, time）
-        new ToolEntry(ScheduledId, "定时任务", "\uE917", typeof(ScheduledTasksPage), ShowInNav: true, HasHotkey: false),
+        // E943 = Code（WinUI Gallery 图标表，tags: bracket, slash）
+        new ToolEntry(ScheduledId, "Lua 脚本", "\uE943", typeof(ScheduledTasksPage), ShowInNav: true, HasHotkey: false),
         // E975 = Devices2（WinUI Gallery 图标表，tags: displays, hardware）
         new ToolEntry(DisplayPageId, "投影", "\uE975", typeof(DisplayPage), ShowInNav: true, HasHotkey: false),
         new ToolEntry(DisplayModeId, "切换模式", "\uE975", PageType: null, ShowInNav: false, HasHotkey: true),

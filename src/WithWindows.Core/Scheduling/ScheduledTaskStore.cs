@@ -242,13 +242,13 @@ public sealed class ScheduledTaskStore
                 File.ReadAllText(path),
                 JsonOptions);
             if (document?.Tasks is null
-                || document.Version != ScheduledTaskDocument.CurrentVersion
+                || document.Version is not (1 or ScheduledTaskDocument.CurrentVersion)
+                || (document.Version == 1 && document.Tasks.Count > 0)
                 || document.Tasks.Any(task => task is null
                     || !ScheduledTaskValidation.IsValidTaskId(task.Id)
                     || task.Name is null
                     || task.Schedule is null
-                    || task.Schedule.DaysOfWeek is null
-                    || task.Source is null))
+                    || task.ScriptText is null))
             {
                 return false;
             }

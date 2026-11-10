@@ -15,7 +15,7 @@ public static class ScheduledTaskClaimPolicy
         var seenTaskIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (ScheduledTask task in tasks)
         {
-            if (!task.Enabled
+            if (task.Schedule.Kind != ScheduleKind.Once
                 || string.IsNullOrWhiteSpace(task.Id)
                 || task.ScheduleRevision < 1
                 || !seenTaskIds.Add(task.Id))

@@ -50,19 +50,17 @@ winapp ui screenshot -a WithWindows
 
 空状态使用与待办页一致的 42 DIP 字体图标和说明文字。输入栏使用主题填充色和透明边框，单行文字垂直居中。`Enter` 发送，`Shift+Enter` 换行，输入法组合期间不发送。发送期间输入栏暂时替换为发送状态按钮，显示进度环和“AI 正在思考…” / “AI 正在回复…”，可按 `Esc` 或点击其所在状态条停止，完成或停止后恢复输入栏。
 
-## 定时任务
+## Lua 脚本
 
-- 命令栏：`ScheduledTaskNewButton`、`ScheduledTaskSaveButton`、`ScheduledTaskRunNowButton`、`ScheduledTaskStopButton`、`ScheduledTaskDeleteButton`
-- 列表：`ScheduledTaskList`、`ScheduledTaskListItem_<taskId>`；窄窗口使用 `ScheduledTaskListSelector`
-- 基本配置：`ScheduledTaskNameBox`、`ScheduledTaskEnabledToggle`
-- 计划：`ScheduledTaskScheduleTypeComboBox`、`ScheduledTaskDatePicker`、`ScheduledTaskTimePicker`、`ScheduledTaskWeekdaySelector`
-- 脚本：`ScheduledTaskSourceSelector`、`ScheduledTaskScriptEditor`、`ScheduledTaskFilePickerButton`、`ScheduledTaskFilePath`、`ScheduledTaskOpenFolderButton`
-- Python：`ScheduledTaskInterpreterComboBox`、`ScheduledTaskDetectPythonButton`、`ScheduledTaskBrowsePythonButton`、`ScheduledTaskPythonStatusBar`
-- 运行：`ScheduledTaskWorkingDirectoryBox`、`ScheduledTaskBrowseWorkingDirectoryButton`、`ScheduledTaskTimeoutBox`
-- 历史：`ScheduledTaskRunHistoryList`、`ScheduledTaskRunItem_<runId>`、`ScheduledTaskStdoutOutput`、`ScheduledTaskStderrOutput`、`ScheduledTaskOpenLogFolderButton`
-- 状态：`ScheduledTaskErrorBar`
+- 页面头部：`ScheduledTaskSummary`、`ScheduledTaskNewButton`
+- 列表与空状态：`ScheduledTaskList`、`ScheduledTaskEmptyState`、`ScheduledTaskListItem_<taskId>`
+- 行操作：`ScheduledTaskRun_<taskId>`、`ScheduledTaskStop_<taskId>`、`ScheduledTaskHistory_<taskId>`、`ScheduledTaskEdit_<taskId>`、`ScheduledTaskDelete_<taskId>`
+- 状态提示：`ScheduledTaskErrorBar`
+- 编辑对话框：`ScheduledTaskEditorDialog`、`ScheduledTaskNameBox`、`ScheduledTaskScheduleTypeComboBox`、`ScheduledTaskDatePicker`、`ScheduledTaskTimePicker`
+- 脚本与运行：`ScheduledTaskImportButton`、`ScheduledTaskScriptEditor`、`ScheduledTaskTimeoutBox`、`ScheduledTaskEditorValidation`
+- 历史对话框：`ScheduledTaskHistoryDialog`、`ScheduledTaskRunSummary`、`ScheduledTaskRunHistoryList`、`ScheduledTaskRunItem_<runId>`、`ScheduledTaskStdoutOutput`、`ScheduledTaskStderrOutput`
 
-页面使用 280 DIP 任务列表和自适应编辑区。应用退出后不再执行任务；关闭窗口并驻留托盘时继续调度。
+页面以脚本列表为主体，添加和编辑都在独立对话框中完成。标题区与 AI 对话页共用 48 DIP 高度，标题和副标题均为 11 DIP、标题仅加粗。脚本只有“仅手动运行”和“单次定时执行”两种方式；应用退出后不再执行单次计划，关闭窗口并驻留托盘时继续调度。单次模式沿用待办提醒对话框的日期、时间双列样式，两个选择器均为 40 DIP 且宽度一致。
 
 ## 投影与设置
 

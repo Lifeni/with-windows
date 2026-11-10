@@ -5,34 +5,36 @@ namespace WithWindows.Core.Tests;
 public sealed class ScheduledTaskDisplayFormatterTests
 {
     [Fact]
-    public void ScheduleText_每天显示本地时分()
+    public void ScheduleText_手动任务显示为手动运行()
     {
         var task = new ScheduledTask
         {
             Schedule = new TaskSchedule
             {
-                Kind = ScheduleKind.Daily,
-                TimeOfDay = new TimeOnly(9, 30),
+                Kind = ScheduleKind.Manual,
             },
         };
 
-        Assert.Equal("每天 09:30", ScheduledTaskDisplayFormatter.ScheduleText(task));
+        Assert.Equal("手动运行", ScheduledTaskDisplayFormatter.ScheduleText(task));
     }
 
     [Fact]
-    public void ScheduleText_每周按星期顺序显示()
+    public void ScheduleText_单次任务显示本地日期和时间()
     {
+        DateTime local = new(2026, 11, 10, 18, 5, 0, DateTimeKind.Unspecified);
+        DateTimeOffset runAt = new(local);
         var task = new ScheduledTask
         {
             Schedule = new TaskSchedule
             {
-                Kind = ScheduleKind.Weekly,
-                TimeOfDay = new TimeOnly(18, 5),
-                DaysOfWeek = [DayOfWeek.Friday, DayOfWeek.Monday],
+                Kind = ScheduleKind.Once,
+                OneTimeRunAt = runAt,
             },
         };
 
-        Assert.Equal("每周一、周五 18:05", ScheduledTaskDisplayFormatter.ScheduleText(task));
+        Assert.Equal(
+            $"单次 {runAt.ToLocalTime():yyyy年M月d日 HH:mm}",
+            ScheduledTaskDisplayFormatter.ScheduleText(task));
     }
 
     [Fact]
@@ -49,7 +51,7 @@ public sealed class ScheduledTaskDisplayFormatterTests
     }
 
     [Fact]
-    public void IsExpired_未消费且时间已过的一次性任务返回真()
+    public void IsExpired_未消费且时间已过的单次任务返回真()
     {
         var task = new ScheduledTask
         {

@@ -252,7 +252,7 @@ public sealed class RunHistoryStore
                     File.ReadAllText(path),
                     JsonOptions);
             if (document?.Runs is null
-                || document.Version != ScheduledTaskRunDocument.CurrentVersion
+                || document.Version is not (1 or ScheduledTaskRunDocument.CurrentVersion)
                 || document.Runs.Any(run => !IsValidRun(run, path)))
             {
                 return false;
@@ -275,8 +275,7 @@ public sealed class RunHistoryStore
             || !ScheduledTaskValidation.IsValidTaskId(run.TaskId)
             || run.TaskName is null
             || !Enum.IsDefined(run.Status)
-            || !Enum.IsDefined(run.Trigger)
-            || !Enum.IsDefined(run.ScriptSource))
+            || !Enum.IsDefined(run.Trigger))
         {
             return false;
         }

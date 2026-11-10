@@ -11,12 +11,14 @@ using WithWindows.Core.Scheduling;
 namespace WithWindows.Services;
 
 /// <summary>
-/// 定时任务、认领和执行历史的单一写入协调器。页面和调度器只通过本类修改状态。
+/// 脚本任务、单次认领和执行历史的单一写入协调器。
 /// </summary>
 public sealed class ScheduledTaskCoordinator : IDisposable
 {
+    private const string LuaRuntimeVersion = "5.4";
+
     private readonly AppHost _host;
-    private readonly PythonScriptRunner _runner;
+    private readonly LuaScriptRunner _runner;
     private readonly object _gate = new();
     private readonly HashSet<string> _activeTasks = new(StringComparer.Ordinal);
     private readonly HashSet<string> _deletingTasks = new(StringComparer.Ordinal);
@@ -28,7 +30,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
 
     public ScheduledTaskCoordinator(
         AppHost host,
-        PythonScriptRunner runner)
+        LuaScriptRunner runner)
     {
         _host = host;
         _runner = runner;
@@ -44,6 +46,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
     public ScheduledTaskStore Tasks { get; }
     public RunHistoryStore Runs { get; }
     public event EventHandler? Changed;
+
     public bool HasActiveTasks
     {
         get
@@ -79,26 +82,13 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 current =>
                 {
                     current.Name = task.Name;
-                    current.Enabled = task.Enabled;
                     current.Schedule = new TaskSchedule
                     {
                         Kind = task.Schedule.Kind,
                         OneTimeRunAt = task.Schedule.OneTimeRunAt,
-                        TimeOfDay = task.Schedule.TimeOfDay,
-                        DaysOfWeek = [.. task.Schedule.DaysOfWeek],
                         OneTimeConsumedAt = task.Schedule.OneTimeConsumedAt,
                     };
-                    current.Source = new ScriptSource
-                    {
-                        Kind = task.Source.Kind,
-                        ScriptText = task.Source.ScriptText,
-                        ScriptPath = task.Source.ScriptPath,
-                    };
-                    current.PythonPath = task.PythonPath;
-                    current.PythonSource = task.PythonSource;
-                    current.PythonResolvedPath = task.PythonResolvedPath;
-                    current.PythonPackageFamilyName = task.PythonPackageFamilyName;
-                    current.WorkingDirectory = task.WorkingDirectory;
+                    current.ScriptText = task.ScriptText;
                     current.TimeoutSeconds = task.TimeoutSeconds;
                 },
                 timestamp);
@@ -110,10 +100,16 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         lock (_gate)
         {
             EnsureAcceptingMutationsLocked();
+            if (!Tasks.CanWrite || !Runs.CanWrite)
+            {
+                throw new InvalidOperationException(
+                    "脚本或执行历史处于只读故障态，不能删除脚本。");
+            }
+
             if (_activeTasks.Contains(taskId))
-                throw new InvalidOperationException("任务正在运行，必须先停止。");
+                throw new InvalidOperationException("脚本正在运行，必须先停止。");
             if (!_deletingTasks.Add(taskId))
-                throw new InvalidOperationException("任务正在删除。");
+                throw new InvalidOperationException("脚本正在删除。");
 
             try
             {
@@ -124,9 +120,8 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 string taskLogDirectory = Path.Combine(
                     AppPaths.ScheduledTaskLogsDirectory,
                     taskId);
-                TryDeleteFile(
-                    Path.Combine(AppPaths.ScheduledTaskScriptsDirectory, taskId + ".py"),
-                    AppPaths.ScheduledTaskScriptsDirectory);
+                DeleteScriptCopy(taskId, ".lua");
+                DeleteScriptCopy(taskId, ".py");
                 foreach (string path in removedLogs)
                     TryDeleteFile(path, taskLogDirectory);
                 TryDeleteEmptyDirectory(
@@ -199,11 +194,11 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         }
         catch (TimeoutException ex)
         {
-            _host.Log.Error($"等待定时脚本收尾超时：{ex.Message}");
+            _host.Log.Error($"等待 Lua 脚本收尾超时：{ex.Message}");
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"等待定时脚本收尾失败：{ex.Message}");
+            _host.Log.Error($"等待 Lua 脚本收尾失败：{ex.Message}");
         }
     }
 
@@ -216,7 +211,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         if (!Runs.CanWrite)
         {
             _host.Log.Error(
-                "执行历史处于只读故障态，拒绝启动脚本并保留待执行 occurrence。");
+                "执行历史处于只读故障态，拒绝启动脚本并保留待执行时间。");
             return;
         }
 
@@ -262,7 +257,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                     DateTimeOffset.UtcNow);
             }
 
-            string? scriptPath = ResolveScriptPath(task);
+            string scriptPath = ScriptCopyPath(taskId);
             string stdoutPath = Path.Combine(
                 AppPaths.ScheduledTaskLogsDirectory,
                 taskId,
@@ -282,16 +277,14 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 ScheduledTaskRunStatus.Running);
             Runs.Upsert(running);
             _host.Log.Info(
-                $"定时任务“{task.Name}”开始运行：{runId}，触发={trigger}");
+                $"Lua 脚本“{task.Name}”开始运行：{runId}，触发={trigger}");
 
-            if (task.Source.Kind == ScriptSourceKind.Inline)
-                MaterializeInlineScript(task, runId);
-
-            string? validationError = ValidateExecution(task, scriptPath);
-            PythonRunResult result;
+            MaterializeScript(task, runId);
+            string? validationError = ValidateExecution(scriptPath);
+            LuaRunResult result;
             if (validationError is not null)
             {
-                result = new PythonRunResult(
+                result = new LuaRunResult(
                     ScheduledTaskRunStatus.Failed,
                     ExitCode: null,
                     validationError,
@@ -301,16 +294,13 @@ public sealed class ScheduledTaskCoordinator : IDisposable
             else
             {
                 result = await _runner.RunAsync(
-                    new PythonRunRequest(
+                    new LuaRunRequest(
                         runId,
-                        task.PythonResolvedPath ?? task.PythonPath!,
-                        PythonVersion: "",
-                        scriptPath!,
-                        ResolveWorkingDirectory(task),
+                        scriptPath,
+                        ResolveWorkingDirectory(),
                         task.TimeoutSeconds,
                         stdoutPath,
-                        stderrPath,
-                        task.Source.Kind),
+                        stderrPath),
                     runCancellation!.Token);
             }
 
@@ -323,14 +313,14 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 result.StderrTruncated);
             IReadOnlyList<string> prunedLogs = Runs.Upsert(running);
             _host.Log.Info(
-                $"定时任务“{task.Name}”运行结束：{runId}，"
+                $"Lua 脚本“{task.Name}”运行结束：{runId}，"
                 + $"状态={result.Status}，退出码={result.ExitCode?.ToString() ?? "无"}");
             foreach (string path in prunedLogs)
                 TryDeleteFile(path, AppPaths.ScheduledTaskLogsDirectory);
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"定时任务“{task.Name}”执行失败：{ex}");
+            _host.Log.Error($"Lua 脚本“{task.Name}”执行失败：{ex}");
             TryRecordFailure(
                 task,
                 runId,
@@ -372,7 +362,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 runId,
                 occurrence,
                 trigger,
-                task.Source.ScriptPath,
+                ScriptCopyPath(task.Id),
                 StdoutLogPath: null,
                 StderrLogPath: null,
                 ScheduledTaskRunStatus.Skipped);
@@ -382,7 +372,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"记录定时任务跳过状态失败：{ex.Message}");
+            _host.Log.Error($"记录 Lua 脚本跳过状态失败：{ex.Message}");
         }
     }
 
@@ -412,7 +402,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 runId,
                 occurrence,
                 trigger,
-                task.Source.ScriptPath,
+                ScriptCopyPath(task.Id),
                 StdoutLogPath: null,
                 StderrLogPath: null,
                 ScheduledTaskRunStatus.Failed);
@@ -422,16 +412,16 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"记录定时任务失败状态失败：{ex.Message}");
+            _host.Log.Error($"记录 Lua 脚本失败状态失败：{ex.Message}");
         }
     }
 
-    private ScheduledTaskRun CreateRun(
+    private static ScheduledTaskRun CreateRun(
         ScheduledTask task,
         string runId,
         ScheduledTaskOccurrence? occurrence,
         ScheduledTaskRunTrigger trigger,
-        string? scriptPath,
+        string scriptPath,
         string? StdoutLogPath,
         string? StderrLogPath,
         ScheduledTaskRunStatus status)
@@ -444,32 +434,24 @@ public sealed class ScheduledTaskCoordinator : IDisposable
             ScheduledFor = occurrence?.ScheduledFor,
             StartedAt = DateTimeOffset.UtcNow,
             Status = status,
-            PythonPath = task.PythonResolvedPath ?? task.PythonPath,
-            ScriptSource = task.Source.Kind,
+            RuntimeVersion = LuaRuntimeVersion,
             ScriptPath = scriptPath,
             StdoutLogPath = StdoutLogPath,
             StderrLogPath = StderrLogPath,
         };
 
-    private string? ResolveScriptPath(ScheduledTask task)
-    {
-        if (task.Source.Kind == ScriptSourceKind.File)
-            return task.Source.ScriptPath;
-
-        return Path.Combine(
+    private static string ScriptCopyPath(string taskId)
+        => Path.Combine(
             AppPaths.ScheduledTaskScriptsDirectory,
-            task.Id + ".py");
-    }
+            taskId + ".lua");
 
-    private static void MaterializeInlineScript(ScheduledTask task, string runId)
+    private static void MaterializeScript(ScheduledTask task, string runId)
     {
-        if (string.IsNullOrWhiteSpace(task.Source.ScriptText))
-            throw new InvalidOperationException("粘贴脚本为空。");
+        if (string.IsNullOrWhiteSpace(task.ScriptText))
+            throw new InvalidOperationException("Lua 脚本为空。");
 
         Directory.CreateDirectory(AppPaths.ScheduledTaskScriptsDirectory);
-        string path = Path.Combine(
-            AppPaths.ScheduledTaskScriptsDirectory,
-            task.Id + ".py");
+        string path = ScriptCopyPath(task.Id);
         if (!PathSafety.IsWithinDirectory(
                 path,
                 AppPaths.ScheduledTaskScriptsDirectory))
@@ -478,49 +460,17 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         }
 
         string temp = path + "." + runId + ".tmp";
-        File.WriteAllText(temp, task.Source.ScriptText, new UTF8Encoding(false));
+        File.WriteAllText(temp, task.ScriptText, new UTF8Encoding(false));
         File.Move(temp, path, overwrite: true);
     }
 
-    private string? ValidateExecution(ScheduledTask task, string? scriptPath)
-    {
-        if (string.IsNullOrWhiteSpace(task.PythonPath))
-            return "尚未选择 Python 解释器。";
+    private static string? ValidateExecution(string scriptPath)
+        => File.Exists(scriptPath)
+            ? null
+            : $"Lua 脚本运行副本不存在：{scriptPath}";
 
-        if (task.PythonSource == PythonInterpreterSource.StoreAlias
-            && !PythonEnvironmentDetector.IsStorePackageInstalled(
-                task.PythonPackageFamilyName))
-        {
-            return "Microsoft Store 版 Python 已不可用。";
-        }
-
-        string interpreter = task.PythonResolvedPath ?? task.PythonPath;
-        if (!File.Exists(interpreter))
-            return $"Python 解释器不存在：{interpreter}";
-
-        if (string.IsNullOrWhiteSpace(scriptPath) || !File.Exists(scriptPath))
-            return $"Python 脚本不存在：{scriptPath}";
-
-        if (!Directory.Exists(ResolveWorkingDirectory(task)))
-            return $"工作目录不存在：{ResolveWorkingDirectory(task)}";
-
-        return null;
-    }
-
-    private static string ResolveWorkingDirectory(ScheduledTask task)
-    {
-        if (!string.IsNullOrWhiteSpace(task.WorkingDirectory))
-            return task.WorkingDirectory;
-
-        if (task.Source.Kind == ScriptSourceKind.File
-            && !string.IsNullOrWhiteSpace(task.Source.ScriptPath))
-        {
-            return Path.GetDirectoryName(task.Source.ScriptPath)
-                ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        }
-
-        return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-    }
+    private static string ResolveWorkingDirectory()
+        => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
     private static string? BuildOutputMessage(
         string? original,
@@ -556,7 +506,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                     runId,
                     occurrence: null,
                     ScheduledTaskRunTrigger.Scheduled,
-                    task.Source.ScriptPath,
+                    ScriptCopyPath(task.Id),
                     StdoutLogPath: null,
                     StderrLogPath: null,
                     ScheduledTaskRunStatus.Interrupted);
@@ -568,7 +518,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
             }
             catch (Exception ex)
             {
-                _host.Log.Error($"修复定时任务认领记录失败：{ex.Message}");
+                _host.Log.Error($"修复脚本认领记录失败：{ex.Message}");
             }
         }
     }
@@ -592,12 +542,17 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         {
             foreach (string path in Directory.EnumerateFiles(
                 AppPaths.ScheduledTaskScriptsDirectory,
-                "*.py",
+                "*",
                 SearchOption.TopDirectoryOnly))
             {
+                string extension = Path.GetExtension(path);
+                if (extension is not (".lua" or ".py"))
+                    continue;
+
                 string id = Path.GetFileNameWithoutExtension(path);
                 if (!ScheduledTaskValidation.IsValidTaskId(id)
-                    || !taskIds.Contains(id))
+                    || !taskIds.Contains(id)
+                    || extension == ".py")
                 {
                     TryDeleteFile(path, AppPaths.ScheduledTaskScriptsDirectory);
                 }
@@ -673,6 +628,14 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         }
     }
 
+    private static void DeleteScriptCopy(string taskId, string extension)
+    {
+        string path = Path.Combine(
+            AppPaths.ScheduledTaskScriptsDirectory,
+            taskId + extension);
+        TryDeleteFile(path, AppPaths.ScheduledTaskScriptsDirectory);
+    }
+
     private static void TryDeleteFile(string? path, string allowedDirectory)
     {
         if (string.IsNullOrWhiteSpace(path)
@@ -692,7 +655,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
     private void EnsureAcceptingMutationsLocked()
     {
         if (_stopping || _disposed)
-            throw new InvalidOperationException("应用正在退出，不能修改定时任务。");
+            throw new InvalidOperationException("应用正在退出，不能修改脚本任务。");
     }
 
     private static void TryDeleteEmptyDirectory(
@@ -747,7 +710,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
             completed =>
             {
                 if (completed.IsFaulted)
-                    _host.Log.Error($"定时脚本任务异常结束：{completed.Exception}");
+                    _host.Log.Error($"Lua 脚本任务异常结束：{completed.Exception}");
                 lock (_gate)
                     _runTasks.Remove(completed);
             },

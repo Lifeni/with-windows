@@ -56,16 +56,16 @@ docs/                           用户、开发与设计文档
 - `config.json`：应用配置，示例见 [config/config.json](../config/config.json)
 - `notepad.txt`：记事草稿
 - `todos.json`：待办与提醒
-- `scheduled-tasks/tasks.json`：定时任务定义
+- `scheduled-tasks/tasks.json`：Lua 脚本定义
 - `scheduled-tasks/runs.json`：最近执行历史
-- `scheduled-tasks/scripts/`：粘贴脚本的运行副本
+- `scheduled-tasks/scripts/`：内联 Lua 脚本的运行副本
 - `scheduled-tasks/logs/`：每次运行的 stdout 与 stderr 日志
 - `scheduled-tasks/runner/`：隐藏 script helper 的短生命周期运行规格
 - `chat/current.json`：当前 AI 会话
 - `chat/credential.bin`：DPAPI 保护的 API Key
 - `log.txt`：运行日志
 
-定时任务需要 Python 3。应用完全退出后调度停止；关闭主窗口并驻留托盘时继续执行。Python 脚本不是沙箱，以当前用户权限运行。
+应用内置 Lua 5.4，不需要用户安装 Lua。脚本可手动运行或设置一次未来的执行时间；应用完全退出后不再执行单次计划，关闭主窗口并驻留托盘时继续执行。Lua 脚本不是沙箱，以当前用户权限运行；通过 `os.execute`、`io.popen` 启动的 Python、Node.js 子进程仍需目标机器安装对应运行时。
 
 ## 发布
 
