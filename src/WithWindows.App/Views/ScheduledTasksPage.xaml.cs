@@ -10,7 +10,7 @@ using WithWindows.Services;
 
 namespace WithWindows.Views;
 
-/// <summary>Lua 脚本列表；添加与编辑统一在独立对话框中完成。</summary>
+/// <summary>脚本列表；添加与编辑统一在独立对话框中完成。</summary>
 public sealed partial class ScheduledTasksPage : Page
 {
     private ScheduledTaskCoordinator? _coordinator;
@@ -66,7 +66,7 @@ public sealed partial class ScheduledTasksPage : Page
         }
         catch (Exception ex)
         {
-            ShowError($"加载 Lua 脚本失败：{ex.Message}");
+            ShowError($"加载脚本失败：{ex.Message}");
         }
     }
 
@@ -284,8 +284,8 @@ public sealed partial class ScheduledTasksPage : Page
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = "删除 Lua 脚本",
-                Content = $"“{task.Name}”及其执行历史将被删除。外部 Python、Node.js 文件不会被删除。",
+                Title = "删除脚本",
+                Content = $"“{task.Name}”及其执行历史将被删除。",
                 PrimaryButtonText = "删除",
                 CloseButtonText = "取消",
                 DefaultButton = ContentDialogButton.Close,
@@ -321,12 +321,12 @@ public sealed partial class ScheduledTasksPage : Page
     {
         if (!IsLoaded || XamlRoot is null)
         {
-            Host?.Log.Error($"Lua 脚本页（已卸载）：{message}");
+            Host?.Log.Error($"脚本页（已卸载）：{message}");
             return;
         }
 
         ErrorBar.Message = message;
         ErrorBar.IsOpen = true;
-        Host?.Log.Error($"Lua 脚本页：{message}");
+        Host?.Log.Error($"脚本页：{message}");
     }
 }

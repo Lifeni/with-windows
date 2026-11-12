@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 
 namespace WithWindows.Controls;
 
@@ -52,6 +53,11 @@ public static class HotkeyDialog
         });
         content.Children.Add(capture);
         content.Children.Add(actions);
+        content.ChildrenTransitions.Add(
+            new EntranceThemeTransition
+            {
+                IsStaggeringEnabled = true,
+            });
 
         var dialog = new ContentDialog
         {

@@ -1,5 +1,5 @@
 <UserControl
-    x:Class="WithWindows.Controls.LuaCodeEditor"
+    x:Class="WithWindows.Controls.CSharpCodeEditor"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
@@ -45,7 +45,7 @@
                 Grid.Column="1"
                 AcceptsReturn="True"
                 AutomationProperties.AutomationId="ScheduledTaskScriptEditor"
-                AutomationProperties.Name="Lua 脚本"
+                AutomationProperties.Name="C# 脚本"
                 Background="Transparent"
                 BorderThickness="0"
                 FontFamily="Cascadia Mono, Consolas"

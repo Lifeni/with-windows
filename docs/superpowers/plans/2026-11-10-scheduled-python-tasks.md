@@ -1,6 +1,6 @@
 # 定时 Python 任务 Implementation Plan
 
-> **已取代：** Python 定时任务方案已改为 Lua 脚本列表方案，本文仅保留为历史实施记录。当前行为见 [Lua 脚本任务设计](../../design/2026-11-10-lua-script-tasks-design.md)。
+> **已取代：** Python 定时任务方案最终改为 C# 脚本列表方案，本文仅保留为历史实施记录。当前行为见 [C# 脚本任务设计](../../design/2026-11-12-csharp-script-tasks-design.md)。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

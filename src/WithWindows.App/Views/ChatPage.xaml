@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:WithWindows.Views"
     xmlns:controls="using:WithWindows.Controls"
+    NavigationCacheMode="Required"
     PreviewKeyDown="OnPageKeyDown">
 
     <Page.Resources>
@@ -111,7 +112,7 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid>
+    <Grid x:Name="PageRoot">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -183,7 +184,11 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <Grid
+            Grid.Row="1"
+            Width="{Binding ActualWidth, ElementName=PageRoot}"
+            MaxWidth="{StaticResource PageContentMaxWidth}"
+            HorizontalAlignment="Center">
             <ListView
                 x:Name="MessageList"
                 AutomationProperties.AutomationId="ChatMessageList"
@@ -191,6 +196,12 @@
                 ItemsSource="{x:Bind Messages}"
                 ItemTemplate="{StaticResource ChatMessageTemplate}"
                 SelectionMode="None">
+                <ListView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <AddDeleteThemeTransition />
+                        <RepositionThemeTransition />
+                    </TransitionCollection>
+                </ListView.ItemContainerTransitions>
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -249,6 +260,12 @@
                     AutomationProperties.AutomationId="ChatPendingAttachments"
                     ItemsSource="{x:Bind PendingAttachments}"
                     ItemTemplate="{StaticResource PendingAttachmentTemplate}">
+                    <ItemsControl.ItemContainerTransitions>
+                        <TransitionCollection>
+                            <AddDeleteThemeTransition />
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </ItemsControl.ItemContainerTransitions>
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" />

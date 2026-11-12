@@ -15,10 +15,10 @@ namespace WithWindows.Services;
 /// </summary>
 public sealed class ScheduledTaskCoordinator : IDisposable
 {
-    private const string LuaRuntimeVersion = "5.4";
+    private const string CSharpRuntimeVersion = "C# 14 / .NET 10";
 
     private readonly AppHost _host;
-    private readonly LuaScriptRunner _runner;
+    private readonly CSharpScriptRunner _runner;
     private readonly object _gate = new();
     private readonly HashSet<string> _activeTasks = new(StringComparer.Ordinal);
     private readonly HashSet<string> _deletingTasks = new(StringComparer.Ordinal);
@@ -30,7 +30,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
 
     public ScheduledTaskCoordinator(
         AppHost host,
-        LuaScriptRunner runner)
+        CSharpScriptRunner runner)
     {
         _host = host;
         _runner = runner;
@@ -123,8 +123,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 string taskLogDirectory = Path.Combine(
                     AppPaths.ScheduledTaskLogsDirectory,
                     taskId);
-                DeleteScriptCopy(taskId, ".lua");
-                DeleteScriptCopy(taskId, ".py");
+                DeleteScriptCopy(taskId, ".csx");
                 foreach (string path in removedLogs)
                     TryDeleteFile(path, taskLogDirectory);
                 TryDeleteEmptyDirectory(
@@ -197,11 +196,11 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         }
         catch (TimeoutException ex)
         {
-            _host.Log.Error($"等待 Lua 脚本收尾超时：{ex.Message}");
+            _host.Log.Error($"等待 C# 脚本收尾超时：{ex.Message}");
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"等待 Lua 脚本收尾失败：{ex.Message}");
+            _host.Log.Error($"等待 C# 脚本收尾失败：{ex.Message}");
         }
     }
 
@@ -280,14 +279,14 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 ScheduledTaskRunStatus.Running);
             Runs.Upsert(running);
             _host.Log.Info(
-                $"Lua 脚本“{task.Name}”开始运行：{runId}，触发={trigger}");
+                $"C# 脚本“{task.Name}”开始运行：{runId}，触发={trigger}");
 
             MaterializeScript(task, runId);
             string? validationError = ValidateExecution(scriptPath);
-            LuaRunResult result;
+            CSharpRunResult result;
             if (validationError is not null)
             {
-                result = new LuaRunResult(
+                result = new CSharpRunResult(
                     ScheduledTaskRunStatus.Failed,
                     ExitCode: null,
                     validationError,
@@ -297,7 +296,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
             else
             {
                 result = await _runner.RunAsync(
-                    new LuaRunRequest(
+                    new CSharpRunRequest(
                         runId,
                         scriptPath,
                         ResolveWorkingDirectory(),
@@ -316,14 +315,14 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 result.StderrTruncated);
             IReadOnlyList<string> prunedLogs = Runs.Upsert(running);
             _host.Log.Info(
-                $"Lua 脚本“{task.Name}”运行结束：{runId}，"
+                $"C# 脚本“{task.Name}”运行结束：{runId}，"
                 + $"状态={result.Status}，退出码={result.ExitCode?.ToString() ?? "无"}");
             foreach (string path in prunedLogs)
                 TryDeleteFile(path, AppPaths.ScheduledTaskLogsDirectory);
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"Lua 脚本“{task.Name}”执行失败：{ex}");
+            _host.Log.Error($"C# 脚本“{task.Name}”执行失败：{ex}");
             TryRecordFailure(
                 task,
                 runId,
@@ -375,7 +374,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"记录 Lua 脚本跳过状态失败：{ex.Message}");
+            _host.Log.Error($"记录 C# 脚本跳过状态失败：{ex.Message}");
         }
     }
 
@@ -415,7 +414,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"记录 Lua 脚本失败状态失败：{ex.Message}");
+            _host.Log.Error($"记录 C# 脚本失败状态失败：{ex.Message}");
         }
     }
 
@@ -437,7 +436,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
             ScheduledFor = occurrence?.ScheduledFor,
             StartedAt = DateTimeOffset.UtcNow,
             Status = status,
-            RuntimeVersion = LuaRuntimeVersion,
+            RuntimeVersion = CSharpRuntimeVersion,
             ScriptPath = scriptPath,
             StdoutLogPath = StdoutLogPath,
             StderrLogPath = StderrLogPath,
@@ -446,12 +445,12 @@ public sealed class ScheduledTaskCoordinator : IDisposable
     private static string ScriptCopyPath(string taskId)
         => Path.Combine(
             AppPaths.ScheduledTaskScriptsDirectory,
-            taskId + ".lua");
+            taskId + ".csx");
 
     private static void MaterializeScript(ScheduledTask task, string runId)
     {
         if (string.IsNullOrWhiteSpace(task.ScriptText))
-            throw new InvalidOperationException("Lua 脚本为空。");
+            throw new InvalidOperationException("C# 脚本为空。");
 
         Directory.CreateDirectory(AppPaths.ScheduledTaskScriptsDirectory);
         string path = ScriptCopyPath(task.Id);
@@ -470,7 +469,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
     private static string? ValidateExecution(string scriptPath)
         => File.Exists(scriptPath)
             ? null
-            : $"Lua 脚本运行副本不存在：{scriptPath}";
+            : $"C# 脚本运行副本不存在：{scriptPath}";
 
     private static string ResolveWorkingDirectory()
         => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -549,13 +548,12 @@ public sealed class ScheduledTaskCoordinator : IDisposable
                 SearchOption.TopDirectoryOnly))
             {
                 string extension = Path.GetExtension(path);
-                if (extension is not (".lua" or ".py"))
+                if (extension is not ".csx")
                     continue;
 
                 string id = Path.GetFileNameWithoutExtension(path);
                 if (!ScheduledTaskValidation.IsValidTaskId(id)
-                    || !taskIds.Contains(id)
-                    || extension == ".py")
+                    || !taskIds.Contains(id))
                 {
                     TryDeleteFile(path, AppPaths.ScheduledTaskScriptsDirectory);
                 }
@@ -713,7 +711,7 @@ public sealed class ScheduledTaskCoordinator : IDisposable
             completed =>
             {
                 if (completed.IsFaulted)
-                    _host.Log.Error($"Lua 脚本任务异常结束：{completed.Exception}");
+                    _host.Log.Error($"C# 脚本任务异常结束：{completed.Exception}");
                 lock (_gate)
                     _runTasks.Remove(completed);
             },

@@ -9,8 +9,8 @@ using WithWindows.Core.Scheduling;
 
 namespace WithWindows.Controls;
 
-/// <summary>轻量 Lua 编辑器：基础词法高亮与同步行号。</summary>
-public sealed partial class LuaCodeEditor : UserControl
+/// <summary>轻量 C# 编辑器：基础词法高亮与同步行号。</summary>
+public sealed partial class CSharpCodeEditor : UserControl
 {
     private DispatcherQueueTimer? _highlightTimer;
     private ScrollViewer? _editorScroll;
@@ -18,7 +18,7 @@ public sealed partial class LuaCodeEditor : UserControl
     private bool _loaded;
     private bool _highlightPending;
 
-    public LuaCodeEditor()
+    public CSharpCodeEditor()
     {
         InitializeComponent();
     }
@@ -144,7 +144,7 @@ public sealed partial class LuaCodeEditor : UserControl
             baseFormat.Italic = FormatEffect.Off;
             fullRange.CharacterFormat = baseFormat;
 
-            foreach (LuaSyntaxSpan span in LuaSyntaxHighlighter.Parse(text))
+            foreach (CSharpSyntaxSpan span in CSharpSyntaxHighlighter.Parse(text))
             {
                 ITextRange range = Editor.Document.GetRange(
                     span.Start,
@@ -152,17 +152,17 @@ public sealed partial class LuaCodeEditor : UserControl
                 ITextCharacterFormat format = range.CharacterFormat;
                 format.ForegroundColor = span.Kind switch
                 {
-                    LuaSyntaxKind.Keyword => keywordColor,
-                    LuaSyntaxKind.Builtin => builtinColor,
-                    LuaSyntaxKind.String => stringColor,
-                    LuaSyntaxKind.Comment => commentColor,
-                    LuaSyntaxKind.Number => numberColor,
+                    CSharpSyntaxKind.Keyword => keywordColor,
+                    CSharpSyntaxKind.Builtin => builtinColor,
+                    CSharpSyntaxKind.String => stringColor,
+                    CSharpSyntaxKind.Comment => commentColor,
+                    CSharpSyntaxKind.Number => numberColor,
                     _ => primaryColor,
                 };
-                format.Bold = span.Kind == LuaSyntaxKind.Keyword
+                format.Bold = span.Kind == CSharpSyntaxKind.Keyword
                     ? FormatEffect.On
                     : FormatEffect.Off;
-                format.Italic = span.Kind == LuaSyntaxKind.Comment
+                format.Italic = span.Kind == CSharpSyntaxKind.Comment
                     ? FormatEffect.On
                     : FormatEffect.Off;
                 range.CharacterFormat = format;
@@ -175,7 +175,7 @@ public sealed partial class LuaCodeEditor : UserControl
         }
         catch (Exception ex)
         {
-            App.Host?.Log.Error($"Lua 编辑器高亮失败：{ex.Message}");
+            App.Host?.Log.Error($"C# 编辑器高亮失败：{ex.Message}");
         }
         finally
         {

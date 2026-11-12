@@ -26,7 +26,22 @@ public sealed record ChatMessage(ChatRole Role, string Content)
 }
 
 /// <summary>流式回复中的一个文本增量。</summary>
-public sealed record ChatDelta(string Content);
+public sealed record ChatDelta(
+    string Content,
+    ChatToolCallDelta? ToolCall = null);
+
+/// <summary>流式响应中的单个工具调用参数片段。</summary>
+public sealed record ChatToolCallDelta(
+    int Index,
+    string? Id = null,
+    string? Name = null,
+    string? ArgumentsDelta = null);
+
+/// <summary>完整的工具调用。</summary>
+public sealed record ChatToolCall(
+    string Id,
+    string Name,
+    string Arguments);
 
 /// <summary>OpenAI 兼容对话客户端。</summary>
 public interface IChatCompletionService
@@ -35,7 +50,8 @@ public interface IChatCompletionService
         ChatSettings settings,
         string apiKey,
         IReadOnlyList<ChatMessage> messages,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool allowScriptProposal = false);
 }
 
 /// <summary>单个 SSE 事件的解析结果。</summary>
@@ -43,9 +59,13 @@ public enum ChatStreamEventKind
 {
     None,
     Content,
+    ToolCall,
     Done,
     Error,
 }
 
 /// <summary>SSE 事件或非流式响应中的文本结果。</summary>
-public sealed record ChatStreamEvent(ChatStreamEventKind Kind, string? Text = null);
+public sealed record ChatStreamEvent(
+    ChatStreamEventKind Kind,
+    string? Text = null,
+    ChatToolCallDelta? ToolCall = null);

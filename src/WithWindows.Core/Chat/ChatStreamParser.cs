@@ -58,17 +58,100 @@ public static class ChatStreamParser
 
         JsonElement choice = choices[0];
         if (!choice.TryGetProperty(containerName, out JsonElement container)
-            || container.ValueKind != JsonValueKind.Object
-            || !container.TryGetProperty("content", out JsonElement content)
-            || content.ValueKind != JsonValueKind.String)
+            || container.ValueKind != JsonValueKind.Object)
         {
             return new ChatStreamEvent(ChatStreamEventKind.None);
         }
 
-        string? text = content.GetString();
-        return string.IsNullOrEmpty(text)
-            ? new ChatStreamEvent(ChatStreamEventKind.None)
-            : new ChatStreamEvent(ChatStreamEventKind.Content, text);
+        if (container.TryGetProperty("content", out JsonElement content)
+            && content.ValueKind == JsonValueKind.String)
+        {
+            string? text = content.GetString();
+            if (!string.IsNullOrEmpty(text))
+                return new ChatStreamEvent(ChatStreamEventKind.Content, text);
+        }
+
+        if (TryReadToolCall(container, out ChatToolCallDelta? toolCall))
+            return new ChatStreamEvent(
+                ChatStreamEventKind.ToolCall,
+                ToolCall: toolCall);
+
+        return new ChatStreamEvent(ChatStreamEventKind.None);
+    }
+
+    private static bool TryReadToolCall(
+        JsonElement container,
+        out ChatToolCallDelta? toolCall)
+    {
+        toolCall = null;
+        if (container.TryGetProperty("tool_calls", out JsonElement calls)
+            && calls.ValueKind == JsonValueKind.Array
+            && calls.GetArrayLength() > 0)
+        {
+            JsonElement call = calls[0];
+            if (call.ValueKind != JsonValueKind.Object)
+                return false;
+
+            int index = 0;
+            if (call.TryGetProperty("index", out JsonElement indexElement)
+                && indexElement.ValueKind == JsonValueKind.Number)
+            {
+                indexElement.TryGetInt32(out index);
+            }
+
+            string? id = ReadOptionalString(call, "id");
+            if (!call.TryGetProperty("function", out JsonElement function)
+                || function.ValueKind != JsonValueKind.Object)
+            {
+                toolCall = new ChatToolCallDelta(index, Id: id);
+                return true;
+            }
+
+            toolCall = new ChatToolCallDelta(
+                index,
+                id,
+                ReadOptionalString(function, "name"),
+                ReadArguments(function));
+            return true;
+        }
+
+        if (container.TryGetProperty("function_call", out JsonElement legacy)
+            && legacy.ValueKind == JsonValueKind.Object)
+        {
+            toolCall = new ChatToolCallDelta(
+                0,
+                Name: ReadOptionalString(legacy, "name"),
+                ArgumentsDelta: ReadArguments(legacy));
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? ReadArguments(JsonElement function)
+    {
+        if (!function.TryGetProperty("arguments", out JsonElement arguments))
+            return null;
+
+        return arguments.ValueKind switch
+        {
+            JsonValueKind.String => arguments.GetString(),
+            JsonValueKind.Object or JsonValueKind.Array =>
+                arguments.GetRawText(),
+            _ => null,
+        };
+    }
+
+    private static string? ReadOptionalString(
+        JsonElement parent,
+        string property)
+    {
+        if (!parent.TryGetProperty(property, out JsonElement value)
+            || value.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+        return value.GetString();
     }
 
     private static bool TryReadError(JsonElement root, out string? message)

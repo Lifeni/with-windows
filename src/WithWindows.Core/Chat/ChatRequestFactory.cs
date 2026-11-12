@@ -12,11 +12,26 @@ public static class ChatRequestFactory
         ChatSettings settings,
         string apiKey,
         IReadOnlyList<ChatMessage> messages,
-        ChatAttachmentStore? attachmentStore = null)
+        ChatAttachmentStore? attachmentStore = null,
+        bool allowScriptProposal = false)
     {
         var effective = new List<ChatMessage>();
-        if (!string.IsNullOrWhiteSpace(settings.SystemPrompt))
-            effective.Add(new ChatMessage(ChatRole.System, settings.SystemPrompt.Trim()));
+        string systemPrompt = settings.SystemPrompt.Trim();
+        if (!string.IsNullOrWhiteSpace(systemPrompt))
+        {
+            if (allowScriptProposal)
+            {
+                systemPrompt += Environment.NewLine + Environment.NewLine
+                    + CSharpScriptProposalTool.SystemInstruction;
+            }
+            effective.Add(new ChatMessage(ChatRole.System, systemPrompt));
+        }
+        else if (allowScriptProposal)
+        {
+            effective.Add(new ChatMessage(
+                ChatRole.System,
+                CSharpScriptProposalTool.SystemInstruction));
+        }
         effective.AddRange(ChatHistoryImageBudget.Limit(messages));
 
         long remainingImageBytes = ChatHistoryImageBudget.MaxBytes;
@@ -42,12 +57,17 @@ public static class ChatRequestFactory
             });
         }
 
-        var payload = new
+        var payload = new Dictionary<string, object?>
         {
-            model = settings.Model.Trim(),
-            messages = requestMessages,
-            stream = true,
+            ["model"] = settings.Model.Trim(),
+            ["messages"] = requestMessages,
+            ["stream"] = true,
         };
+        if (allowScriptProposal)
+        {
+            payload["tools"] = new[] { CSharpScriptProposalTool.Definition };
+            payload["tool_choice"] = "auto";
+        }
 
         var request = new HttpRequestMessage(
             HttpMethod.Post,

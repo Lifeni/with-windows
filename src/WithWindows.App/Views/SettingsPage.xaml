@@ -9,10 +9,10 @@
         Padding="24"
         HorizontalScrollBarVisibility="Disabled"
         HorizontalScrollMode="Disabled">
-        <!-- 与 PowerToys 一致：内容跟随视口宽度，上限 1200 DIP 并水平居中 -->
+        <!-- 内容跟随视口宽度，上限与其他工具页一致并水平居中 -->
         <StackPanel
             Width="{Binding ViewportWidth, ElementName=PageScroll}"
-            MaxWidth="1200"
+            MaxWidth="{StaticResource PageContentMaxWidth}"
             HorizontalAlignment="Center"
             Spacing="8">
             <TextBlock

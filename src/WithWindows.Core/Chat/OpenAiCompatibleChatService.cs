@@ -14,10 +14,16 @@ public sealed class OpenAiCompatibleChatService(
         ChatSettings settings,
         string apiKey,
         IReadOnlyList<ChatMessage> messages,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken,
+        bool allowScriptProposal = false)
     {
         using HttpRequestMessage request =
-            ChatRequestFactory.Create(settings, apiKey, messages, attachmentStore);
+            ChatRequestFactory.Create(
+                settings,
+                apiKey,
+                messages,
+                attachmentStore,
+                allowScriptProposal);
         using HttpResponseMessage response = await http.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -51,6 +57,11 @@ public sealed class OpenAiCompatibleChatService(
                 {
                     yield return new ChatDelta(item.Text);
                 }
+                else if (item.Kind == ChatStreamEventKind.ToolCall
+                    && item.ToolCall is not null)
+                {
+                    yield return new ChatDelta("", item.ToolCall);
+                }
             }
 
             yield break;
@@ -67,6 +78,11 @@ public sealed class OpenAiCompatibleChatService(
             && !string.IsNullOrEmpty(completion.Text))
         {
             yield return new ChatDelta(completion.Text);
+        }
+        else if (completion.Kind == ChatStreamEventKind.ToolCall
+            && completion.ToolCall is not null)
+        {
+            yield return new ChatDelta("", completion.ToolCall);
         }
     }
 }

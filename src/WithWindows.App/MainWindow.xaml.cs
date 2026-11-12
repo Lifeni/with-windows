@@ -4,6 +4,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 using WithWindows.Services;
 using WithWindows.Core.Todos;
 using WithWindows.Tools;
@@ -201,7 +202,10 @@ public sealed partial class MainWindow : Window
         }
 
         _pendingNavigationAttempted = true;
-        bool navigated = NavFrame.Navigate(pageType);
+        bool navigated = NavFrame.Navigate(
+            pageType,
+            parameter: null,
+            new EntranceNavigationTransitionInfo());
         if (!navigated)
         {
             _pendingRouteTag = tag;
@@ -595,7 +599,7 @@ public sealed partial class MainWindow : Window
                 {
                     XamlRoot = xamlRoot,
                     Title = "脚本正在运行",
-                    Content = "退出 With Windows 将停止所有正在运行的 Lua 脚本及其子进程。",
+                    Content = "退出 With Windows 将停止所有正在运行的脚本。",
                     PrimaryButtonText = "停止并退出",
                     CloseButtonText = "取消",
                     DefaultButton = ContentDialogButton.Close,

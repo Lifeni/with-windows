@@ -9,13 +9,15 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
+using Windows.System;
 using WithWindows.Core.Diagnostics;
 using WithWindows.Core.Scheduling;
 using WithWindows.Views;
 
 namespace WithWindows.Controls;
 
-/// <summary>只读运行日志对话框：左侧记录列表，右侧合并输出。</summary>
+/// <summary>只读运行日志对话框：运行记录以单列折叠卡片展示。</summary>
 public static class ScheduledTaskHistoryDialog
 {
     private static readonly SemaphoreSlim PopupGate = new(1, 1);
@@ -76,28 +78,60 @@ public static class ScheduledTaskHistoryDialog
             title,
             "ScheduledTaskHistoryDialog");
 
+        var overlay = new Grid
+        {
+            Background = (Brush)Application.Current.Resources[
+                "ContentDialogSmokeFill"],
+        };
+        card.HorizontalAlignment = HorizontalAlignment.Center;
+        card.VerticalAlignment = VerticalAlignment.Center;
+        card.PointerPressed += (_, args) => args.Handled = true;
+        overlay.Children.Add(card);
+
         var popup = new Popup
         {
+            ChildTransitions = new TransitionCollection
+            {
+                new PopupThemeTransition
+                {
+                    FromVerticalOffset = 12,
+                },
+            },
             XamlRoot = xamlRoot,
-            Child = card,
-            IsLightDismissEnabled = true,
-            LightDismissOverlayMode = LightDismissOverlayMode.On,
+            Child = overlay,
+            IsLightDismissEnabled = false,
         };
+
+        void ClosePopup() => popup.IsOpen = false;
+        overlay.PointerPressed += (_, args) =>
+        {
+            args.Handled = true;
+            ClosePopup();
+        };
+        UIElement rootContent = xamlRoot.Content;
+        void OnRootKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs args)
+        {
+            if (!popup.IsOpen || args.Key != VirtualKey.Escape)
+                return;
+
+            args.Handled = true;
+            ClosePopup();
+        }
+        var rootKeyHandler =
+            new Microsoft.UI.Xaml.Input.KeyEventHandler(OnRootKeyDown);
 
         void UpdateContentSize()
         {
+            overlay.Width = xamlRoot.Size.Width;
+            overlay.Height = xamlRoot.Size.Height;
             card.Width = Math.Clamp(
                 xamlRoot.Size.Width - 240,
                 min: 460,
                 max: 660);
             card.Height = Math.Clamp(
                 xamlRoot.Size.Height - 220,
-                min: 340,
-                max: 500);
-            popup.HorizontalOffset =
-                Math.Max(0, (xamlRoot.Size.Width - card.Width) / 2);
-            popup.VerticalOffset =
-                Math.Max(0, (xamlRoot.Size.Height - card.Height) / 2);
+                min: 360,
+                max: 460);
         }
 
         void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
@@ -106,13 +140,16 @@ public static class ScheduledTaskHistoryDialog
         UpdateContentSize();
 
         bool closed = false;
-        int outputGeneration = 0;
-        async Task LoadSelectedRunAsync(
-            ScheduledTaskRunRowViewModel? run)
+        var loadedRuns = new HashSet<string>(StringComparer.Ordinal);
+        var loadingRuns = new HashSet<string>(StringComparer.Ordinal);
+        async Task LoadRunAsync(ScheduledTaskRunRowViewModel run)
         {
-            int generation = ++outputGeneration;
-            if (run is null)
+            if (closed
+                || loadedRuns.Contains(run.Id)
+                || !loadingRuns.Add(run.Id))
+            {
                 return;
+            }
 
             try
             {
@@ -123,7 +160,7 @@ public static class ScheduledTaskHistoryDialog
                     run.TaskId,
                     run.StderrLogPath);
                 await Task.WhenAll(stdoutTask, stderrTask);
-                if (closed || generation != outputGeneration)
+                if (closed)
                     return;
 
                 DateTimeOffset fallback =
@@ -164,18 +201,27 @@ public static class ScheduledTaskHistoryDialog
                         ? time
                         : left.Sequence.CompareTo(right.Sequence);
                 });
-                view.ShowOutput(entries);
+                view.ShowOutput(run.Id, entries);
+                loadedRuns.Add(run.Id);
             }
             catch (Exception ex)
             {
-                if (!closed && generation == outputGeneration)
-                    view.ShowError($"读取运行输出失败：{ex.Message}");
+                if (!closed)
+                {
+                    view.ShowError(
+                        run.Id,
+                        $"读取运行输出失败：{ex.Message}");
+                }
+            }
+            finally
+            {
+                loadingRuns.Remove(run.Id);
             }
         }
 
-        view.SelectedRunChanged += async (_, run) =>
+        view.RunExpanded += async (_, run) =>
         {
-            await LoadSelectedRunAsync(run);
+            await LoadRunAsync(run);
         };
         view.SetRuns(runs);
         var completion = new TaskCompletionSource<bool>(
@@ -183,19 +229,25 @@ public static class ScheduledTaskHistoryDialog
         popup.Closed += (_, _) =>
         {
             closed = true;
-            outputGeneration++;
             completion.TrySetResult(true);
         };
 
         try
         {
             xamlRoot.Changed += OnXamlRootChanged;
+            rootContent.AddHandler(
+                UIElement.KeyDownEvent,
+                rootKeyHandler,
+                handledEventsToo: true);
             popup.IsOpen = true;
             view.FocusInitial();
             await completion.Task;
         }
         finally
         {
+            rootContent.RemoveHandler(
+                UIElement.KeyDownEvent,
+                rootKeyHandler);
             xamlRoot.Changed -= OnXamlRootChanged;
             popup.IsOpen = false;
         }

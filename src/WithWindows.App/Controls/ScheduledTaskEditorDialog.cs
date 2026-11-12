@@ -4,13 +4,15 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using WithWindows.Core.Scheduling;
 
 namespace WithWindows.Controls;
 
 /// <summary>
-/// Lua 脚本编辑对话框。脚本只保存在应用内，不关联外部脚本文件。
+/// C# 脚本编辑对话框。脚本只保存在应用内，不关联外部脚本文件。
 /// </summary>
 public static class ScheduledTaskEditorDialog
 {
@@ -90,6 +92,7 @@ public static class ScheduledTaskEditorDialog
             datePicker,
             "ScheduledTaskDatePicker");
         AutomationProperties.SetName(datePicker, "单次执行日期");
+        datePicker.Transitions.Add(new EntranceThemeTransition());
 
         var timePicker = new TimePicker
         {
@@ -104,6 +107,7 @@ public static class ScheduledTaskEditorDialog
             timePicker,
             "ScheduledTaskTimePicker");
         AutomationProperties.SetName(timePicker, "单次执行时间");
+        timePicker.Transitions.Add(new EntranceThemeTransition());
 
         var dateLabel = new TextBlock
         {
@@ -117,82 +121,106 @@ public static class ScheduledTaskEditorDialog
             Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
             Text = "时间",
         };
+        var monthlyDateLabel = new TextBlock
+        {
+            FontSize = 12,
+            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Text = "每月日期",
+            Visibility = Visibility.Collapsed,
+        };
 
         var scheduleFields = new Grid
         {
             ColumnSpacing = 12,
-            RowSpacing = 4,
+            RowSpacing = 8,
         };
         scheduleFields.RowDefinitions.Add(
             new RowDefinition { Height = GridLength.Auto });
         scheduleFields.RowDefinitions.Add(
             new RowDefinition { Height = GridLength.Auto });
+        scheduleFields.RowDefinitions.Add(
+            new RowDefinition { Height = GridLength.Auto });
         scheduleFields.ColumnDefinitions.Add(
             new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         scheduleFields.ColumnDefinitions.Add(
             new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        scheduleFields.ChildrenTransitions.Add(new RepositionThemeTransition());
         scheduleFields.Children.Add(dateLabel);
         Grid.SetColumn(timeLabel, 1);
         scheduleFields.Children.Add(timeLabel);
+        Grid.SetColumn(monthlyDateLabel, 1);
+        scheduleFields.Children.Add(monthlyDateLabel);
         Grid.SetRow(datePicker, 1);
         scheduleFields.Children.Add(datePicker);
         Grid.SetColumn(timePicker, 1);
         Grid.SetRow(timePicker, 1);
         scheduleFields.Children.Add(timePicker);
 
-        CheckBox CreateWeekday(
+        ToggleButton CreateWeekday(
             string text,
             DayOfWeek day,
             string automationId)
         {
-            var checkBox = new CheckBox
+            var toggleButton = new ToggleButton
             {
                 Content = text,
+                Height = 36,
                 MinWidth = 0,
+                Padding = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
                 IsChecked = current?.Schedule.DaysOfWeek.Contains(day) == true,
             };
-            AutomationProperties.SetAutomationId(checkBox, automationId);
-            AutomationProperties.SetName(checkBox, ScheduledTaskDisplayFormatter.WeekdayText(day));
-            return checkBox;
+            AutomationProperties.SetAutomationId(toggleButton, automationId);
+            AutomationProperties.SetName(toggleButton, ScheduledTaskDisplayFormatter.WeekdayText(day));
+            return toggleButton;
         }
 
-        CheckBox mondayCheck = CreateWeekday(
+        ToggleButton mondayCheck = CreateWeekday(
             "一",
             DayOfWeek.Monday,
             "ScheduledTaskWeekdayMondayCheckbox");
-        CheckBox tuesdayCheck = CreateWeekday(
+        ToggleButton tuesdayCheck = CreateWeekday(
             "二",
             DayOfWeek.Tuesday,
             "ScheduledTaskWeekdayTuesdayCheckbox");
-        CheckBox wednesdayCheck = CreateWeekday(
+        ToggleButton wednesdayCheck = CreateWeekday(
             "三",
             DayOfWeek.Wednesday,
             "ScheduledTaskWeekdayWednesdayCheckbox");
-        CheckBox thursdayCheck = CreateWeekday(
+        ToggleButton thursdayCheck = CreateWeekday(
             "四",
             DayOfWeek.Thursday,
             "ScheduledTaskWeekdayThursdayCheckbox");
-        CheckBox fridayCheck = CreateWeekday(
+        ToggleButton fridayCheck = CreateWeekday(
             "五",
             DayOfWeek.Friday,
             "ScheduledTaskWeekdayFridayCheckbox");
-        CheckBox saturdayCheck = CreateWeekday(
+        ToggleButton saturdayCheck = CreateWeekday(
             "六",
             DayOfWeek.Saturday,
             "ScheduledTaskWeekdaySaturdayCheckbox");
-        CheckBox sundayCheck = CreateWeekday(
+        ToggleButton sundayCheck = CreateWeekday(
             "日",
             DayOfWeek.Sunday,
             "ScheduledTaskWeekdaySundayCheckbox");
-        var weekdayPanel = new StackPanel
+        var weekdayPanel = new Grid
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
+            ColumnSpacing = 4,
         };
         AutomationProperties.SetAutomationId(
             weekdayPanel,
             "ScheduledTaskWeekdaySelector");
-        foreach (CheckBox checkBox in new[]
+        for (int index = 0; index < 7; index++)
+        {
+            weekdayPanel.ColumnDefinitions.Add(
+                new ColumnDefinition
+                {
+                    Width = new GridLength(1, GridUnitType.Star),
+                });
+        }
+        int weekdayIndex = 0;
+        foreach (ToggleButton toggleButton in new[]
         {
             mondayCheck,
             tuesdayCheck,
@@ -203,12 +231,13 @@ public static class ScheduledTaskEditorDialog
             sundayCheck,
         })
         {
-            weekdayPanel.Children.Add(checkBox);
+            Grid.SetColumn(toggleButton, weekdayIndex++);
+            weekdayPanel.Children.Add(toggleButton);
         }
 
         var weekdaySection = new StackPanel
         {
-            Spacing = 4,
+            Spacing = 6,
             Visibility = Visibility.Collapsed,
         };
         weekdaySection.Children.Add(new TextBlock
@@ -218,12 +247,15 @@ public static class ScheduledTaskEditorDialog
             Text = "星期",
         });
         weekdaySection.Children.Add(weekdayPanel);
+        weekdaySection.Transitions.Add(new EntranceThemeTransition());
 
         var dayOfMonthBox = new NumberBox
         {
-            Header = "每月日期",
+            Height = 40,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Minimum = 1,
             Maximum = 31,
+            MinWidth = 0,
             SmallChange = 1,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
             Value = Math.Clamp(
@@ -236,6 +268,13 @@ public static class ScheduledTaskEditorDialog
             dayOfMonthBox,
             "ScheduledTaskDayOfMonthBox");
         AutomationProperties.SetName(dayOfMonthBox, "每月执行日期");
+        dayOfMonthBox.Transitions.Add(new EntranceThemeTransition());
+        Grid.SetColumn(dayOfMonthBox, 1);
+        Grid.SetRow(dayOfMonthBox, 1);
+        scheduleFields.Children.Add(dayOfMonthBox);
+        Grid.SetColumnSpan(weekdaySection, 2);
+        Grid.SetRow(weekdaySection, 2);
+        scheduleFields.Children.Add(weekdaySection);
 
         var timeoutBox = new NumberBox
         {
@@ -252,7 +291,7 @@ public static class ScheduledTaskEditorDialog
         AutomationProperties.SetAutomationId(timeoutBox, "ScheduledTaskTimeoutBox");
         AutomationProperties.SetName(timeoutBox, "脚本超时秒数");
 
-        var scriptEditor = new LuaCodeEditor
+        var scriptEditor = new CSharpCodeEditor
         {
             Height = 260,
         };
@@ -260,19 +299,27 @@ public static class ScheduledTaskEditorDialog
         var scriptTitle = new TextBlock
         {
             VerticalAlignment = VerticalAlignment.Center,
-            Text = "Lua 脚本",
+            Text = "C# 脚本",
         };
         var form = new StackPanel
         {
             Spacing = 12,
         };
+        form.ChildrenTransitions.Add(
+            new EntranceThemeTransition
+            {
+                IsStaggeringEnabled = true,
+            });
+        var schedulePanel = new StackPanel
+        {
+            Spacing = 8,
+        };
+        schedulePanel.Children.Add(scheduleMode);
+        schedulePanel.Children.Add(scheduleFields);
         form.Children.Add(nameBox);
         form.Children.Add(scriptTitle);
         form.Children.Add(scriptEditor);
-        form.Children.Add(scheduleMode);
-        form.Children.Add(scheduleFields);
-        form.Children.Add(weekdaySection);
-        form.Children.Add(dayOfMonthBox);
+        form.Children.Add(schedulePanel);
         form.Children.Add(timeoutBox);
 
         var validation = new TextBlock
@@ -347,15 +394,14 @@ public static class ScheduledTaskEditorDialog
                 : Visibility.Visible;
             dateLabel.Visibility = once ? Visibility.Visible : Visibility.Collapsed;
             datePicker.Visibility = once ? Visibility.Visible : Visibility.Collapsed;
-            timeLabel.Visibility = kind == ScheduleKind.Manual
-                ? Visibility.Collapsed
-                : Visibility.Visible;
-            timePicker.Visibility = kind == ScheduleKind.Manual
-                ? Visibility.Collapsed
-                : Visibility.Visible;
+            timeLabel.Visibility = Visibility.Visible;
+            timeLabel.Text = once ? "时间" : "执行时间";
+            timePicker.Visibility = Visibility.Visible;
             Grid.SetColumn(timeLabel, once ? 1 : 0);
             Grid.SetColumn(timePicker, once ? 1 : 0);
-            Grid.SetColumnSpan(timePicker, once ? 1 : 2);
+            monthlyDateLabel.Visibility = kind == ScheduleKind.Monthly
+                ? Visibility.Visible
+                : Visibility.Collapsed;
             weekdaySection.Visibility = kind == ScheduleKind.Weekly
                 ? Visibility.Visible
                 : Visibility.Collapsed;
@@ -399,7 +445,7 @@ public static class ScheduledTaskEditorDialog
         var dialog = new ContentDialog
         {
             XamlRoot = xamlRoot,
-            Title = current is null ? "添加 Lua 脚本" : "编辑 Lua 脚本",
+            Title = current is null ? "添加 C# 脚本" : "编辑 C# 脚本",
             Content = content,
             PrimaryButtonText = "保存",
             CloseButtonText = "取消",
@@ -431,7 +477,7 @@ public static class ScheduledTaskEditorDialog
             if (string.IsNullOrWhiteSpace(script))
             {
                 args.Cancel = true;
-                ShowValidation("请输入 Lua 脚本。");
+                ShowValidation("请输入 C# 脚本。");
                 return;
             }
 

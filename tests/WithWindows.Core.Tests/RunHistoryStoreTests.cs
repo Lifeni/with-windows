@@ -185,7 +185,7 @@ public sealed class RunHistoryStoreTests : IDisposable
         Trigger = ScheduledTaskRunTrigger.Manual,
         StartedAt = Now.AddSeconds(index),
         Status = ScheduledTaskRunStatus.Running,
-        RuntimeVersion = "5.4",
+        RuntimeVersion = "C# 14 / .NET 10",
         StdoutLogPath = Path.Combine(
             _directory,
             "logs",

@@ -56,16 +56,16 @@ docs/                           用户、开发与设计文档
 - `config.json`：应用配置，示例见 [config/config.json](../config/config.json)
 - `notepad.txt`：记事草稿
 - `todos.json`：待办与提醒
-- `scheduled-tasks/tasks.json`：Lua 脚本定义
+- `scheduled-tasks/tasks.json`：C# 脚本定义
 - `scheduled-tasks/runs.json`：最近执行历史
-- `scheduled-tasks/scripts/`：内联 Lua 脚本的运行副本
+- `scheduled-tasks/scripts/`：内联 C# 脚本的运行副本
 - `scheduled-tasks/logs/`：每次运行的 stdout 与 stderr 日志，逐行保存时间戳、顺序和输出流类型
 - `scheduled-tasks/runner/`：隐藏 script helper 的短生命周期运行规格
 - `chat/current.json`：当前 AI 会话
 - `chat/credential.bin`：DPAPI 保护的 API Key
 - `log.txt`：运行日志
 
-应用内置 Lua 5.4，不需要用户安装 Lua。脚本可仅手动运行，也可设置单次、每天、每周或每月执行；应用完全退出后不再执行计划，关闭主窗口并驻留托盘时继续执行。Lua 脚本不是沙箱，以当前用户权限运行；通过 `os.execute`、`io.popen` 启动的 Python、Node.js 子进程仍需目标机器安装对应运行时。
+脚本使用应用内置的 Roslyn 编译器执行 C# 代码，不需要目标机器安装 .NET SDK，也不向脚本暴露应用私有 API。脚本通过 .NET 10 的公开 API 访问网络、文件和本地程序。脚本可仅手动运行，也可设置单次、每天、每周或每月执行；应用完全退出后不再执行计划，关闭主窗口并驻留托盘时继续执行。脚本不是沙箱，以当前用户权限运行。停止或超时会终止脚本 helper，脚本主动启动的程序可以继续运行。
 
 ## 发布
 

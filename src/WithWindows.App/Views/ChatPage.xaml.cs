@@ -17,6 +17,7 @@ using Windows.UI.Core;
 using WithWindows.Controls;
 using WithWindows.Core.Chat;
 using WithWindows.Core.Diagnostics;
+using WithWindows.Core.Scheduling;
 using WithWindows.Services;
 
 namespace WithWindows.Views;
@@ -34,6 +35,8 @@ public sealed partial class ChatPage : Page
         new(AppPaths.ChatAttachmentsDirectory);
 
     private CancellationTokenSource? _requestCts;
+    private ScheduledTask? _pendingScriptProposal;
+    private ChatMessageViewModel? _pendingScriptProposalMessage;
     private string _apiKey = "";
     private bool _isSending;
     private bool _isComposing;
@@ -159,15 +162,19 @@ public sealed partial class ChatPage : Page
         {
             FocusInput();
         }
+
+        await TryShowPendingScriptProposalAsync();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         LogInfo($"AI 页 Unloaded：messages={Messages.Count}，sending={_isSending}");
-        bool wasSending = _isSending;
-        _requestCts?.Cancel();
+        // 切页和隐藏到托盘都不终止请求；页面实例由 NavigationCacheMode 保持。
+        // 仅应用真正退出时才取消后台请求。
+        if (App.Host is { IsShuttingDown: true })
+            _requestCts?.Cancel();
         if (_initialized && !_initializingSession && Messages.Count > 0)
-            SaveSession(markStoppedResponse: wasSending);
+            SaveSession();
     }
 
     private async void OnInputKeyDown(object sender, KeyRoutedEventArgs e)
@@ -384,6 +391,8 @@ public sealed partial class ChatPage : Page
         UpdateHeaderInfo();
 
         List<ChatMessage> history = BuildHistory();
+        bool allowScriptProposal =
+            ChatScriptIntentDetector.ShouldOfferProposal(history);
         var assistantMessage = new ChatMessageViewModel(ChatRole.Assistant, "");
         Messages.Add(assistantMessage);
         UpdateHeaderInfo();
@@ -391,6 +400,7 @@ public sealed partial class ChatPage : Page
         _requestCts = new CancellationTokenSource();
         SetSending(true);
         var streamedContent = new StringBuilder();
+        var toolCalls = new ChatToolCallAccumulator();
 
         try
         {
@@ -401,31 +411,54 @@ public sealed partial class ChatPage : Page
                 host.Config.Chat,
                 _apiKey,
                 history,
-                _requestCts.Token))
+                _requestCts.Token,
+                allowScriptProposal))
             {
+                if (delta.ToolCall is { } toolCall)
+                    toolCalls.Add(toolCall);
+                if (delta.Content.Length == 0)
+                    continue;
+
                 bool firstContent = streamedContent.Length == 0;
                 streamedContent.Append(delta.Content);
-                if (!CanTouchUi)
-                {
-                    _requestCts.Cancel();
-                    SaveSession(
-                        markStoppedResponse: true,
-                        stoppedAssistantContent: streamedContent.ToString());
-                    return;
-                }
+                assistantMessage.Content = streamedContent.ToString();
 
-                if (firstContent && streamedContent.Length > 0)
+                if (!CanTouchUi)
+                    continue;
+
+                if (firstContent)
                     ChatReplyStatusText.Text = "AI 正在回复…";
 
-                assistantMessage.Content = streamedContent.ToString();
                 ScrollToLatest();
+            }
+
+            IReadOnlyList<ChatToolCall> completedToolCalls =
+                toolCalls.Build();
+            if (completedToolCalls.Count > 0)
+            {
+                await TryHandleScriptProposalAsync(
+                    host,
+                    assistantMessage,
+                    completedToolCalls);
+                if (CanTouchUi)
+                {
+                    UpdateHeaderInfo();
+                    ScrollToLatest();
+                }
+                return;
             }
 
             if (!CanTouchUi)
             {
-                SaveSession(
-                    markStoppedResponse: true,
-                    stoppedAssistantContent: streamedContent.ToString());
+                if (streamedContent.Length == 0)
+                {
+                    Messages.Remove(assistantMessage);
+                }
+                else
+                {
+                    assistantMessage.IsMarkdown = true;
+                }
+                SaveSession();
                 return;
             }
 
@@ -494,6 +527,144 @@ public sealed partial class ChatPage : Page
         }
     }
 
+    private async Task TryHandleScriptProposalAsync(
+        AppHost host,
+        ChatMessageViewModel assistant,
+        IReadOnlyList<ChatToolCall> toolCalls)
+    {
+        ChatToolCall[] proposals = toolCalls
+            .Where(call => call.Name == CSharpScriptProposalTool.Name)
+            .ToArray();
+        if (proposals.Length == 0)
+        {
+            assistant.Content = "AI 返回了无法识别的工具调用，未修改任何脚本。";
+            assistant.IsMarkdown = true;
+            SaveSession();
+            return;
+        }
+        if (proposals.Length > 1)
+        {
+            assistant.Content = "一次只允许添加一个 AI 生成的脚本，本次未添加。";
+            assistant.IsMarkdown = true;
+            SaveSession();
+            ShowError("AI 返回了多个脚本提案，请重新描述需要创建的一个脚本。");
+            return;
+        }
+
+        try
+        {
+            ScheduledTask task = CSharpScriptProposalParser.ParseTask(
+                proposals[0].Arguments,
+                DateTimeOffset.Now);
+            if (_isSending)
+                SetSending(false);
+
+            if (!CanTouchUi)
+            {
+                _pendingScriptProposal = task;
+                _pendingScriptProposalMessage = assistant;
+                assistant.Content = AppendAssistantStatus(
+                    assistant.Content,
+                    $"已生成脚本草案「{task.Name}」。返回 AI 对话页后确认添加。");
+                assistant.IsMarkdown = true;
+                SaveSession();
+                return;
+            }
+
+            await ConfirmAndSaveScriptProposalAsync(
+                host,
+                assistant,
+                task);
+        }
+        catch (Exception ex)
+        {
+            host.Log.Error($"AI 脚本提案处理失败：{ex.Message}");
+            assistant.Content = AppendAssistantStatus(
+                assistant.Content,
+                "AI 返回的脚本草案无效，本次未添加。");
+            assistant.IsMarkdown = true;
+            SaveSession();
+            if (CanTouchUi)
+                ShowError($"无法添加 AI 生成的脚本：{ex.Message}");
+        }
+    }
+
+    private async Task TryShowPendingScriptProposalAsync()
+    {
+        if (_pendingScriptProposal is not { } task
+            || _pendingScriptProposalMessage is not { } assistant
+            || !CanTouchUi
+            || _isSending)
+        {
+            return;
+        }
+
+        _pendingScriptProposal = null;
+        _pendingScriptProposalMessage = null;
+        AppHost? host = App.Host;
+        if (host is null || host.IsShuttingDown)
+            return;
+
+        await ConfirmAndSaveScriptProposalAsync(host, assistant, task);
+    }
+
+    private async Task ConfirmAndSaveScriptProposalAsync(
+        AppHost host,
+        ChatMessageViewModel assistant,
+        ScheduledTask task)
+    {
+        try
+        {
+            bool confirmed = await ChatScriptProposalDialog.ShowAsync(
+                XamlRoot,
+                task);
+            if (!confirmed)
+            {
+                assistant.Content = AppendAssistantStatus(
+                    assistant.Content,
+                    $"已生成脚本草案「{task.Name}」，但尚未添加。");
+                assistant.IsMarkdown = true;
+                SaveSession();
+                return;
+            }
+
+            if (App.Scheduler is not { } scheduler)
+                throw new InvalidOperationException("脚本调度器尚未就绪。");
+
+            scheduler.SaveTask(task);
+            assistant.Content = AppendAssistantStatus(
+                assistant.Content,
+                $"已添加脚本「{task.Name}」。\n\n"
+                + $"执行计划：{ScheduledTaskDisplayFormatter.ScheduleText(task)}。"
+                + "可在「脚本」页查看或运行。");
+            assistant.IsMarkdown = true;
+            SaveSession();
+            if (CanTouchUi)
+            {
+                UpdateHeaderInfo();
+                ScrollToLatest();
+            }
+        }
+        catch (Exception ex)
+        {
+            host.Log.Error($"AI 脚本提案处理失败：{ex.Message}");
+            assistant.Content = AppendAssistantStatus(
+                assistant.Content,
+                "AI 返回的脚本草案无效，本次未添加。");
+            assistant.IsMarkdown = true;
+            SaveSession();
+            if (CanTouchUi)
+                ShowError($"无法添加 AI 生成的脚本：{ex.Message}");
+        }
+    }
+
+    private static string AppendAssistantStatus(
+        string current,
+        string status)
+        => string.IsNullOrWhiteSpace(current)
+            ? status
+            : current.TrimEnd() + "\n\n" + status;
+
     private void HandleRequestFailure(
         ChatMessageViewModel assistant,
         ChatMessageViewModel userMessage,
@@ -502,7 +673,15 @@ public sealed partial class ChatPage : Page
         string error)
     {
         if (!CanTouchUi)
+        {
+            if (string.IsNullOrEmpty(assistant.Content))
+                assistant.Content = $"请求失败：{error}";
+            else
+                assistant.Content += "\n\n（回复不完整）";
+            assistant.IsMarkdown = true;
+            SaveSession();
             return;
+        }
 
         if (string.IsNullOrEmpty(assistant.Content))
         {
@@ -629,6 +808,8 @@ public sealed partial class ChatPage : Page
             return;
 
         _requestCts?.Cancel();
+        _pendingScriptProposal = null;
+        _pendingScriptProposalMessage = null;
         if (!CanTouchUi)
         {
             _historyStore.Clear();

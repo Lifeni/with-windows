@@ -24,7 +24,7 @@ public partial class App : Application
     /// <summary>应用宿主（配置、热键、日志）；页面通过它读写配置。启动失败时为 null。</summary>
     public static AppHost? Host { get; private set; }
 
-    /// <summary>Lua 脚本协调器；页面和调度宿主共享。</summary>
+    /// <summary>C# 脚本协调器；页面和调度宿主共享。</summary>
     public static ScheduledTaskCoordinator? Scheduler { get; private set; }
 
     /// <summary>定时调度宿主；页面用于订阅系统时间/时区变化。</summary>
@@ -37,7 +37,7 @@ public partial class App : Application
     private Logger? _smokeLog;
     private HotkeyManager? _smokeHotkeys;
     private TodoReminderHost? _todoReminders;
-    private LuaScriptRunner? _scriptRunner;
+    private CSharpScriptRunner? _scriptRunner;
     private ScheduledTaskCoordinator? _scheduledTasks;
     private ScheduledTaskHost? _scheduledTaskHost;
     private int _recoveryRestartCount;
@@ -112,7 +112,7 @@ public partial class App : Application
         AppHost host = start.Host;
         host.ToolInvoker = toolId => new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
 
-        _scriptRunner = new LuaScriptRunner();
+        _scriptRunner = new CSharpScriptRunner();
         _scheduledTasks = new ScheduledTaskCoordinator(
             host,
             _scriptRunner);
@@ -349,6 +349,15 @@ public partial class App : Application
         await DialogGate.WaitAsync();
         try
         {
+            // WinUI 3 当前版本的程序化 ContentDialog 可能不会自动应用默认样式，
+            // 导致只有关闭动画、没有入场动画。显式指定默认样式可恢复原生开合动画。
+            if (dialog.Style is null
+                && Application.Current.Resources[
+                    "DefaultContentDialogStyle"] is Style defaultStyle)
+            {
+                dialog.Style = defaultStyle;
+            }
+
             return await dialog.ShowAsync();
         }
         finally
@@ -388,7 +397,7 @@ public partial class App : Application
                 }
                 catch (Exception ex)
                 {
-                    _host?.Log.Error($"停止 Lua 脚本宿主失败：{ex.Message}");
+                    _host?.Log.Error($"停止 C# 脚本宿主失败：{ex.Message}");
                 }
             }
 

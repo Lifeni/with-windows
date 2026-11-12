@@ -5,30 +5,29 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using WithWindows.Core.Diagnostics;
-using WithWindows.Core.Interop;
 using WithWindows.Core.Scheduling;
 
 namespace WithWindows.Services;
 
 /// <summary>
-/// 启动隐藏 helper，先加入 Job Object，再让 helper 执行 Lua；负责超时、取消和输出落盘。
+/// 启动隐藏 helper，让 helper 使用 Roslyn 编译并执行 C#；负责超时、取消和输出落盘。
 /// </summary>
-public sealed class LuaScriptRunner : IDisposable
+public sealed class CSharpScriptRunner : IDisposable
 {
     private const int MaximumBytesPerStream = 2 * 1024 * 1024;
     private readonly object _gate = new();
-    private readonly HashSet<WindowsJob> _activeJobs = [];
+    private readonly HashSet<Process> _activeHelpers = [];
     private bool _stopping;
     private bool _disposed;
 
-    public async Task<LuaRunResult> RunAsync(
-        LuaRunRequest request,
+    public async Task<CSharpRunResult> RunAsync(
+        CSharpRunRequest request,
         CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (cancellationToken.IsCancellationRequested)
         {
-            return new LuaRunResult(
+            return new CSharpRunResult(
                 ScheduledTaskRunStatus.Cancelled,
                 ExitCode: null,
                 ErrorMessage: "脚本尚未启动即被停止。",
@@ -39,7 +38,7 @@ public sealed class LuaScriptRunner : IDisposable
         {
             if (_stopping)
             {
-                return new LuaRunResult(
+                return new CSharpRunResult(
                     ScheduledTaskRunStatus.Cancelled,
                     ExitCode: null,
                     ErrorMessage: "应用正在退出。",
@@ -50,7 +49,7 @@ public sealed class LuaScriptRunner : IDisposable
 
         if (!File.Exists(request.ScriptPath))
         {
-            return Failed($"Lua 脚本不存在：{request.ScriptPath}");
+            return Failed($"C# 脚本不存在：{request.ScriptPath}");
         }
 
         if (!Directory.Exists(request.WorkingDirectory))
@@ -68,7 +67,7 @@ public sealed class LuaScriptRunner : IDisposable
         string suffix = Guid.NewGuid().ToString("N");
         string readyEventName = $@"Local\WithWindows.ScriptRunner.Ready.{suffix}";
         string startEventName = $@"Local\WithWindows.ScriptRunner.Start.{suffix}";
-        var spec = new LuaRunSpec(
+        var spec = new CSharpRunSpec(
             request.ScriptPath,
             request.WorkingDirectory);
         File.WriteAllText(specPath, spec.Serialize());
@@ -81,10 +80,6 @@ public sealed class LuaScriptRunner : IDisposable
             false,
             EventResetMode.ManualReset,
             startEventName);
-        using var job = WindowsJob.CreateKillOnClose();
-        lock (_gate)
-            _activeJobs.Add(job);
-
         Process? helper = null;
         Task<bool>? stdoutTask = null;
         Task<bool>? stderrTask = null;
@@ -99,7 +94,6 @@ public sealed class LuaScriptRunner : IDisposable
                 FileName = executable,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 StandardOutputEncoding = Encoding.UTF8,
@@ -112,8 +106,8 @@ public sealed class LuaScriptRunner : IDisposable
 
             helper = Process.Start(startInfo)
                 ?? throw new InvalidOperationException("系统未返回 script helper 进程。");
-            helper.StandardInput.Close();
-            job.Assign(helper);
+            lock (_gate)
+                _activeHelpers.Add(helper);
 
             bool helperReady = await Task.Run(
                 () => ready.WaitOne(TimeSpan.FromSeconds(20)),
@@ -153,10 +147,9 @@ public sealed class LuaScriptRunner : IDisposable
                 status = cancellationToken.IsCancellationRequested
                     ? ScheduledTaskRunStatus.Cancelled
                     : ScheduledTaskRunStatus.TimedOut;
-                Terminate(helper, job);
+                Terminate(helper);
             }
 
-            job.Dispose();
             Task<bool> completedStdout = stdoutTask!;
             Task<bool> completedStderr = stderrTask!;
             Task outputDrain = Task.WhenAll(completedStdout, completedStderr);
@@ -208,12 +201,12 @@ public sealed class LuaScriptRunner : IDisposable
                 ScheduledTaskRunStatus.TimedOut => $"脚本超过 {request.TimeoutSeconds} 秒。",
                 ScheduledTaskRunStatus.Cancelled => "脚本已停止。",
                 ScheduledTaskRunStatus.Interrupted => "脚本输出流未能正常收尾。",
-                ScheduledTaskRunStatus.Failed => $"Lua 退出码为 {helper.ExitCode}。",
+                ScheduledTaskRunStatus.Failed => $"C# 脚本退出码为 {helper.ExitCode}。",
                 _ => null,
             };
             if (outputError is not null)
                 error = string.IsNullOrWhiteSpace(error) ? outputError : error + " " + outputError;
-            return new LuaRunResult(
+            return new CSharpRunResult(
                 status,
                 exitCode,
                 error,
@@ -223,8 +216,8 @@ public sealed class LuaScriptRunner : IDisposable
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             if (helper is not null)
-                Terminate(helper, job);
-            return new LuaRunResult(
+                Terminate(helper);
+            return new CSharpRunResult(
                 ScheduledTaskRunStatus.Cancelled,
                 ExitCode: null,
                 ErrorMessage: "脚本已停止。",
@@ -234,7 +227,7 @@ public sealed class LuaScriptRunner : IDisposable
         catch (Exception ex)
         {
             if (helper is not null && !helper.HasExited)
-                Terminate(helper, job);
+                Terminate(helper);
             if (helper is not null
                 && (stdoutTask is not null || stderrTask is not null))
             {
@@ -257,7 +250,7 @@ public sealed class LuaScriptRunner : IDisposable
                         CancellationToken.None,
                         TaskContinuationOptions.OnlyOnFaulted,
                         TaskScheduler.Default);
-                    return new LuaRunResult(
+                    return new CSharpRunResult(
                         ScheduledTaskRunStatus.Interrupted,
                         ExitCode: helper.HasExited ? helper.ExitCode : null,
                         ErrorMessage: $"{ex.Message} 脚本输出流未能正常收尾。",
@@ -271,7 +264,10 @@ public sealed class LuaScriptRunner : IDisposable
         finally
         {
             lock (_gate)
-                _activeJobs.Remove(job);
+            {
+                if (helper is not null)
+                    _activeHelpers.Remove(helper);
+            }
             helper?.Dispose();
             try
             {
@@ -286,22 +282,22 @@ public sealed class LuaScriptRunner : IDisposable
 
     public async Task StopAllAsync()
     {
-        WindowsJob[] jobs;
+        Process[] helpers;
         lock (_gate)
         {
             _stopping = true;
-            jobs = _activeJobs.ToArray();
+            helpers = _activeHelpers.ToArray();
         }
 
-        foreach (WindowsJob job in jobs)
+        foreach (Process helper in helpers)
         {
             try
             {
-                job.Terminate();
+                Terminate(helper);
             }
             catch
             {
-                // 主动关闭阶段继续处理其余 Job。
+                // 主动关闭阶段继续处理其余 helper。
             }
         }
 
@@ -463,27 +459,20 @@ public sealed class LuaScriptRunner : IDisposable
             => Interlocked.Increment(ref _value);
     }
 
-    private static void Terminate(Process process, WindowsJob job)
+    private static void Terminate(Process process)
     {
         try
         {
-            job.Terminate();
+            if (!process.HasExited)
+                process.Kill();
         }
         catch
         {
-            try
-            {
-                if (!process.HasExited)
-                    process.Kill(entireProcessTree: true);
-            }
-            catch
-            {
-                // 进程已经退出或无法终止时保留最终结果。
-            }
+            // 进程已经退出或无法终止时保留最终结果。
         }
     }
 
-    private static LuaRunResult Failed(string message)
+    private static CSharpRunResult Failed(string message)
         => new(
             ScheduledTaskRunStatus.Failed,
             ExitCode: null,
@@ -499,15 +488,15 @@ public sealed class LuaScriptRunner : IDisposable
         lock (_gate)
         {
             _stopping = true;
-            foreach (WindowsJob job in _activeJobs.ToArray())
+            foreach (Process helper in _activeHelpers.ToArray())
             {
                 try
                 {
-                    job.Terminate();
+                    Terminate(helper);
                 }
                 catch
                 {
-                    // Dispose 必须继续释放其余 Job。
+                    // Dispose 必须继续释放其余 helper。
                 }
             }
         }

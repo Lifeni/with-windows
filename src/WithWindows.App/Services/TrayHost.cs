@@ -119,7 +119,7 @@ public sealed class TrayHost : IDisposable
         menu.Items.Add(NavigateItem(TitleOf(ToolCatalog.TodoId), ToolCatalog.TodoId, "TrayItemTodo"));
         menu.Items.Add(NavigateItem("对话", ToolCatalog.AiChatId, "TrayItemAiChat"));
         menu.Items.Add(NavigateItem(
-            "Lua 脚本",
+            "脚本",
             ToolCatalog.ScheduledId,
             "TrayItemScheduled"));
 

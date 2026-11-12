@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using WithWindows.Core.Chat;
 using WithWindows.Core.Config;
 
@@ -86,6 +87,11 @@ public static class ChatProviderDialog
         content.Children.Add(apiKey);
         content.Children.Add(clearKey);
         content.Children.Add(systemPrompt);
+        content.ChildrenTransitions.Add(
+            new EntranceThemeTransition
+            {
+                IsStaggeringEnabled = true,
+            });
 
         var contentScroll = new ScrollViewer
         {

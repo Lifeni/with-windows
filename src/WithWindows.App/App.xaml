@@ -14,6 +14,12 @@
                 去掉说明文字的卡片与展开框会高矮不一。
             -->
             <x:Double x:Key="SettingCardMinHeight">64</x:Double>
+
+            <!-- 工具页内容区的统一最大宽度；记事页的编辑画布保持全宽。 -->
+            <x:Double x:Key="PageContentMaxWidth">1000</x:Double>
+
+            <!-- 与卡片行右侧 16 DIP 内边距对齐，避免展开箭头贴边。 -->
+            <Thickness x:Key="ExpanderChevronMargin">20,0,16,0</Thickness>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

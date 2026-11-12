@@ -89,7 +89,7 @@ public static class ScheduledTaskValidation
             throw new ArgumentException("每月任务必须选择 1 至 31 日。", nameof(task));
         }
         if (string.IsNullOrWhiteSpace(task.ScriptText))
-            throw new ArgumentException("Lua 脚本不能为空。", nameof(task));
+            throw new ArgumentException("C# 脚本不能为空。", nameof(task));
     }
 
     public static bool ScheduleEquals(TaskSchedule left, TaskSchedule right)

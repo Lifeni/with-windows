@@ -1,15 +1,20 @@
 using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
-using KeraLua;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
 using WithWindows.Core.Scheduling;
 
 namespace WithWindows.Services;
 
 /// <summary>
-/// 同一 exe 的隐藏 helper 模式。父进程先把它加入 Job Object，再放行 Lua，
-/// 保证 Lua、它启动的 Python/Node.js 以及其他子进程都受 Job 控制。
+/// 同一 exe 的隐藏 helper 模式。父进程完成握手后，helper 使用 Roslyn 编译并执行 C# 脚本。
 /// </summary>
 public static class ScriptHelperHost
 {
@@ -42,40 +47,60 @@ public static class ScriptHelperHost
         };
         try
         {
-            LuaRunSpec? spec = LuaRunSpec.TryParse(File.ReadAllText(specPath));
+            CSharpRunSpec? spec = CSharpRunSpec.TryParse(
+                File.ReadAllText(specPath));
             if (spec is null)
             {
-                error.WriteLine("Lua 运行规格无效。");
+                error.WriteLine("C# 运行规格无效。");
                 return 2;
             }
 
-            using EventWaitHandle ready = EventWaitHandle.OpenExisting(readyEventName);
+            using EventWaitHandle ready =
+                EventWaitHandle.OpenExisting(readyEventName);
             ready.Set();
 
-            using EventWaitHandle start = EventWaitHandle.OpenExisting(startEventName);
+            using EventWaitHandle start =
+                EventWaitHandle.OpenExisting(startEventName);
             if (!start.WaitOne(HandshakeTimeout))
             {
                 error.WriteLine("等待父进程启动信号超时。");
                 return 2;
             }
 
+            Console.OutputEncoding = Encoding.UTF8;
             Directory.SetCurrentDirectory(spec.WorkingDirectory);
-            using var lua = new Lua();
-            lua.Encoding = Encoding.UTF8;
-            if (!lua.DoFile(spec.ScriptPath))
+            string code = File.ReadAllText(
+                spec.ScriptPath,
+                new UTF8Encoding(false));
+            ScriptOptions options = CreateScriptOptions(spec.ScriptPath);
+            try
+            {
+                _ = CSharpScript.RunAsync(
+                    code,
+                    options,
+                    cancellationToken: CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
                 return 0;
-
-            string message = lua.ToString(-1);
-            error.WriteLine(string.IsNullOrWhiteSpace(message)
-                ? "Lua 脚本执行失败。"
-                : message);
-            return 1;
+            }
+            catch (CompilationErrorException ex)
+            {
+                error.WriteLine("C# 脚本编译失败：");
+                foreach (Diagnostic diagnostic in ex.Diagnostics)
+                    error.WriteLine(diagnostic.ToString());
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                error.WriteLine($"C# 脚本执行失败：{FormatException(ex)}");
+                return 1;
+            }
         }
         catch (Exception ex)
         {
             try
             {
-                error.WriteLine($"启动 Lua 失败：{ex.Message}");
+                error.WriteLine($"启动 C# helper 失败：{FormatException(ex)}");
             }
             catch
             {
@@ -95,5 +120,44 @@ public static class ScriptHelperHost
                 // 运行规格清理失败不影响脚本结果。
             }
         }
+    }
+
+    private static ScriptOptions CreateScriptOptions(string scriptPath)
+        => ScriptOptions.Default
+            .WithFilePath(scriptPath)
+            .WithImports(
+                "System",
+                "System.Collections.Generic",
+                "System.Diagnostics",
+                "System.IO",
+                "System.Linq",
+                "System.Net.Http",
+                "System.Text",
+                "System.Text.Json",
+                "System.Threading",
+                "System.Threading.Tasks")
+            .WithReferences(
+                typeof(object).Assembly,
+                typeof(Console).Assembly,
+                typeof(Enumerable).Assembly,
+                typeof(HttpClient).Assembly,
+                typeof(Process).Assembly,
+                typeof(JsonSerializer).Assembly);
+
+    private static string FormatException(Exception exception)
+    {
+        var builder = new StringBuilder();
+        Exception? current = exception;
+        while (current is not null)
+        {
+            if (builder.Length > 0)
+                builder.Append(" → ");
+            builder.Append(current.GetType().Name);
+            builder.Append("：");
+            builder.Append(current.Message);
+            current = current.InnerException;
+        }
+
+        return builder.ToString();
     }
 }

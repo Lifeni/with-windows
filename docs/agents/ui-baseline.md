@@ -18,6 +18,16 @@ winapp ui screenshot -a WithWindows
 - 页面入口：`NavItemNotepad`、`NavItemTodo`、`NavItemAi_chat`、`NavItemScheduled`、`NavItemDisplay`、`SettingsItem`
 - 关闭窗口和 `Alt+F4` 隐藏到托盘，真正退出只走托盘菜单。
 
+## 页面宽度
+
+除记事页的全宽编辑画布和 AI 对话底部的全宽输入栏外，工具页内容区统一使用 `PageContentMaxWidth`，当前值为 1000 DIP。待办、AI 对话消息区、脚本、投影与设置页在大窗口下居中显示，窄窗口下跟随可用宽度。
+
+## 动效
+
+页面切换使用 `EntranceNavigationTransitionInfo`。待办、对话、脚本和运行记录列表使用 `AddDeleteThemeTransition` 与 `RepositionThemeTransition`；投影模式列表使用带错峰的原生入场过渡。主窗口首次内容使用 `EntranceThemeTransition`。所有程序化 `ContentDialog` 在显示前显式应用 `DefaultContentDialogStyle`，规避当前 WinUI 版本缺失入场动画的回归，并继续使用原生关闭动画；复杂对话框内部表单额外使用 `ChildrenTransitions`。运行日志 `Popup` 使用 `PopupThemeTransition` 统一打开和关闭动画，并使用应用内显式遮罩处理点击外部与 `Esc` 关闭，避免脚本启动前台程序后系统轻触关闭层自动关闭日志。以上动画均遵循系统动效设置。
+
+折叠组件通过应用资源 `ExpanderChevronMargin` 将展开箭头右侧留白统一为 16 DIP，与设置卡片行的右侧控件对齐。
+
 ## 记事
 
 - 工具栏：`NotepadToolbar`、`NotepadClock`、`NotepadFind`、`NotepadSave`
@@ -47,10 +57,13 @@ winapp ui screenshot -a WithWindows
 - 消息：`ChatMessageList`、`ChatEmptyState`、`ChatErrorBar`
 - 输入与附件：`ChatInput`、`ChatPendingAttachments`、`ChatRemoveAttachmentButton`
 - 发送状态与停止按钮：`ChatReplyStatus`、`ChatReplyStatusText`
+- AI 脚本提案：`ChatScriptProposalDialog`、`ChatScriptProposalSummary`、`ChatScriptProposalPreview`
 
-空状态使用与待办页一致的 42 DIP 字体图标和说明文字。输入栏使用主题填充色和透明边框，单行文字垂直居中。`Enter` 发送，`Shift+Enter` 换行，输入法组合期间不发送。发送期间输入栏暂时替换为发送状态按钮，显示进度环和“AI 正在思考…” / “AI 正在回复…”，可按 `Esc` 或点击其所在状态条停止，完成或停止后恢复输入栏。
+空状态使用与待办页一致的 42 DIP 字体图标和说明文字。输入栏使用主题填充色和透明边框，单行文字垂直居中。`Enter` 发送，`Shift+Enter` 换行，输入法组合期间不发送。发送期间输入栏暂时替换为发送状态按钮，显示进度环和“AI 正在思考…” / “AI 正在回复…”，可按 `Esc` 或点击其所在状态条停止，完成或停止后恢复输入栏。用户明确要求创建脚本时，模型只能调用 `propose_csharp_script` 生成草案；应用校验脚本与计划后显示预览，用户确认后才写入脚本存储，不会自动运行、覆盖或删除已有脚本。
 
-## Lua 脚本
+AI 对话页使用 `NavigationCacheMode=Required`。切换到其他工具页时请求不取消，页面实例、流式内容和发送状态继续保留；关闭主窗口隐藏到托盘时同样继续生成。后台完成的脚本提案只暂存草案，返回 AI 页后再显示确认对话框；只有应用真正退出时才取消进行中的请求。
+
+## 脚本
 
 - 页面头部：`ScheduledTaskSummary`、`ScheduledTaskNewButton`
 - 列表与空状态：`ScheduledTaskList`、`ScheduledTaskEmptyState`、`ScheduledTaskListItem_<taskId>`
@@ -58,11 +71,11 @@ winapp ui screenshot -a WithWindows
 - 状态提示：`ScheduledTaskErrorBar`
 - 编辑对话框：`ScheduledTaskEditorDialog`、`ScheduledTaskNameBox`、`ScheduledTaskScheduleTypeComboBox`、`ScheduledTaskDatePicker`、`ScheduledTaskTimePicker`、`ScheduledTaskWeekdaySelector`、`ScheduledTaskDayOfMonthBox`
 - 脚本与运行：`ScheduledTaskScriptEditor`、`ScheduledTaskTimeoutBox`、`ScheduledTaskEditorValidation`
-- 运行日志：`ScheduledTaskHistoryDialog`、`ScheduledTaskRunHistoryList`、`ScheduledTaskRunItem_<runId>`、`ScheduledTaskRunEmptyState`、`ScheduledTaskRunDetails`、`ScheduledTaskCombinedOutput`、`ScheduledTaskOutputEmptyState`
+- 运行日志：`ScheduledTaskHistoryDialog`、`ScheduledTaskRunHistoryList`、`ScheduledTaskRunItem_<runId>`、`ScheduledTaskRunEmptyState`、`ScheduledTaskRunOutput_<runId>`、`ScheduledTaskRunOutputEmpty_<runId>`
 
-页面以脚本列表为主体，添加和编辑都在独立对话框中完成。标题区与 AI 对话页共用 48 DIP 高度，左上角以 14 DIP 单行文字显示脚本数量。执行方式包含仅手动、单次、每天、每周和每月；应用退出后不再执行计划，关闭窗口并驻留托盘时继续调度。单次模式沿用待办提醒对话框的日期、时间双列样式，两个选择器均为 40 DIP 且宽度一致。代码编辑器使用内置 `RichEditBox`，提供 Lua 基础词法高亮和同步行号；计划设置在编辑器下方。
+页面以脚本列表为主体，添加和编辑都在独立对话框中完成。标题区与 AI 对话页共用 48 DIP 高度，左上角以 14 DIP 单行文字显示脚本数量。执行方式包含仅手动、单次、每天、每周和每月；应用退出后不再执行计划，关闭窗口并驻留托盘时继续调度。计划区域按模式只显示相关字段：单次为日期与时间双列，每天只显示执行时间，每周在时间下方显示 7 个等宽星期切换按钮，每月为执行时间与每月日期双列。代码编辑器使用内置 `RichEditBox`，提供 C# 基础词法高亮和同步行号；计划设置在编辑器下方。脚本通过隐藏 helper 编译执行，停止或超时只终止 helper，脚本主动启动的程序可以继续运行。
 
-运行日志与编辑对话框使用相同宽度上限。左侧切换运行记录，右侧只显示一个合并输出区；每行按实际到达顺序显示毫秒时间戳，用系统图标和颜色区分标准输出与错误输出。手动运行结束后自动打开，默认选中最近一次运行；窗口使用原生轻触关闭，可点击空白处或按 `Esc` 关闭。
+运行日志与编辑对话框使用相同宽度上限。运行记录以单列圆角折叠卡片展示，默认展开最近一次并同时只展开一条；展开后显示一个合并输出区，每行按实际到达顺序显示毫秒时间戳，用蓝色和红色文字区分标准输出与错误输出。弹窗使用固定默认高度，展开或折叠记录时不会发生窗口跳动；展开靠下记录时自动带入可视区域。手动运行结束后自动打开；窗口使用原生轻触关闭，可点击空白处或按 `Esc` 关闭。
 
 ## 投影与设置
 

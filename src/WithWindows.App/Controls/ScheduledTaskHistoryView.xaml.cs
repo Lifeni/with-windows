@@ -6,15 +6,20 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Shapes;
 using WithWindows.Core.Scheduling;
 using WithWindows.Views;
 
 namespace WithWindows.Controls;
 
-/// <summary>运行记录列表与合并输出视图。</summary>
+/// <summary>单列折叠的运行历史与合并输出视图。</summary>
 public sealed partial class ScheduledTaskHistoryView : UserControl
 {
+    private readonly Dictionary<string, Expander> _runExpanders =
+        new(StringComparer.Ordinal);
+    private readonly Dictionary<string, RunOutputPane> _outputPanes =
+        new(StringComparer.Ordinal);
+    private readonly ScheduledTaskRunExpansionState _expansionState = new();
+
     public ScheduledTaskHistoryView()
     {
         InitializeComponent();
@@ -22,94 +27,75 @@ public sealed partial class ScheduledTaskHistoryView : UserControl
 
     public ObservableCollection<ScheduledTaskRunRowViewModel> Runs { get; } = [];
 
-    public event EventHandler<ScheduledTaskRunRowViewModel?>? SelectedRunChanged;
+    public event EventHandler<ScheduledTaskRunRowViewModel>? RunExpanded;
 
     public void FocusInitial()
     {
-        if (Runs.Count > 0)
-            RunList.Focus(FocusState.Programmatic);
-        else
-            OutputText.Focus(FocusState.Programmatic);
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_expansionState.ExpandedRunId is not { } runId
+                || !_runExpanders.TryGetValue(runId, out Expander? expander))
+            {
+                return;
+            }
+
+            expander.Focus(FocusState.Programmatic);
+        });
     }
 
     public void SetRuns(IReadOnlyList<ScheduledTaskRun> runs)
     {
+        var runIds = new List<string>(runs.Count);
+        foreach (ScheduledTaskRun run in runs)
+            runIds.Add(run.Id);
+
+        _expansionState.Reset(runIds);
+        _runExpanders.Clear();
+        _outputPanes.Clear();
         Runs.Clear();
         foreach (ScheduledTaskRun run in runs)
             Runs.Add(new ScheduledTaskRunRowViewModel(run));
 
-        EmptyRuns.Visibility = Runs.Count == 0
+        bool hasRuns = Runs.Count > 0;
+        RunScroll.Visibility = hasRuns
             ? Visibility.Visible
             : Visibility.Collapsed;
-        ResultsPanel.Visibility = Runs.Count == 0
+        EmptyRuns.Visibility = hasRuns
             ? Visibility.Collapsed
             : Visibility.Visible;
-        if (Runs.Count > 0)
-            RunList.SelectedIndex = 0;
-        else
-            ShowRun(null);
     }
 
-    public void ShowRun(ScheduledTaskRunRowViewModel? run)
+    public void ShowOutput(
+        string runId,
+        IReadOnlyList<ScheduledTaskOutputLogEntry> entries)
     {
-        RunDetailsText.Text = run?.HeaderText ?? "暂无运行记录";
-        OutputText.Blocks.Clear();
-        EmptyOutput.Visibility = Visibility.Collapsed;
-    }
+        if (!_runExpanders.TryGetValue(runId, out Expander? expander))
+            return;
 
-    public void ShowOutput(IReadOnlyList<ScheduledTaskOutputLogEntry> entries)
-    {
-        OutputText.Blocks.Clear();
+        RunOutputPane pane = EnsureOutputPane(runId, expander);
+        pane.OutputText.Blocks.Clear();
         foreach (ScheduledTaskOutputLogEntry entry in entries)
         {
             var paragraph = new Paragraph
             {
                 Margin = new Thickness(0, 0, 0, 2),
             };
-            string colorKey = entry.Stream switch
-            {
-                ScheduledTaskOutputStream.StandardError =>
-                    "SystemFillColorCriticalBrush",
-                ScheduledTaskOutputStream.System =>
-                    "TextFillColorSecondaryBrush",
-                _ => "AccentTextFillColorPrimaryBrush",
-            };
-            Brush iconBrush = (Brush)Application.Current.Resources[colorKey];
             Brush textBrush =
-                entry.Stream == ScheduledTaskOutputStream.StandardError
-                    ? (Brush)Application.Current.Resources[
-                        "SystemFillColorCriticalBrush"]
-                    : (Brush)Application.Current.Resources[
-                        "TextFillColorPrimaryBrush"];
-            string streamName = entry.Stream switch
-            {
-                ScheduledTaskOutputStream.StandardError => "错误输出",
-                ScheduledTaskOutputStream.System => "系统消息",
-                _ => "标准输出",
-            };
-            var dotHost = new Grid
-            {
-                Width = 8,
-                Height = 15,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            dotHost.Children.Add(new Ellipse
-            {
-                Width = 6,
-                Height = 6,
-                Fill = iconBrush,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            });
-            AutomationProperties.SetName(dotHost, streamName);
+                entry.Stream switch
+                {
+                    ScheduledTaskOutputStream.StandardError =>
+                        (Brush)Application.Current.Resources[
+                            "SystemFillColorCriticalBrush"],
+                    ScheduledTaskOutputStream.System =>
+                        (Brush)Application.Current.Resources[
+                            "TextFillColorSecondaryBrush"],
+                    _ => (Brush)Application.Current.Resources[
+                        "AccentTextFillColorPrimaryBrush"],
+                };
 
-            paragraph.Inlines.Add(new InlineUIContainer
-            {
-                Child = dotHost,
-            });
             paragraph.Inlines.Add(new Run
             {
-                Text = $"  {entry.Timestamp.ToLocalTime():HH:mm:ss.fff}  ",
+                Text = $"{entry.Timestamp.ToLocalTime():HH:mm:ss.fff}  ",
                 Foreground = (Brush)Application.Current.Resources[
                     "TextFillColorSecondaryBrush"],
             });
@@ -118,47 +104,155 @@ public sealed partial class ScheduledTaskHistoryView : UserControl
                 Text = entry.Text.Length == 0 ? " " : entry.Text,
                 Foreground = textBrush,
             });
-            OutputText.Blocks.Add(paragraph);
+            pane.OutputText.Blocks.Add(paragraph);
         }
 
-        EmptyOutput.Visibility = entries.Count == 0
+        pane.EmptyOutput.Visibility = entries.Count == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
     }
 
-    public void ShowError(string message)
+    public void ShowError(string runId, string message)
     {
         ShowOutput(
-        [
-            new ScheduledTaskOutputLogEntry(
-                DateTimeOffset.Now,
-                long.MaxValue,
-                ScheduledTaskOutputStream.StandardError,
-                message),
-        ]);
+            runId,
+            [
+                new ScheduledTaskOutputLogEntry(
+                    DateTimeOffset.Now,
+                    long.MaxValue,
+                    ScheduledTaskOutputStream.StandardError,
+                    message),
+            ]);
     }
 
-    private void OnRunSelectionChanged(
-        object sender,
-        SelectionChangedEventArgs args)
+    private void OnRunExpanderLoaded(object sender, RoutedEventArgs e)
     {
-        ScheduledTaskRunRowViewModel? run =
-            RunList.SelectedItem as ScheduledTaskRunRowViewModel;
-        ShowRun(run);
-        SelectedRunChanged?.Invoke(this, run);
-    }
-
-    private void OnRunContainerContentChanging(
-        ListViewBase sender,
-        ContainerContentChangingEventArgs args)
-    {
-        if (args.Item is not ScheduledTaskRunRowViewModel run
-            || args.ItemContainer is not ListViewItem item)
+        if (sender is not Expander expander
+            || expander.Tag is not ScheduledTaskRunRowViewModel run)
         {
             return;
         }
 
-        AutomationProperties.SetAutomationId(item, run.AutomationId);
-        AutomationProperties.SetName(item, run.HeaderText);
+        _runExpanders[run.Id] = expander;
+        if (_expansionState.ExpandedRunId == run.Id
+            && !expander.IsExpanded)
+        {
+            expander.IsExpanded = true;
+        }
     }
+
+    private void OnRunExpanderUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Expander expander
+            || expander.Tag is not ScheduledTaskRunRowViewModel run
+            || !_runExpanders.TryGetValue(run.Id, out Expander? current)
+            || !ReferenceEquals(current, expander))
+        {
+            return;
+        }
+
+        _runExpanders.Remove(run.Id);
+        _outputPanes.Remove(run.Id);
+    }
+
+    private void OnRunExpanderExpanding(
+        Expander sender,
+        ExpanderExpandingEventArgs args)
+    {
+        if (sender.Tag is not ScheduledTaskRunRowViewModel run)
+            return;
+
+        _expansionState.SetExpanded(run.Id, expanded: true);
+        EnsureOutputPane(run.Id, sender);
+        RunExpanded?.Invoke(this, run);
+
+        // Expanding 事件早于控件内部提交展开状态，立即收起兄弟项会被覆盖。
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_expansionState.ExpandedRunId != run.Id
+                || !sender.IsExpanded)
+            {
+                return;
+            }
+
+            foreach ((string runId, Expander expander) in _runExpanders)
+            {
+                if (runId != run.Id && expander.IsExpanded)
+                    expander.IsExpanded = false;
+            }
+
+            sender.StartBringIntoView(new BringIntoViewOptions
+            {
+                AnimationDesired = true,
+                VerticalAlignmentRatio = 0.08,
+            });
+        });
+    }
+
+    private void OnRunExpanderCollapsed(
+        Expander sender,
+        ExpanderCollapsedEventArgs args)
+    {
+        if (sender.Tag is ScheduledTaskRunRowViewModel run)
+            _expansionState.SetExpanded(run.Id, expanded: false);
+    }
+
+    private RunOutputPane EnsureOutputPane(
+        string runId,
+        Expander expander)
+    {
+        if (_outputPanes.TryGetValue(runId, out RunOutputPane? pane))
+            return pane;
+
+        var outputText = new RichTextBlock
+        {
+            FontFamily = new FontFamily("Cascadia Mono"),
+            FontSize = 12,
+            IsTextSelectionEnabled = true,
+            Padding = new Thickness(10, 8, 10, 8),
+            TextWrapping = TextWrapping.Wrap,
+        };
+        AutomationProperties.SetAutomationId(
+            outputText,
+            $"ScheduledTaskRunOutput_{runId}");
+        AutomationProperties.SetName(outputText, "运行输出");
+
+        var emptyOutput = new TextBlock
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Brush)Application.Current.Resources[
+                "TextFillColorSecondaryBrush"],
+            Text = "暂无输出",
+            Visibility = Visibility.Collapsed,
+        };
+        AutomationProperties.SetAutomationId(
+            emptyOutput,
+            $"ScheduledTaskRunOutputEmpty_{runId}");
+        AutomationProperties.SetName(emptyOutput, "运行输出为空");
+
+        var host = new Grid
+        {
+            MinHeight = 28,
+        };
+        host.Children.Add(new ScrollViewer
+        {
+            Content = outputText,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            HorizontalScrollMode = ScrollMode.Disabled,
+            MaxHeight = 260,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollMode = ScrollMode.Enabled,
+        });
+        host.Children.Add(emptyOutput);
+        expander.Content = host;
+
+        pane = new RunOutputPane(outputText, emptyOutput);
+        _outputPanes[runId] = pane;
+        return pane;
+    }
+
+    private sealed record RunOutputPane(
+        RichTextBlock OutputText,
+        TextBlock EmptyOutput);
 }

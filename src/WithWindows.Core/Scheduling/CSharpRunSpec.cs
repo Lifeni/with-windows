@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace WithWindows.Core.Scheduling;
 
-public sealed record LuaRunSpec(
+public sealed record CSharpRunSpec(
     string ScriptPath,
     string WorkingDirectory)
 {
@@ -13,14 +13,14 @@ public sealed record LuaRunSpec(
 
     public string Serialize() => JsonSerializer.Serialize(this, JsonOptions);
 
-    public static LuaRunSpec? TryParse(string json)
+    public static CSharpRunSpec? TryParse(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
             return null;
 
         try
         {
-            LuaRunSpec? spec = JsonSerializer.Deserialize<LuaRunSpec>(
+            CSharpRunSpec? spec = JsonSerializer.Deserialize<CSharpRunSpec>(
                 json,
                 JsonOptions);
             return spec is

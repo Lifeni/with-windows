@@ -264,7 +264,7 @@ public sealed class ScheduledTaskStoreTests : IDisposable
         {
             Kind = ScheduleKind.Manual,
         },
-        ScriptText = "print('hello')",
+        ScriptText = "Console.WriteLine(\"hello\");",
         TimeoutSeconds = 60,
         CreatedAt = Now,
         UpdatedAt = Now,

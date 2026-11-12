@@ -23,7 +23,7 @@
     <!-- 单文件发布时 WASDK 强制要求开启 MSIX 工具链（已知坑） -->
     <EnableMsixTooling Condition="'$(PublishSingleFile)' == 'true'">true</EnableMsixTooling>
     <EnableMsixTooling Condition="'$(PublishSingleFile)' != 'true'">false</EnableMsixTooling>
-    <Version>0.9.0</Version>
+    <Version>0.10.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,7 +37,7 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="WinUIEx" />
     <PackageReference Include="Markdig" />
-    <PackageReference Include="KeraLua" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" />
   </ItemGroup>
 
   <ItemGroup>

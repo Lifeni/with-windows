@@ -5,108 +5,67 @@
     xmlns:views="using:WithWindows.Views">
 
     <UserControl.Resources>
-        <DataTemplate x:Key="RunItemTemplate" x:DataType="views:ScheduledTaskRunRowViewModel">
-            <TextBlock
-                FontSize="12"
-                Text="{x:Bind ListText}"
-                TextTrimming="CharacterEllipsis" />
-        </DataTemplate>
-
-        <Style x:Key="RunListItemStyle" TargetType="ListViewItem">
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Margin" Value="0,2" />
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="Padding" Value="8,6" />
-        </Style>
-    </UserControl.Resources>
-
-    <Grid x:Name="ContentRoot" ColumnSpacing="12">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="170" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-
-        <Grid RowSpacing="8">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <TextBlock
-                FontSize="13"
-                FontWeight="SemiBold"
-                Text="运行记录" />
-
-            <ListView
-                x:Name="RunList"
-                Grid.Row="1"
-                AutomationProperties.AutomationId="ScheduledTaskRunHistoryList"
-                AutomationProperties.Name="运行记录"
-                HorizontalContentAlignment="Stretch"
-                ItemContainerStyle="{StaticResource RunListItemStyle}"
-                ItemTemplate="{StaticResource RunItemTemplate}"
-                ItemsSource="{x:Bind Runs}"
-                ContainerContentChanging="OnRunContainerContentChanging"
-                SelectionChanged="OnRunSelectionChanged"
-                SelectionMode="Single" />
-        </Grid>
-
-        <Grid
-            x:Name="ResultsPanel"
-            Grid.Column="1"
-            RowSpacing="8">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <TextBlock
-                x:Name="RunDetailsText"
-                AutomationProperties.AutomationId="ScheduledTaskRunDetails"
-                FontSize="13"
-                FontWeight="SemiBold"
-                Text="运行结果"
-                TextTrimming="CharacterEllipsis" />
-
-            <Border
-                Grid.Row="1"
+        <DataTemplate x:Key="RunExpanderTemplate" x:DataType="views:ScheduledTaskRunRowViewModel">
+            <Expander
+                AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                AutomationProperties.Name="{x:Bind HeaderText}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="6">
-                <Grid>
-                    <ScrollViewer
-                        HorizontalScrollBarVisibility="Disabled"
-                        HorizontalScrollMode="Disabled"
-                        VerticalScrollBarVisibility="Auto"
-                        VerticalScrollMode="Enabled">
-                        <RichTextBlock
-                            x:Name="OutputText"
-                            AutomationProperties.AutomationId="ScheduledTaskCombinedOutput"
-                            AutomationProperties.Name="运行输出"
-                            FontFamily="Cascadia Mono, Consolas"
-                            FontSize="12"
-                            IsTextSelectionEnabled="True"
-                            Padding="10,8"
-                            TextWrapping="Wrap" />
-                    </ScrollViewer>
+                Collapsed="OnRunExpanderCollapsed"
+                CornerRadius="6"
+                Expanding="OnRunExpanderExpanding"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                IsExpanded="False"
+                Loaded="OnRunExpanderLoaded"
+                Padding="14,6,14,14"
+                Tag="{x:Bind}"
+                Unloaded="OnRunExpanderUnloaded">
+                <Expander.Header>
+                    <Grid MinHeight="36" Padding="0,6">
+                        <TextBlock
+                            FontSize="13"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind HeaderText}"
+                            TextTrimming="CharacterEllipsis"
+                            VerticalAlignment="Center" />
+                    </Grid>
+                </Expander.Header>
+            </Expander>
+        </DataTemplate>
+    </UserControl.Resources>
 
-                    <TextBlock
-                        x:Name="EmptyOutput"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        AutomationProperties.AutomationId="ScheduledTaskOutputEmptyState"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="暂无输出"
-                        Visibility="Collapsed" />
-                </Grid>
-            </Border>
-        </Grid>
+    <Grid>
+        <ScrollViewer
+            x:Name="RunScroll"
+            AutomationProperties.AutomationId="ScheduledTaskRunHistoryList"
+            AutomationProperties.Name="运行记录"
+            HorizontalScrollBarVisibility="Disabled"
+            HorizontalScrollMode="Disabled"
+            VerticalScrollBarVisibility="Auto"
+            VerticalScrollMode="Enabled">
+            <ItemsControl
+                x:Name="RunItems"
+                HorizontalContentAlignment="Stretch"
+                ItemTemplate="{StaticResource RunExpanderTemplate}"
+                ItemsSource="{x:Bind Runs}">
+                <ItemsControl.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <AddDeleteThemeTransition />
+                        <RepositionThemeTransition />
+                    </TransitionCollection>
+                </ItemsControl.ItemContainerTransitions>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </ScrollViewer>
 
         <TextBlock
             x:Name="EmptyRuns"
-            Grid.ColumnSpan="2"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             AutomationProperties.AutomationId="ScheduledTaskRunEmptyState"

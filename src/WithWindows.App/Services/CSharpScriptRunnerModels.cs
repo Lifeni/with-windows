@@ -2,7 +2,7 @@ using WithWindows.Core.Scheduling;
 
 namespace WithWindows.Services;
 
-public sealed record LuaRunRequest(
+public sealed record CSharpRunRequest(
     string RunId,
     string ScriptPath,
     string WorkingDirectory,
@@ -10,7 +10,7 @@ public sealed record LuaRunRequest(
     string StdoutLogPath,
     string StderrLogPath);
 
-public sealed record LuaRunResult(
+public sealed record CSharpRunResult(
     ScheduledTaskRunStatus Status,
     int? ExitCode,
     string? ErrorMessage,

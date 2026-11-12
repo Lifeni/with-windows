@@ -28,4 +28,4 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 - 图标在运行期从磁盘读（`Assets\with-windows.ico`），因此安装包会连 `Assets\` 一起安装。补充两条实测事实，避免误判：
   1. 单文件发布**不会**把 `Content` 复制到 publish 目录；publish 目录里那份 `Assets\` 是 csproj 的 `CopyAssetsToPublish` MSBuild 目标（`AfterTargets="Publish"`）补出来的（仅加 `CopyToPublishDirectory` 不生效），**别把它当冗余删掉**；
   2. 但即使漏了那份副本，单文件 exe 本身也已把 `Assets` 打进包内：运行时 `AppContext.BaseDirectory` 指向解压目录 `%TEMP%\.net\WithWindows\<hash>\`，图标照常可用（实测确认）。
-- `KeraLua` 的 `lua54.dll` 通过 `IncludeNativeLibrariesForSelfExtract=true` 内嵌进单文件 exe；不要在发布参数或安装器脚本中再单独要求外置 `lua54.dll`。
+- `Microsoft.CodeAnalysis.CSharp.Scripting` 及其托管依赖由自包含发布流程打包进单文件 exe，不需要目标机器安装 .NET SDK。

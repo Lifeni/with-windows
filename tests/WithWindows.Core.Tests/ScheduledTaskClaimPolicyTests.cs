@@ -136,7 +136,7 @@ public sealed class ScheduledTaskClaimPolicyTests
             Kind = ScheduleKind.Once,
             OneTimeRunAt = runAt,
         },
-        ScriptText = "print('ok')",
+        ScriptText = "Console.WriteLine(\"ok\");",
     };
 
     private static DateTimeOffset Local(int hour, int minute)

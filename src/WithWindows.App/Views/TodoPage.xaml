@@ -152,73 +152,83 @@
             Title="待办提醒" />
 
         <Grid
+            x:Name="TodoContentHost"
             Grid.Row="1"
-            MaxWidth="900"
-            Margin="16,12,16,16"
-            HorizontalAlignment="Stretch">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+            Margin="16,12,16,16">
+            <Grid
+                Width="{Binding ActualWidth, ElementName=TodoContentHost}"
+                MaxWidth="{StaticResource PageContentMaxWidth}"
+                HorizontalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-            <TextBlock
-                x:Name="SummaryText"
-                Margin="0,0,0,8"
-                AutomationProperties.AutomationId="TodoSummary"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="暂无待办" />
+                <TextBlock
+                    x:Name="SummaryText"
+                    Margin="0,0,0,8"
+                    AutomationProperties.AutomationId="TodoSummary"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="暂无待办" />
 
-            <Grid Grid.Row="1">
-                <ListView
-                    x:Name="TodoList"
-                    AutomationProperties.AutomationId="TodoList"
-                    HorizontalContentAlignment="Stretch"
-                    ItemTemplate="{StaticResource TodoRowTemplate}"
-                    ItemsSource="{x:Bind Items}"
-                    SelectionMode="None">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="Background" Value="Transparent" />
-                            <Setter Property="IsTabStop" Value="False" />
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                </ListView>
+                <Grid Grid.Row="1">
+                    <ListView
+                        x:Name="TodoList"
+                        AutomationProperties.AutomationId="TodoList"
+                        HorizontalContentAlignment="Stretch"
+                        ItemTemplate="{StaticResource TodoRowTemplate}"
+                        ItemsSource="{x:Bind Items}"
+                        SelectionMode="None">
+                        <ListView.ItemContainerTransitions>
+                            <TransitionCollection>
+                                <AddDeleteThemeTransition />
+                                <RepositionThemeTransition />
+                            </TransitionCollection>
+                        </ListView.ItemContainerTransitions>
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="IsTabStop" Value="False" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
 
-                <StackPanel
-                    x:Name="EmptyState"
-                    MaxWidth="360"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Spacing="10">
-                    <FontIcon
+                    <StackPanel
+                        x:Name="EmptyState"
+                        MaxWidth="360"
                         HorizontalAlignment="Center"
-                        FontSize="42"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Glyph="&#xE9D5;" />
-                    <TextBlock
-                        AutomationProperties.AutomationId="TodoEmptyState"
-                        FontSize="16"
-                        FontWeight="SemiBold"
-                        Text="还没有待办"
-                        TextAlignment="Center" />
-                    <TextBlock
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="从下方添加第一项；每项都可以设置独立提醒。"
-                        TextAlignment="Center"
-                        TextWrapping="Wrap" />
-                </StackPanel>
+                        VerticalAlignment="Center"
+                        Spacing="10">
+                        <FontIcon
+                            HorizontalAlignment="Center"
+                            FontSize="42"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="&#xE9D5;" />
+                        <TextBlock
+                            AutomationProperties.AutomationId="TodoEmptyState"
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Text="还没有待办"
+                            TextAlignment="Center" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="从下方添加第一项；每项都可以设置独立提醒。"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
 
-                <InfoBar
-                    x:Name="TodoErrorBar"
-                    Margin="0,8,0,8"
-                    VerticalAlignment="Bottom"
-                    AutomationProperties.AutomationId="TodoErrorBar"
-                    IsClosable="True"
-                    IsOpen="False"
-                    Severity="Error" />
+                    <InfoBar
+                        x:Name="TodoErrorBar"
+                        Margin="0,8,0,8"
+                        VerticalAlignment="Bottom"
+                        AutomationProperties.AutomationId="TodoErrorBar"
+                        IsClosable="True"
+                        IsOpen="False"
+                        Severity="Error" />
+                </Grid>
             </Grid>
         </Grid>
     </Grid>

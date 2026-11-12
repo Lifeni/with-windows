@@ -60,7 +60,7 @@ public sealed class ScheduledTaskHost : IDisposable
         _claimNotBefore = DateTimeOffset.UtcNow;
         lock (_gate)
             ArmNextLocked(_claimNotBefore.Value);
-        _host.Log.Info("Lua 脚本：调度宿主已启动");
+        _host.Log.Info("C# 脚本：调度宿主已启动");
     }
 
     public void RefreshSchedule()
@@ -89,7 +89,7 @@ public sealed class ScheduledTaskHost : IDisposable
     private void OnSystemTimeChanged()
     {
         TimeZoneInfo.ClearCachedData();
-        _host.Log.Info("Lua 脚本：检测到系统时间或时区变化，重新布防");
+        _host.Log.Info("C# 脚本：检测到系统时间或时区变化，重新布防");
         RefreshSchedule();
         EnvironmentChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -114,7 +114,7 @@ public sealed class ScheduledTaskHost : IDisposable
             }
             catch (Exception ex)
             {
-                _host.Log.Error($"Lua 脚本处理到期计划失败：{ex}");
+                _host.Log.Error($"C# 脚本处理到期计划失败：{ex}");
             }
             finally
             {
@@ -202,7 +202,7 @@ public sealed class ScheduledTaskHost : IDisposable
         _nextWakeAt = next;
         _timer.Change(delay, Timeout.InfiniteTimeSpan);
         _host.Log.Info(
-            $"Lua 脚本：下一次唤醒 {next.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+            $"C# 脚本：下一次唤醒 {next.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
     }
 
     private void Track(Task task)
@@ -254,11 +254,11 @@ public sealed class ScheduledTaskHost : IDisposable
         }
         catch (TimeoutException ex)
         {
-            _host.Log.Error($"等待 Lua 脚本停止超时：{ex.Message}");
+            _host.Log.Error($"等待 C# 脚本停止超时：{ex.Message}");
         }
         catch (Exception ex)
         {
-            _host.Log.Error($"等待 Lua 脚本停止失败：{ex.Message}");
+            _host.Log.Error($"等待 C# 脚本停止失败：{ex.Message}");
         }
 
         _lifecycle.CompleteStop();
