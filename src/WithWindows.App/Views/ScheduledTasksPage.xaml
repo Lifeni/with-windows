@@ -171,67 +171,63 @@
         </Grid>
 
         <Grid
-            x:Name="ScheduledContentHost"
             Grid.Row="1"
-            Margin="16,12,16,16">
-            <Grid
-                Width="{Binding ActualWidth, ElementName=ScheduledContentHost}"
-                MaxWidth="{StaticResource PageContentMaxWidth}"
-                HorizontalAlignment="Center">
-                <ListView
-                    x:Name="TaskList"
-                    AutomationProperties.AutomationId="ScheduledTaskList"
-                    AutomationProperties.Name="脚本列表"
-                    ContainerContentChanging="OnTaskContainerContentChanging"
-                    HorizontalContentAlignment="Stretch"
-                    ItemTemplate="{StaticResource TaskRowTemplate}"
-                    ItemsSource="{x:Bind Tasks}"
-                    SelectionMode="None">
-                    <ListView.ItemContainerTransitions>
-                        <TransitionCollection>
-                            <AddDeleteThemeTransition />
-                            <RepositionThemeTransition />
-                        </TransitionCollection>
-                    </ListView.ItemContainerTransitions>
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="Background" Value="Transparent" />
-                            <Setter Property="IsTabStop" Value="False" />
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                </ListView>
+            MaxWidth="{StaticResource PageContentMaxWidth}"
+            Margin="16,12,16,16"
+            HorizontalAlignment="Stretch">
+            <ListView
+                x:Name="TaskList"
+                AutomationProperties.AutomationId="ScheduledTaskList"
+                AutomationProperties.Name="脚本列表"
+                ContainerContentChanging="OnTaskContainerContentChanging"
+                HorizontalContentAlignment="Stretch"
+                ItemTemplate="{StaticResource TaskRowTemplate}"
+                ItemsSource="{x:Bind Tasks}"
+                SelectionMode="None">
+                <ListView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <AddDeleteThemeTransition />
+                        <RepositionThemeTransition />
+                    </TransitionCollection>
+                </ListView.ItemContainerTransitions>
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="IsTabStop" Value="False" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+            </ListView>
 
-                <StackPanel
-                    x:Name="EmptyState"
-                    MaxWidth="360"
+            <StackPanel
+                x:Name="EmptyState"
+                MaxWidth="360"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="10">
+                <FontIcon
                     HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Spacing="10">
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        FontSize="42"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Glyph="&#xE943;" />
-                    <TextBlock
-                        AutomationProperties.AutomationId="ScheduledTaskEmptyState"
-                        FontSize="16"
-                        FontWeight="SemiBold"
-                        Text="还没有脚本"
-                        TextAlignment="Center" />
-                </StackPanel>
+                    FontSize="42"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Glyph="&#xE943;" />
+                <TextBlock
+                    AutomationProperties.AutomationId="ScheduledTaskEmptyState"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="还没有脚本"
+                    TextAlignment="Center" />
+            </StackPanel>
 
-                <InfoBar
-                    x:Name="ErrorBar"
-                    Margin="0,8,0,8"
-                    VerticalAlignment="Top"
-                    AutomationProperties.AutomationId="ScheduledTaskErrorBar"
-                    IsClosable="True"
-                    IsOpen="False"
-                    Severity="Error"
-                    Title="操作失败" />
-            </Grid>
+            <InfoBar
+                x:Name="ErrorBar"
+                Margin="0,8,0,8"
+                VerticalAlignment="Top"
+                AutomationProperties.AutomationId="ScheduledTaskErrorBar"
+                IsClosable="True"
+                IsOpen="False"
+                Severity="Error"
+                Title="操作失败" />
         </Grid>
     </Grid>
 </Page>

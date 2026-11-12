@@ -38,7 +38,7 @@ public static class ToolCatalog
         // E9D5 = CheckList（WinUI Gallery 图标表，tags: tasks, items, organize, progress）
         new ToolEntry(TodoId, "待办", "\uE9D5", typeof(TodoPage), ShowInNav: true, HasHotkey: false),
         // E8F2 = ChatBubbles（WinUI Gallery 图标表，tags: chat, messages）
-        new ToolEntry(AiChatId, "AI 对话", "\uE8F2", typeof(ChatPage), ShowInNav: true, HasHotkey: false),
+        new ToolEntry(AiChatId, "对话", "\uE8F2", typeof(ChatPage), ShowInNav: true, HasHotkey: false),
         // E943 = Code（WinUI Gallery 图标表，tags: bracket, slash）
         new ToolEntry(ScheduledId, "脚本", "\uE943", typeof(ScheduledTasksPage), ShowInNav: true, HasHotkey: false),
         // E975 = Devices2（WinUI Gallery 图标表，tags: displays, hardware）

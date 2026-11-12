@@ -134,7 +134,7 @@ public sealed partial class ScheduledTaskHistoryView : UserControl
         }
 
         _runExpanders[run.Id] = expander;
-        if (_expansionState.ExpandedRunId == run.Id
+        if (_expansionState.IsExpanded(run.Id)
             && !expander.IsExpanded)
         {
             expander.IsExpanded = true;
@@ -166,19 +166,13 @@ public sealed partial class ScheduledTaskHistoryView : UserControl
         EnsureOutputPane(run.Id, sender);
         RunExpanded?.Invoke(this, run);
 
-        // Expanding 事件早于控件内部提交展开状态，立即收起兄弟项会被覆盖。
+        // Expanding 事件早于控件内部提交展开状态，延后滚动到新展开的记录。
         DispatcherQueue.TryEnqueue(() =>
         {
-            if (_expansionState.ExpandedRunId != run.Id
+            if (!_expansionState.IsExpanded(run.Id)
                 || !sender.IsExpanded)
             {
                 return;
-            }
-
-            foreach ((string runId, Expander expander) in _runExpanders)
-            {
-                if (runId != run.Id && expander.IsExpanded)
-                    expander.IsExpanded = false;
             }
 
             sender.StartBringIntoView(new BringIntoViewOptions

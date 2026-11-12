@@ -55,7 +55,7 @@ public sealed class DisplayModeAction : IAction
     }
 
     internal static string ToggleMenuText(string? current, string[] toggleModes)
-        => $"切换：{MenuModeDisplayName(PickToggleTarget(current, toggleModes))}";
+        => MenuModeDisplayName(PickToggleTarget(current, toggleModes));
 
     /// <summary>模式名 → SDC_TOPOLOGY_* 标志数值。供测试断言。</summary>
     internal static uint TopologyFor(string mode) => mode switch

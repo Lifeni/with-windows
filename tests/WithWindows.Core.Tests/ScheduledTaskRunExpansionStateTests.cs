@@ -15,13 +15,29 @@ public sealed class ScheduledTaskRunExpansionStateTests
     }
 
     [Fact]
-    public void SetExpanded_展开另一条时只保留新记录()
+    public void SetExpanded_可以同时展开多条记录()
     {
         var state = new ScheduledTaskRunExpansionState();
         state.Reset(["newest", "older"]);
 
         state.SetExpanded("older", expanded: true);
 
+        Assert.True(state.IsExpanded("newest"));
+        Assert.True(state.IsExpanded("older"));
+        Assert.Equal("older", state.ExpandedRunId);
+    }
+
+    [Fact]
+    public void SetExpanded_收起一条后其他记录仍保持展开()
+    {
+        var state = new ScheduledTaskRunExpansionState();
+        state.Reset(["newest", "older"]);
+        state.SetExpanded("older", expanded: true);
+
+        state.SetExpanded("newest", expanded: false);
+
+        Assert.False(state.IsExpanded("newest"));
+        Assert.True(state.IsExpanded("older"));
         Assert.Equal("older", state.ExpandedRunId);
     }
 
