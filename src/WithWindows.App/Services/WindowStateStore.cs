@@ -114,14 +114,22 @@ public sealed class WindowStateStore : IDisposable
             (int)Math.Round(Math.Max(state.Height, MinHeight) * scale));
     }
 
-    /// <summary>窗口尺寸/位置变化后去抖写回配置。</summary>
-    public void OnWindowChanged()
+    /// <summary>
+    /// 窗口尺寸/位置变化后去抖写回配置。
+    /// <paramref name="applyMinimumSize"/> 仅在尺寸或 DPI 变化时为 true：
+    /// 系统移动/缩放循环中反复修改 <c>OverlappedPresenter.PreferredMinimum*</c>
+    /// 会触发 Microsoft.UI.Xaml 的 <c>E_INVALIDARG</c> 原生 fail-fast。
+    /// </summary>
+    public void OnWindowChanged(bool applyMinimumSize)
     {
         if (_restoring)
             return;
 
-        // 移到缩放率不同的显示器后，最小尺寸需要按新 DPI 重算
-        ApplyMinimumSize();
+        // 移到缩放率不同的显示器后，尺寸变化会按新 DPI 重算最小尺寸；
+        // 单纯移动不能碰 presenter。
+        if (applyMinimumSize)
+            ApplyMinimumSize();
+
         _debounce.Stop();
         _debounce.Start();
     }

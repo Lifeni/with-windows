@@ -30,6 +30,9 @@ public partial class App : Application
     /// <summary>定时调度宿主；页面用于订阅系统时间/时区变化。</summary>
     public static ScheduledTaskHost? TaskHost { get; private set; }
 
+    /// <summary>亮暗主题定时宿主；页面保存设置后用它重新布防。</summary>
+    public static ThemeSwitchHost? ThemeHost { get; private set; }
+
     // 生命周期等于进程：必须以字段持有，禁止局部 using（否则第二个实例照样能起）
     private AppHost? _host;
 
@@ -40,6 +43,7 @@ public partial class App : Application
     private CSharpScriptRunner? _scriptRunner;
     private ScheduledTaskCoordinator? _scheduledTasks;
     private ScheduledTaskHost? _scheduledTaskHost;
+    private ThemeSwitchHost? _themeSwitchHost;
     private int _recoveryRestartCount;
     private bool _restarting;
     private readonly SemaphoreSlim _shutdownGate = new(1, 1);
@@ -110,7 +114,19 @@ public partial class App : Application
         }
 
         AppHost host = start.Host;
-        host.ToolInvoker = toolId => new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
+        host.ToolInvoker = toolId =>
+        {
+            if (string.Equals(
+                toolId,
+                ToolCatalog.ThemeToggleId,
+                StringComparison.Ordinal))
+            {
+                mainWindow.RunThemeToggleInBackground();
+                return;
+            }
+
+            new HotkeyRouter(mainWindow, host.Config).Invoke(toolId);
+        };
 
         _scriptRunner = new CSharpScriptRunner();
         _scheduledTasks = new ScheduledTaskCoordinator(
@@ -119,6 +135,8 @@ public partial class App : Application
         Scheduler = _scheduledTasks;
         _scheduledTaskHost = new ScheduledTaskHost(host, _scheduledTasks);
         TaskHost = _scheduledTaskHost;
+        _themeSwitchHost = new ThemeSwitchHost(host);
+        ThemeHost = _themeSwitchHost;
 
         Microsoft.UI.Dispatching.DispatcherQueue dispatcher = mainWindow.DispatcherQueue;
         _todoReminders = new TodoReminderHost(
@@ -192,6 +210,7 @@ public partial class App : Application
 
         _todoReminders.Start();
         _scheduledTaskHost.Start();
+        _themeSwitchHost.Start();
 
         if (restartPageTag is { } pageTag)
         {
@@ -379,6 +398,7 @@ public partial class App : Application
 
             if (_todoReminders is not null)
             {
+                _host?.Log.Info("关闭：停止待办提醒");
                 try
                 {
                     await _todoReminders.StopAsync();
@@ -391,6 +411,7 @@ public partial class App : Application
 
             if (_scheduledTaskHost is not null)
             {
+                _host?.Log.Info("关闭：停止 C# 脚本宿主");
                 try
                 {
                     await _scheduledTaskHost.ShutdownAsync();
@@ -401,12 +422,16 @@ public partial class App : Application
                 }
             }
 
+            _themeSwitchHost?.Dispose();
             _scheduledTasks?.Dispose();
             _scriptRunner?.Dispose();
             _todoReminders?.Dispose();
             _scheduledTaskHost?.Dispose();
+            _host?.Log.Info("关闭：后台宿主已释放");
+            _themeSwitchHost = null;
             Scheduler = null;
             TaskHost = null;
+            ThemeHost = null;
         }
         finally
         {

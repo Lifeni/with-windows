@@ -1,8 +1,59 @@
 <Page
     x:Class="WithWindows.Views.DisplayPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:WithWindows.Controls">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Page.Resources>
+        <!--
+            与 WinUI Gallery 的 Source code 折叠区一致：直接使用原生 Expander，
+            标题由模板绘制默认卡片底色，内容绘制次级卡片底色和描边。
+            不要再套外层 Border，否则半透明底色会叠在另一层卡片上。
+        -->
+
+        <!--
+            只用样式设置外观，不替换 Expander 的默认模板。
+            展开与收起完全交给原生模板：模板只对内容做 333 ms / 167 ms 的
+            TranslateY 动画，Expander 自身的布局高度按原生行为立即变化；
+            兄弟分组的跟随位移由外层 StackPanel 的原生 RepositionThemeTransition
+            负责。不要给 Expander 自身补间 Height，也不要套裁切宿主，否则会与
+            模板的内容滑动并行，产生空白与首帧闪动。
+        -->
+        <Style
+            x:Key="SwitchGroupExpanderStyle"
+            TargetType="Expander">
+            <!--
+                Gallery 的写法：内容底色和描边直接使用公开的卡片主题资源。
+                内容区域在展开时作为完整卡片一起滑动，标题底边形成两块区域的接缝。
+            -->
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1,0,1,1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+
+        <!--
+            组内功能内容左侧与折叠头部标题文字对齐：
+            16 DIP 头部内边距 + 20 DIP 图标 + 16 DIP 图标间距 = 52 DIP。
+            右侧与展开箭头右缘对齐，保留 16 DIP。
+            设置页「关于」正文也按同一基线缩进。
+        -->
+        <Style
+            x:Key="SettingsCardStyle"
+            TargetType="Border">
+            <!--
+                功能行本身不绘制第三层卡片，只负责与标题文字对齐的内边距。
+            -->
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="MinHeight" Value="{StaticResource SettingCardMinHeight}" />
+            <Setter Property="Padding" Value="52,12,16,12" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+    </Page.Resources>
 
     <ScrollViewer
         x:Name="PageScroll"
@@ -12,79 +63,320 @@
         <StackPanel Spacing="16">
             <!-- 内容铺开到可用宽度，上限与其他工具页一致并水平居中 -->
             <StackPanel
+                x:Name="SwitchGroupsHost"
                 Width="{Binding ViewportWidth, ElementName=PageScroll}"
                 MaxWidth="{StaticResource PageContentMaxWidth}"
                 HorizontalAlignment="Center"
-                Spacing="8">
+                Spacing="12">
+                <!--
+                    只让原生布局提交驱动兄弟分组重排；不给 Expander 补间高度。
+                -->
+                <StackPanel.ChildrenTransitions>
+                    <TransitionCollection>
+                        <RepositionThemeTransition />
+                    </TransitionCollection>
+                </StackPanel.ChildrenTransitions>
+
                 <TextBlock
-                    Margin="0,0,0,8"
-                    AutomationProperties.AutomationId="DisplayTitle"
+                    Margin="0,0,0,4"
+                    AutomationProperties.AutomationId="SwitchTitle"
                     Style="{StaticResource TitleTextBlockStyle}"
-                    Text="投影" />
+                    Text="切换" />
 
-                <controls:HotkeyRow
-                    x:Name="DisplayHotkeyRow"
-                    Glyph="&#xE765;"
-                    Title="快捷键"
-                    ToolId="display_mode" />
-
-                <!-- 切换模式：默认折叠，展开后是原生多选框（PowerToys 的 SettingsExpander 风格） -->
+                <!--
+                    两个分组直接使用原生 Expander，不修改模板、不补间 Height。
+                    原生模板只平移内容；外层 StackPanel 的原生重排过渡负责让
+                    兄弟分组平滑跟随。不要再包一层静态 Border，否则会让内容
+                    区域和标题区域出现不同的底色层。
+                -->
                 <Expander
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch"
-                    AutomationProperties.AutomationId="DisplayModesExpander"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    IsExpanded="False">
+                    x:Name="DisplaySwitchGroup"
+                    AutomationProperties.AutomationId="DisplaySwitchGroup"
+                    IsExpanded="True"
+                    Style="{StaticResource SwitchGroupExpanderStyle}">
                     <Expander.Header>
-                        <!--
-                            与上方卡片行同构：图标 + 标题（+ 说明）。水平内边距必须给 0——
-                            展开组件的头部本身会先留 16 DIP，再叠一层 16 就会比卡片行的图标右移一格。
-                        -->
                         <Grid
                             MinHeight="{StaticResource SettingCardMinHeight}"
-                            Padding="0,12"
+                            Padding="0,8"
+                            ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                Grid.Column="0"
+                                FontSize="20"
+                                Glyph="&#xE975;"
+                                VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    Text="显示切换" />
+                                <TextBlock
+                                    x:Name="DisplayGroupSubtitleText"
+                                    AutomationProperties.AutomationId="DisplayGroupSubtitle"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="当前：正在读取…" />
+                            </StackPanel>
+                        </Grid>
+                    </Expander.Header>
+
+                    <StackPanel Spacing="4">
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="DisplayModesTitle"
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    Text="候选模式" />
+                                <StackPanel x:Name="ModesHost" Spacing="0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Expander>
+
+                <Expander
+                    x:Name="ThemeSwitchGroup"
+                    AutomationProperties.AutomationId="ThemeSwitchGroup"
+                    IsExpanded="True"
+                    Style="{StaticResource SwitchGroupExpanderStyle}">
+                    <Expander.Header>
+                        <Grid
+                            MinHeight="{StaticResource SettingCardMinHeight}"
+                            Padding="0,8"
                             ColumnSpacing="16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-
-                            <!-- E975 = Devices2，与左栏「投影」项同一个字形 -->
                             <FontIcon
                                 Grid.Column="0"
                                 FontSize="20"
-                                Glyph="&#xE975;"
+                                Glyph="&#xE793;"
                                 VerticalAlignment="Center" />
-
                             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                                 <TextBlock
-                                    AutomationProperties.AutomationId="DisplayModesTitle"
                                     Style="{StaticResource BodyStrongTextBlockStyle}"
-                                    Text="切换模式" />
+                                    Text="主题切换" />
                                 <TextBlock
-                                    x:Name="CurrentModeText"
-                                    AutomationProperties.AutomationId="DisplayCurrentMode"
+                                    x:Name="ThemeGroupSubtitleText"
+                                    AutomationProperties.AutomationId="ThemeGroupSubtitle"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="当前模式：读取中…" />
+                                    Text="当前：正在读取…" />
                             </StackPanel>
+                            <ToggleSwitch
+                                x:Name="ThemeScheduleToggle"
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ThemeScheduleToggle"
+                                AutomationProperties.Name="按日出日落自动切换"
+                                MinWidth="0"
+                                OffContent=""
+                                OnContent=""
+                                Toggled="OnScheduleToggled" />
                         </Grid>
                     </Expander.Header>
 
-                    <!--
-                        子选项与标题文字左对齐（展开组件的内容区左边缘即卡片左边缘，
-                        标题在图标之后 = 52 DIP），这样看起来是「切换模式」下的一层子项。
-                    -->
-                    <StackPanel x:Name="ModesHost" Margin="52,4,16,12" Spacing="2">
-                        <StackPanel.ChildrenTransitions>
-                            <TransitionCollection>
-                                <EntranceThemeTransition IsStaggeringEnabled="True" />
-                            </TransitionCollection>
-                        </StackPanel.ChildrenTransitions>
+                    <StackPanel Spacing="4">
+                        <InfoBar
+                            x:Name="ThemeScheduleInfo"
+                            AutomationProperties.AutomationId="ThemeScheduleInfo"
+                            Closed="OnScheduleInfoClosed"
+                            IsClosable="True"
+                            IsOpen="False"
+                            Severity="Warning"
+                            Visibility="Collapsed" />
+
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel Spacing="12">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        Grid.Column="0"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.AutomationId="ThemeWallpaperTitle"
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        Text="主题壁纸" />
+                                    <HyperlinkButton
+                                        x:Name="ThemeWallpaperResetButton"
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.AutomationId="ThemeWallpaperReset"
+                                        AutomationProperties.Name="恢复默认主题壁纸"
+                                        Click="OnResetThemeWallpapers"
+                                        Content="恢复默认"
+                                        FontSize="12"
+                                        IsEnabled="False"
+                                        MinHeight="0"
+                                        Padding="0"
+                                        Visibility="Collapsed" />
+                                </Grid>
+
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button
+                                        x:Name="LightWallpaperButton"
+                                        Grid.Column="0"
+                                        Height="184"
+                                        Padding="0"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeLightWallpaperButton"
+                                        AutomationProperties.Name="选择亮色模式壁纸"
+                                        Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        Click="OnChooseLightWallpaper"
+                                        CornerRadius="4"
+                                        ToolTipService.ToolTip="选择亮色模式壁纸">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <Border
+                                                    Grid.Row="0"
+                                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                                    CornerRadius="3,3,0,0">
+                                                    <Grid>
+                                                        <Image
+                                                            x:Name="LightWallpaperPreview"
+                                                            Stretch="UniformToFill" />
+                                                        <StackPanel
+                                                            x:Name="LightWallpaperPlaceholder"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center"
+                                                            Spacing="6">
+                                                            <FontIcon
+                                                                HorizontalAlignment="Center"
+                                                                FontSize="24"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Glyph="&#xE710;" />
+                                                            <TextBlock
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                                Text="选择壁纸" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border
+                                                    Grid.Row="1"
+                                                    Padding="14,10"
+                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="0,1,0,0"
+                                                    CornerRadius="0,0,3,3">
+                                                    <StackPanel Spacing="2">
+                                                        <TextBlock
+                                                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                            Text="亮色模式" />
+                                                        <TextBlock
+                                                            x:Name="LightWallpaperName"
+                                                            AutomationProperties.AutomationId="ThemeLightWallpaperName"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                                            Text="未设置"
+                                                            TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                    </Button>
+
+                                    <Button
+                                        x:Name="DarkWallpaperButton"
+                                        Grid.Column="1"
+                                        Height="184"
+                                        Padding="0"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeDarkWallpaperButton"
+                                        AutomationProperties.Name="选择暗色模式壁纸"
+                                        Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        Click="OnChooseDarkWallpaper"
+                                        CornerRadius="4"
+                                        ToolTipService.ToolTip="选择暗色模式壁纸">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <Border
+                                                    Grid.Row="0"
+                                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                                    CornerRadius="3,3,0,0">
+                                                    <Grid>
+                                                        <Image
+                                                            x:Name="DarkWallpaperPreview"
+                                                            Stretch="UniformToFill" />
+                                                        <StackPanel
+                                                            x:Name="DarkWallpaperPlaceholder"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center"
+                                                            Spacing="6">
+                                                            <FontIcon
+                                                                HorizontalAlignment="Center"
+                                                                FontSize="24"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Glyph="&#xE710;" />
+                                                            <TextBlock
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                                Text="选择壁纸" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border
+                                                    Grid.Row="1"
+                                                    Padding="14,10"
+                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="0,1,0,0"
+                                                    CornerRadius="0,0,3,3">
+                                                    <StackPanel Spacing="2">
+                                                        <TextBlock
+                                                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                            Text="暗色模式" />
+                                                        <TextBlock
+                                                            x:Name="DarkWallpaperName"
+                                                            AutomationProperties.AutomationId="ThemeDarkWallpaperName"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                                            Text="未设置"
+                                                            TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                    </Button>
+                                </Grid>
+
+                                <InfoBar
+                                    x:Name="ThemeWallpaperInfo"
+                                    AutomationProperties.AutomationId="ThemeWallpaperInfo"
+                                    Closed="OnWallpaperInfoClosed"
+                                    IsClosable="True"
+                                    IsOpen="False"
+                                    Severity="Error"
+                                    Visibility="Collapsed" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Expander>
             </StackPanel>

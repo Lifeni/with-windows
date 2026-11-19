@@ -36,6 +36,10 @@ public class WindowInteropTests
     public void IsMinimized_空句柄_恒为假()
         => Assert.False(WindowInterop.IsMinimized(IntPtr.Zero));
 
+    [Fact]
+    public void IsWindow_空句柄_恒为假()
+        => Assert.False(WindowInterop.IsWindow(IntPtr.Zero));
+
     [Theory]
     [InlineData(100, 200, 0x00C80064)]
     [InlineData(-1920, 200, 0x00C8F880)]

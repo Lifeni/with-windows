@@ -5,6 +5,7 @@
 - `MainWindow` 用 `NavigationView` + `Frame` 组成导航壳：左栏是工具列表，底部固定「设置」。
 - 内容路由由 `NavigationViewItem.Tag` 驱动，映射表**由工具目录生成**：`ToolCatalog.Tools` 里 `ShowInNav` 的项进左栏，`MainWindow.BuildNavigation` 据此建 `_routes`。新增有页面的工具 = 在 `ToolCatalog` 加一条 + 写一个页面，**不要改 `MainWindow`**。
 - 标题栏由 `MainWindow` 的内置 `TitleBar` 实现，保留应用图标与折叠导航；最小化、最大化 / 还原与关闭按钮交给系统 caption 区域，不自绘窗口按钮。`ExtendsContentIntoTitleBar` 只扩展内容区，不能同时隐藏 caption 按钮。
+- 系统 caption 按钮不在 XAML 视觉树内，无法直接绑定 `ThemeResource`；`MainWindow.ApplyTitleBarTheme()` 必须按实际主题显式设置四个按钮前景色，并在窗口重新激活时再刷新一次。普通重新激活只更新按钮前景色；仅构造窗口和实际亮暗主题变化时更新 `PreferredTheme`。颜色集中在 `CaptionButtonForeground` 与 `CaptionButtonInactiveForeground` 两个辅助方法中，不要散落到页面代码。
 - 窗口背景用 `MicaBackdrop`（`Window.SystemBackdrop`）。
 - 关闭按钮与 `Alt+F4` 都通过 `AppWindow.Closing` 隐藏到托盘，不销毁窗口；托盘收起使用 `ShowWindow(SW_MINIMIZE)`，不要依赖 `Closed` 事件做清理。真正退出只走托盘菜单。唤回前调用 `WindowInterop.ClearCaptionButtonHover`，清除系统关闭按钮可能残留的悬停状态。
 
@@ -29,6 +30,7 @@
 - 分组命令（页内工具栏、格式操作）优先用 `CommandBar` 或其他现成命令面，不要用 `StackPanel` 拼一排按钮。
 - 集合类布局要明确滚动归属：页面本身已经纵向滚动时，不要假设嵌套的 `GridView` 还能正确渲染横向海报条。
 - 不要给区块、列表、卡片套多余的 `Border` 包裹；子项本身已是卡片时再套一层就是「双卡片」。
+- 单页多组设置优先用内置 `Expander` 的两层卡片表面：标题使用默认卡片底色，内容使用次级卡片底色，中间保留 1 DIP 原生接缝，不要在外层再套统一卡片。组内功能行使用透明内容区，左侧留 52 DIP，与组标题图标后的文字对齐，右侧留 16 DIP，与展开箭头右缘对齐，也与设置页「关于」折叠内容一致；不绘制第三层卡片，不嵌套第二层 `Expander`。折叠内容由原生模板负责，父级使用 `RepositionThemeTransition` 让兄弟分组平滑跟随，不手写 Expander 高度 `Storyboard` 或套裁切宿主。
 - 响应式是「壳 + 页」的问题，不只是控件缩放：要明确宽、中、窄三档下导航形态、内边距、内容密度与页脚的处理。
 
 ## 五、图标
@@ -43,7 +45,7 @@
     ConvertFrom-Json | Where-Object { $_.Name -like '*Monitor*' } | Format-Table Name, Code, Tags
   ```
 
-  例：投影用的 `Devices2` = `E975`（tags: displays/hardware），本项目导航与投影页都用它。
+  例：左侧“切换”导航使用 `TaskView` = `E7C4`；分组标题“显示切换”仍使用 `Devices2` = `E975`。
 
 ## 六、参考实现（写代码前先看这两处）
 

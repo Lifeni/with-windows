@@ -32,6 +32,41 @@ public sealed class ScheduledTaskStoreTests : IDisposable
     }
 
     [Fact]
+    public void AddRange_批量写入一次并持久化()
+    {
+        ScheduledTaskStore store = NewStore();
+        int changedCount = 0;
+        store.Changed += (_, _) => changedCount++;
+
+        IReadOnlyList<ScheduledTask> added = store.AddRange(
+            new[] { SampleTask("甲"), SampleTask("乙"), SampleTask("丙") });
+
+        Assert.Equal(3, added.Count);
+        Assert.Equal(1, changedCount);
+        Assert.Equal(
+            new[] { "甲", "乙", "丙" },
+            NewStore().GetAll().Select(task => task.Name));
+    }
+
+    [Fact]
+    public void AddRange_任一项无效时整批不落盘()
+    {
+        ScheduledTaskStore store = NewStore();
+        ScheduledTask invalid = SampleTask("无效");
+        invalid.Schedule = new TaskSchedule
+        {
+            Kind = ScheduleKind.Weekly,
+            TimeOfDay = new TimeOnly(9, 0),
+        };
+
+        Assert.Throws<ArgumentException>(() =>
+            store.AddRange(new[] { SampleTask("有效"), invalid }));
+
+        Assert.Empty(store.GetAll());
+        Assert.False(File.Exists(store.Path));
+    }
+
+    [Fact]
     public void Load_主文件损坏时隔离并从备份恢复()
     {
         ScheduledTaskStore store = NewStore();

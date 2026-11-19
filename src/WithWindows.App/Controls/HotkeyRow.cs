@@ -14,7 +14,7 @@ namespace WithWindows.Controls;
 
 /// <summary>
 /// 一条可绑热键的工具行：标题 + 说明 + 快捷键按钮（按键方块 + 铅笔 → 弹窗录制），注册失败就地提示。
-/// 由工具所在页面直接使用（投影页的「投影快捷键」、设置页的「呼出主窗口」）。
+/// 由工具所在页面直接使用，目前用于设置页的「显示 / 隐藏窗口」。
 /// </summary>
 public sealed class HotkeyRow : UserControl
 {
@@ -46,6 +46,8 @@ public sealed class HotkeyRow : UserControl
 
     public HotkeyRow()
     {
+        HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        VerticalContentAlignment = VerticalAlignment.Center;
         Build();
         Loaded += OnLoaded;
         _info.Closed += (_, _) => _info.Visibility = Visibility.Collapsed;
@@ -127,18 +129,47 @@ public sealed class HotkeyRow : UserControl
     /// <summary>打开录制对话框；确认后写回配置并热重载。</summary>
     private async Task EditHotkeyAsync()
     {
-        if (_binding is null || Host is null)
+        if (_binding is not { } binding
+            || App.Host is not { IsShuttingDown: false } host)
             return;
 
-        HotkeyDialogResult result = await HotkeyDialog.ShowAsync(XamlRoot, Title, _binding.Hotkey);
-        if (!result.Confirmed)
+        XamlRoot? xamlRoot = XamlRoot;
+        if (!IsLoaded || xamlRoot is null)
             return;
 
-        _binding.Hotkey = string.IsNullOrWhiteSpace(result.Hotkey) ? null : result.Hotkey;
-        _chips.SetHotkey(_binding.Hotkey);
-        UpdateEditAutomationName();
-        Host.SaveConfig();
-        ReportFailures(Host.ReloadBindings());
+        try
+        {
+            HotkeyDialogResult result =
+                await HotkeyDialog.ShowAsync(xamlRoot, Title, binding.Hotkey);
+            if (!result.Confirmed)
+                return;
+
+            binding.Hotkey = string.IsNullOrWhiteSpace(result.Hotkey) ? null : result.Hotkey;
+            host.SaveConfig();
+            IReadOnlyList<string> failures = host.ReloadBindings();
+
+            // 对话框打开期间可能已用托盘菜单或热键切页；此时只保存配置，不再碰旧控件。
+            if (!IsLoaded || XamlRoot is null)
+            {
+                host.Log.Info($"快捷键已保存，但{binding.Id}所在页面已卸载。");
+                return;
+            }
+
+            _chips.SetHotkey(binding.Hotkey);
+            UpdateEditAutomationName();
+            ReportFailures(failures);
+        }
+        catch (Exception ex)
+        {
+            Host?.Log.Error($"设置快捷键失败：{ex.Message}");
+            if (IsLoaded && XamlRoot is not null)
+            {
+                _info.Severity = InfoBarSeverity.Error;
+                _info.Title = $"设置快捷键失败：{ex.Message}";
+                _info.IsOpen = true;
+                _info.Visibility = Visibility.Visible;
+            }
+        }
     }
 
     /// <summary>读屏名要带上当前绑定值：按键方块本身是 AccessibilityView.Raw，读屏只能从这里拿到。</summary>

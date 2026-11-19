@@ -30,6 +30,9 @@
 
 - 用 WinUIEx 的 `TrayIcon`。
 - **必须由字段持有引用**，否则会被 GC 回收，图标消失且没有任何报错。
+- 托盘图标默认使用细线闪电 `Assets/tray-lightning-thin-light.ico` / `-dark.ico`，分别用于亮色主题的深色闪电与暗色主题的白色闪电；黄色应用图标 `Assets/with-windows.ico` 保留为可选项。
+- 运行时用 `TrayIcon.SetIcon(string)` 替换图标，路径未变化时不要重复调用 Shell。闪电资源缺失时必须回退默认图标，不能让托盘入口消失。
+- 闪电 ICO 由 `scripts/generate-tray-icons.ps1` 从 `Segoe Fluent Icons` 的 `E945` 字形生成。字形先裁掉透明边界，再按长边铺满画布，不额外保留安全边距，覆盖 16 至 256 px。
 
 ## 五、注册表与开机自启
 

@@ -3,8 +3,8 @@ using System.Text.Json;
 namespace WithWindows.Core.Config;
 
 /// <summary>
-/// 配置读写（v5）。原子替换（临时文件 + File.Replace）+ 旧内容留 .bak + 主文件损坏回退 + 自愈式清理未知工具。
-/// 版本 1 至 4 迁移到版本 5；旧 v3 bindings 对象、旧数组与不支持版本重建为默认配置并回写。
+/// 配置读写（v7）。原子替换（临时文件 + File.Replace）+ 旧内容留 .bak + 主文件损坏回退 + 自愈式清理未知工具。
+/// 版本 1 至 6 迁移到版本 7；旧 v3 bindings 对象、旧数组与不支持版本重建为默认配置并回写。
 /// </summary>
 public sealed class ConfigStore
 {
@@ -72,7 +72,7 @@ public sealed class ConfigStore
     }
 
     /// <summary>
-    /// 解析 v1 至 v5 配置。<paramref name="unsupportedFormat"/> 为 true 表示 JSON 合法但不是支持版本
+    /// 解析 v1 至 v7 配置。<paramref name="unsupportedFormat"/> 为 true 表示 JSON 合法但不是支持版本
     /// （旧数组格式、缺版本号、版本号不符）；<paramref name="needsSave"/> 表示需要回写。
     /// </summary>
     private static AppConfig? TryDeserialize(
@@ -106,7 +106,7 @@ public sealed class ConfigStore
             try
             {
                 int versionNumber = version.GetInt32();
-                if (versionNumber is not (1 or 2 or 3 or 4 or 5))
+                if (versionNumber is not (1 or 2 or 3 or 4 or 5 or 6 or 7))
                 {
                     unsupportedFormat = true;
                     return null;
@@ -134,6 +134,18 @@ public sealed class ConfigStore
                     repaired = true;
                 }
 
+                if (config.ThemeSwitch is null)
+                {
+                    config.ThemeSwitch = new ThemeSwitchConfig();
+                    repaired = true;
+                }
+
+                if (config.Tray is null)
+                {
+                    config.Tray = new TrayConfig();
+                    repaired = true;
+                }
+
                 if (config.WindowState is null)
                 {
                     config.WindowState = new WindowStateConfig();
@@ -154,7 +166,8 @@ public sealed class ConfigStore
 
                 needsSave = versionNumber < AppConfig.CurrentVersion
                     || repaired
-                    || !HasValidDefaultPage(doc.RootElement);
+                    || !HasValidDefaultPage(doc.RootElement)
+                    || !HasValidTrayIconStyle(doc.RootElement);
                 config.Version = AppConfig.CurrentVersion;
                 return config;
             }
@@ -182,6 +195,19 @@ public sealed class ConfigStore
             or WindowDefaultPage.AiChat;
     }
 
+    private static bool HasValidTrayIconStyle(JsonElement root)
+    {
+        if (!root.TryGetProperty("tray", out JsonElement tray)
+            || tray.ValueKind != JsonValueKind.Object
+            || !tray.TryGetProperty("iconStyle", out JsonElement iconStyle)
+            || iconStyle.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        return TrayIconStyle.IsValid(iconStyle.GetString());
+    }
+
     /// <summary>自愈：丢弃未知工具、去重、补回缺失的已知工具。返回是否发生了变化。</summary>
     private static bool Normalize(AppConfig config)
     {
@@ -191,6 +217,16 @@ public sealed class ConfigStore
         if (!string.Equals(config.WindowState.DefaultPage, defaultPage, StringComparison.Ordinal))
         {
             config.WindowState.DefaultPage = defaultPage;
+            changed = true;
+        }
+
+        if (config.ThemeSwitch.Normalize())
+            changed = true;
+
+        string iconStyle = TrayIconStyle.Normalize(config.Tray.IconStyle);
+        if (!string.Equals(config.Tray.IconStyle, iconStyle, StringComparison.Ordinal))
+        {
+            config.Tray.IconStyle = iconStyle;
             changed = true;
         }
 
@@ -208,13 +244,6 @@ public sealed class ConfigStore
                 config.Tools.Add(new ToolBinding { Id = id });
                 changed = true;
             }
-        }
-
-        ToolBinding displayMode = config.Tools.Single(t => t.Id == "display_mode");
-        if (!displayMode.Enabled)
-        {
-            displayMode.Enabled = true;
-            changed = true;
         }
 
         return changed;

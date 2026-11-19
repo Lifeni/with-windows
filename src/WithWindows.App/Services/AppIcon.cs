@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using WithWindows.Core.Config;
 
 namespace WithWindows.Services;
 
@@ -14,4 +15,27 @@ public static class AppIcon
 
     /// <summary>图标文件是否存在（缺失说明打包漏了 Assets）。</summary>
     public static bool Exists => File.Exists(Preferred);
+
+    /// <summary>
+    /// 按配置和当前主题选择托盘图标；闪电图标缺失时回退到默认黄色图标，
+    /// 避免切换样式后托盘没有入口。
+    /// </summary>
+    public static string ResolveTray(string iconStyle, bool darkTheme)
+    {
+        string normalized = TrayIconStyle.Normalize(iconStyle);
+        string stem = normalized switch
+        {
+            TrayIconStyle.LightningThin => "tray-lightning-thin",
+            _ => string.Empty,
+        };
+        string preferred = string.IsNullOrEmpty(stem)
+            ? Preferred
+            : Path.Combine(
+                AppContext.BaseDirectory,
+                "Assets",
+                $"{stem}-{(darkTheme ? "dark" : "light")}.ico");
+        if (File.Exists(preferred))
+            return preferred;
+        return File.Exists(Preferred) ? Preferred : preferred;
+    }
 }

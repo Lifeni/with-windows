@@ -6,7 +6,7 @@ namespace WithWindows.Services;
 
 /// <summary>
 /// 把工具标识映射到具体行为：有页面的工具按一次显示、再按一次隐藏（并切页），纯动作工具直接执行。
-/// 托盘、热键与快捷键页的「立即执行」共用这一处分派。
+/// 托盘动作与主窗口唤出热键共用这一处分派。
 /// </summary>
 public sealed class HotkeyRouter
 {
@@ -33,6 +33,10 @@ public sealed class HotkeyRouter
             case ToolCatalog.DisplayModeId:
                 var action = new DisplayModeAction(_config.DisplayMode.Modes.ToArray());
                 return action.Execute("toggle");
+
+            case ToolCatalog.ThemeToggleId:
+                var themeAction = new ThemeToggleAction(_config.ThemeSwitch);
+                return themeAction.Execute("toggle");
 
             default:
                 throw new ArgumentException($"未知工具“{toolId}”");

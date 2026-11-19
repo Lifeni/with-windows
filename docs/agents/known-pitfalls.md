@@ -4,13 +4,21 @@
 
 ## 窗口与 XAML
 
-**托盘收起不要隐藏顶层 WinUI 窗口**：`AppWindow.Hide()` / `AppWindow.Show()` 和 `SW_HIDE` 都可能让当前页面触发 `Unloaded`，再次显示时只恢复顶层窗口，不会把整棵 XAML 内容重新挂载；投影、AI 对话等页面会黑屏，随后伴随 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。本机还实测到 `OverlappedPresenter.Minimize()` 与 `Restore()` 会直接破坏 XAML 内容树，即使用按钮事件排队执行也无效。当前正常路径是：收起时用 CsWin32 `ShowWindow(SW_MINIMIZE)`，再设 `AppWindow.IsShownInSwitchers = false`；唤回时先设回 `true`，再调用 `ShowWindow(SW_SHOWNOACTIVATE)`，最后 `Activate()` 和 `BringToFront()`。不要移动窗口到屏幕外，也不要用 `SW_HIDE`。
+**托盘收起不要隐藏顶层 WinUI 窗口**：`AppWindow.Hide()` / `AppWindow.Show()` 和 `SW_HIDE` 都可能让当前页面触发 `Unloaded`，再次显示时只恢复顶层窗口，不会把整棵 XAML 内容重新挂载；切换、AI 对话等页面会黑屏，随后伴随 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。本机还实测到 `OverlappedPresenter.Minimize()` 与 `Restore()` 会直接破坏 XAML 内容树，即使用按钮事件排队执行也无效。当前正常路径是：收起前先用 `WindowInterop.IsWindow` 确认句柄有效，在窗口仍处于还原状态时设 `AppWindow.IsShownInSwitchers = false`，再用 CsWin32 `ShowWindow(SW_MINIMIZE)`；唤回时先检查句柄，再设回 `true`，调用 `ShowWindow(SW_SHOWNOACTIVATE)`，最后 `Activate()` 和 `BringToFront()`。2026-11-18 实测反序执行（先最小化、再移除切换器）会让 `AppWindow` 偶发以 `E_INVALIDARG`（`0x80070578`）触发 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`，且异常发生在原生层、`try/catch` 外部也兜不住；因此顺序不能颠倒，两个切换器操作仍要各自包在 `try/catch` 里。不要移动窗口到屏幕外，也不要用 `SW_HIDE`。
 
 **首次 `--tray` 启动不要主动最小化或隐藏窗口**：新创建的 WinUI 窗口本来就是未显示状态；在首次显示前调用 `_windowState.Restore()`、`SW_MINIMIZE` 或 `SW_SHOWMINNOACTIVE` 都可能触发 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`（WER 前置异常为 `E_INVALIDARG`）。`--tray` 启动只标记托盘状态并保留窗口初始隐藏状态；尺寸在用户首次唤出、窗口激活后恢复。只有窗口已经正常显示后，关闭按钮和显示 / 隐藏热键才能走 `SW_MINIMIZE`。
 
 **系统关闭按钮会留下 caption 悬停状态**：窗口使用内置 `TitleBar` 时，点击系统关闭按钮会结束非客户区鼠标跟踪；若在 `AppWindow.Closing` 中取消关闭并立即收起，窗口可能收不到 pointer-exited，唤回后关闭按钮仍是红色。收起仍走 `SW_MINIMIZE`，唤回前先调用 `WindowInterop.ClearCaptionButtonHover` 发送 `WM_NCMOUSEMOVE` / `HTNOWHERE`。该清理对标准标题栏无副作用。
 
+**失焦时切换主题会让标题栏按钮保留旧字形颜色**：`AppWindowTitleBar.PreferredTheme` 会刷新 caption 背景，但窗口不在前台时，系统不会按新主题重算最小化 / 最大化 / 关闭按钮的字形；重新激活也不会自动补一次。必须显式设置 `ButtonForegroundColor`、`ButtonHoverForegroundColor`、`ButtonPressedForegroundColor` 与 `ButtonInactiveForegroundColor`，并在 `Activated` 的重新激活分支通过 `QueueWindowThemeRefresh()` 排队刷新。回归路径是让窗口失焦后切换主题、再激活，分别检查正常与最大化状态。
+
 **关闭回调不要直接切换 presenter**：`AppWindow.Closing` 中先设置 `Cancel = true`，再用 `DispatcherQueue.TryEnqueue` 执行收起；事件回调栈内直接改变窗口状态会与 WinUI 消息处理重入。真正退出只由托盘菜单触发。
+
+**托盘退出不要从菜单 `Click` 回调直接销毁托盘**：2026-11-19 实测，点击“退出”后在 `MenuFlyoutItem.Click` 栈内直接等待 `ExitApplicationAsync()`、释放菜单所属 `TrayHost` 并调用 `Application.Exit()`，会出现“点了没退出”，并留下 `Microsoft.UI.Xaml.dll` 的 `0xC000027B` / WER `0x80070578`（无效窗口句柄）。退出项只能先记录请求并让菜单关闭；等 `MenuFlyout.Closed` 后再排一轮 UI 队列进入退出流程，确保 Click / Closed 输入回调先返回。退出流程必须分阶段 `try/catch` 停止后台任务、保存窗口状态、释放托盘和 `AppHost`，某步失败也继续收尾，最后用 `Environment.Exit(cleanupFailed ? 1 : 0)` 结束；确认退出后禁止把 `_exitRequested` / `_exiting` 重置回 false，也不能在可能已损坏的 XAML 树中调用 `Application.Exit()`。
+
+**标题栏主题与托盘图标不要在 `Activated` 回调内同步刷新**：2026-11-19 的崩溃转储显示 `uxtheme → user32!SendMessageW → Microsoft.UI.Xaml → Microsoft_UI_Input → Microsoft_UI_Windowing_Core → uxtheme` 反复重入，最终以 `0x80070578`（无效窗口句柄）触发 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。不要在 `Window.Activated` 或 `FrameworkElement.ActualThemeChanged` 回调栈内直接写 `AppWindowTitleBar` 并调用 `TrayIcon.SetIcon`；应通过 `DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, ...)` 排到下一轮消息循环，并用一个 bool 合并同一轮内的多次请求。回归路径是切换托盘图标后关闭到托盘，再真实左键唤回并等待至少 2 秒，进程必须持续响应且无新增 dump。
+
+`PreferredTheme` 会再次驱动 caption 主题切换，只应在构造窗口和 `ActualThemeChanged` 时设置；普通窗口重新激活时只重刷四个按钮前景色，不要重复写 `PreferredTheme`，否则会把激活路径重新带回 `uxtheme` 重入。
 
 **UI Automation `InvokePattern` 不适合关闭按钮生命周期回归**：对未激活窗口直接 invoke 导航或关闭按钮，可能产生真实鼠标不会触发的 `Unloaded`。回归黑屏时必须先切换到目标窗口，再用 `winapp ui click` 执行鼠标路径；不要用截图黑屏反推生产用户操作必然失败。
 
@@ -26,6 +34,10 @@
 
 **没有 XAML 设计器**：这不是缺陷而是优点——所有界面都是纯文本，可读、可改、可 diff。UI 改动必须写成可 review 的 XAML diff。
 
+**切换页不要自定义 `Expander` 的 `ControlTemplate`，也不要操作模板内部元素**：把 `ToggleSwitch` 通过 `Tag` 注入模板、在标题上覆盖 `ContentControl`、再监听 `IsExpanded` 修改内容 `Border.Height`，会在本机 WinUI 3.3 触发 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`。日志里可能先看到 `MeasureOverride` 抛 `ArgumentException`，也可能直接以 `E_INVALIDARG`（`0x80070578`）fail-fast。切换页两个分组必须使用内置 `Expander` 默认模板，只通过样式设置背景、边框、圆角与内边距；自动切换开关放在 `Expander.Header` 的独立列，不要再使用 `Expander.Tag` 承载交互控件。下方分组由 `SwitchGroupsHost` 的父级 `RepositionThemeTransition` 平滑跟随；不要补间 Expander 自身的 `Height` 或套裁切宿主，否则会与原生内容滑动和 Composition Clip 并行造成延迟或闪烁。
+
+**标题与内容不要共用外层统一底色**：`Expander` 的标题表面使用默认卡片底色，内容表面使用次级卡片底色，两层半透明画刷叠在外层 `Border` 上会产生标题偏亮、内容偏暗和接缝发灰。切换页要保持标题、1 DIP 接缝、内容三个层次各自独立，不要再套统一卡片背景。
+
 **`UserControl` 没有自动化节点**：把 `AutomationProperties.AutomationId` 设在 `UserControl` 上等于没设——它在 UIA 树里不出现，既搜不到也无法被 `winapp ui focus` / `send-keys --target` 定位。自定义控件若要被自动化与读屏使用，根元素要用可聚焦控件（如 `Button`），或由控件把 ID 转交给内部可聚焦元素。
 
 **`Button` 会把 `PointerPressed` 标记为已处理**：XAML 上的 `PointerPressed="…"` 普通订阅**永远不会被调用**（与 `RichEditBox` 内部 `ScrollViewer` 吞滚轮同源）。要收到这类事件必须 `AddHandler(UIElement.PointerPressedEvent, handler, handledEventsToo: true)`。另外 WinUI 的 `RoutedEventArgs` **没有 `Handled`**（那是 WPF），想阻止冒泡只能在指针阶段拦（`PointerRoutedEventArgs.Handled`）。
@@ -36,7 +48,7 @@
 
 **XAML 崩溃的定位办法**：`0xC000027B` 只有「应用已启动」一行日志时，给 `App` 挂 `UnhandledException` 把 `e.Exception` 写进日志，通常能拿到带行号的 `XamlParseException`（本次就是靠它定位的）。
 
-**页面 Unloaded 后禁止继续操作 XAML**：异步请求、图片解码、延迟滚动和窗口激活回调都可能在页面已经卸载后继续执行。此时设置控件属性、调用 `Focus()` 或 `ScrollIntoView()` 会把无效窗口句柄交给 WinUI，表现为黑帧并最终以 `0xC000027B` 退出。所有异步续体必须先检查 `IsLoaded` 和 `XamlRoot is not null`；卸载后只允许保存文件等非 UI 工作。AI 页不再订阅全局 `Window.Activated` 来抢输入焦点。
+**页面 Unloaded 后禁止继续操作 XAML**：异步请求、图片解码、延迟滚动和窗口激活回调都可能在页面已经卸载后继续执行。此时设置控件属性、调用 `Focus()` 或 `ScrollIntoView()` 会把失效的 XAML 控件交给 WinUI，表现为黑帧并最终以 `0xC000027B` 退出。所有异步续体必须先检查 `IsLoaded` 和 `XamlRoot is not null`；卸载后只允许保存文件等非 UI 工作。特别检查 `FileOpenPicker` / `FileSavePicker` / `ContentDialog` 返回后的续体：切换页的壁纸选择器与定位请求都可能在等待期间被托盘菜单切走，此时只能保存配置、清理临时文件并写日志，不能再更新按钮、提示条或读屏名称。AI 页不再订阅全局 `Window.Activated` 来抢输入焦点。
 
 **页面卸载后不要用 `Frame.Navigate` 抢救**：实测长停用或 UIA 激活后 `Frame` 仍报告 `CurrentSourcePageType`，但页面已经卸载；此时再调用 `Navigate` 会在 `Microsoft.UI.Xaml.dll` 中以 `0xC000027B` 崩溃，WER 前置异常为 `0x80070578`（无效窗口句柄）。所有导航入口都要先检查 `NavFrame.Content is Page { IsLoaded: true, XamlRoot: not null }`，页面失效时只暂存目标并交给恢复计时器；恢复检查必须同时匹配预期页面类型，不能把另一个仍挂载的旧页面当成恢复完成，导航成功后也要基于新代次重新检查目标。仍然失效时启动新进程并传入当前页面；子进程进入 WinUI 启动流程后必须通过命名事件与旧进程握手，旧进程确认握手完成且子进程仍存活，才释放托盘、窗口状态和 `AppHost`，再用 `Environment.Exit(0)` 退出。自动重启最多一次，且只有预期页面稳定挂载后才清空重启预算。不要调用 `Application.Exit()` 处理已经损坏的 XAML 树，也不要继续对旧树导航。
 

@@ -114,11 +114,19 @@ SetTitleBar(AppTitleBar);
 AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 ```
 
-系统关闭按钮与 `Alt+F4` 在 `AppWindow.Closing` 中取消关闭，并排队执行与托盘相同的 `HideToTray()`；不要在该回调栈内直接切换 presenter。真正退出只走托盘菜单，并通过 `_exiting` 让 `Closing` 放行。
+系统亮暗主题变化时，`AppWindowTitleBar.PreferredTheme` 只负责 caption 背景，不会保证窗口非前台时重算按钮字形。必须在 `ApplyTitleBarTheme()` 中同时设置 `ButtonForegroundColor`、`ButtonHoverForegroundColor`、`ButtonPressedForegroundColor` 与 `ButtonInactiveForegroundColor`，并在主题变化及窗口重新激活后通过低优先级 `DispatcherQueue` 排队刷新一次。不要把标题栏主题和托盘图标刷新直接写在 `Activated` / `ActualThemeChanged` 回调栈内：系统会在这里重入 `uxtheme` 消息，实测可导致 `0xC000027B` / `0x80070578`。普通重新激活只刷新按钮前景色；仅在构造窗口和实际亮暗主题变化时写 `PreferredTheme`，避免激活路径再次触发 caption 主题重入。
+
+系统关闭按钮与 `Alt+F4` 在 `AppWindow.Closing` 中取消关闭，并排队执行与托盘相同的 `HideToTray()`；不要在该回调栈内直接切换 presenter。真正退出只走托盘菜单：退出项点击只记录请求并让菜单关闭，在 `MenuFlyout.Closed` 后再排一轮 UI 队列调用 `ExitApplicationAsync()`；完成 `ShutdownAsync` 与分阶段清理后用 `Environment.Exit` 结束进程，不要在菜单 `Click` 回调内释放 `TrayHost` 或调用 `Application.Exit()`。
 
 从托盘唤回时先发送 `WM_NCMOUSEMOVE` / `HTNOWHERE` 清除 caption 悬停状态。WinUI 在关闭按钮点击并立即收起窗口时可能收不到 pointer-exited，导致再次显示后关闭按钮仍为红色（WindowsAppSDK / WinUI issue 12232）；这个规避对标准标题栏无副作用。
 
 另外 `TitleBar.IconSource` 用 `.ico` 而不是 `.png`——PNG 在标题栏里会渲染成透明棋盘格。
+
+### 不要自定义 `Expander` 的模板或操作模板内部元素
+
+切换页曾把 `ToggleSwitch` 通过 `Tag` 注入自定义 `Expander` 模板，并在标题上覆盖 `ContentControl`，再用代码修改内容 `Border.Height`。该组合会在 WinUI 3.3 触发 `Microsoft.UI.Xaml.dll` 的 `0xC000027B`：日志可能先出现 `MeasureOverride` 的 `ArgumentException`，也可能直接以 `E_INVALIDARG`（`0x80070578`）fail-fast。
+
+`Expander` 使用内置默认模板，只通过 `Background`、`BorderBrush`、`CornerRadius`、`Padding` 等样式属性调整外观。交互控件放在 `Header` 的独立列，不要通过 `Tag` 注入模板，也不要访问模板内部元素或修改内容 `Border.Height`。下方分组通过 `SwitchGroupsHost` 的原生 `RepositionThemeTransition` 平滑跟随；不要手写 Expander 自身高度 `Storyboard` 或套裁切宿主，避免与原生内容滑动、原生 Composition Clip 并行造成延迟或闪烁。
 
 ## 三、异步规则
 

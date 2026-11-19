@@ -10,6 +10,7 @@ GetForegroundWindow
 GetModuleHandle
 GetWindowThreadProcessId
 IsIconic
+IsWindow
 IsWindowVisible
 NOTIFYICONDATAW
 NOTIFYICONIDENTIFIER
@@ -17,8 +18,10 @@ QueryDisplayConfig
 RegisterClassEx
 RegisterHotKey
 SendMessage
+SendNotifyMessage
 SetDisplayConfig
 SetForegroundWindow
+SystemParametersInfo
 Shell_NotifyIcon
 Shell_NotifyIconGetRect
 ShowWindow

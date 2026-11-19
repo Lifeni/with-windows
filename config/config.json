@@ -1,11 +1,21 @@
 {
-  "version": 5,
+  "version": 7,
   "tools": [
-    { "id": "notepad", "enabled": true, "hotkey": null },
-    { "id": "display_mode", "enabled": true, "hotkey": null }
+    { "id": "notepad", "enabled": true, "hotkey": null }
   ],
   "displayMode": {
     "modes": [ "internal", "extend" ]
+  },
+  "themeSwitch": {
+    "scheduleEnabled": false,
+    "latitude": null,
+    "longitude": null,
+    "locationUpdatedAt": null,
+    "lightWallpaper": null,
+    "darkWallpaper": null
+  },
+  "tray": {
+    "iconStyle": "lightning-thin"
   },
   "windowState": {
     "width": 1100,

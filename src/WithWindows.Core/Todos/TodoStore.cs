@@ -38,24 +38,35 @@ public sealed class TodoStore
     }
 
     public TodoItem Add(string title, DateTimeOffset now)
+        => AddRange(new[] { title }, now)[0];
+
+    public IReadOnlyList<TodoItem> AddRange(IEnumerable<string> titles, DateTimeOffset now)
     {
-        string normalized = title.Trim();
-        if (normalized.Length == 0)
-            throw new ArgumentException("待办标题不能为空。", nameof(title));
+        ArgumentNullException.ThrowIfNull(titles);
 
-        var item = new TodoItem
+        var items = new List<TodoItem>();
+        foreach (string title in titles)
         {
-            Id = Guid.NewGuid().ToString("N"),
-            Title = normalized,
-            CreatedAt = now,
-        };
+            if (string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("待办标题不能为空。", nameof(titles));
 
-        Mutate(items =>
+            items.Add(new TodoItem
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Title = title.Trim(),
+                CreatedAt = now,
+            });
+        }
+
+        if (items.Count == 0)
+            return [];
+
+        Mutate(current =>
         {
-            items.Add(item);
+            current.AddRange(items);
             return true;
         });
-        return Clone(item);
+        return items.Select(Clone).ToList();
     }
 
     public bool SetCompleted(string id, bool completed, DateTimeOffset now)

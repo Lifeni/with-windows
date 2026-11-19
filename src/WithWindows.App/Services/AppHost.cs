@@ -2,6 +2,7 @@ using WithWindows.Core.App;
 using WithWindows.Core.Config;
 using WithWindows.Core.Diagnostics;
 using WithWindows.Core.Hotkeys;
+using WithWindows.Core.Samples;
 using WithWindows.Core.Scheduling;
 using WithWindows.Core.Todos;
 
@@ -136,11 +137,35 @@ public sealed class AppHost : IDisposable
             return new AppHostStartResult(null, AlreadyRunning: false, Error: $"无法读取配置文件：{ex.Message}");
         }
 
+        SeedInitialContent(log);
         var host = new AppHost(single, log, store, config);
         foreach (string failure in host.ReloadBindings())
             host.Log.Error(failure);
         host.Log.Info("应用已启动");
         return new AppHostStartResult(host, AlreadyRunning: false, Error: null);
+    }
+
+    private static void SeedInitialContent(Logger log)
+    {
+        try
+        {
+            SampleContentSeedResult result = SampleContentSeeder.EnsureInitialContent(
+                AppPaths.TodoPath,
+                AppPaths.ScheduledTasksPath,
+                AppPaths.SampleContentStatePath,
+                DateTimeOffset.UtcNow);
+            if (result.SeededAnything)
+            {
+                log.Info(
+                    $"已写入示例内容：{result.TodosAdded} 条待办，"
+                    + $"{result.TasksAdded} 个脚本");
+            }
+        }
+        catch (Exception ex)
+        {
+            // 示例内容只是首次初始化引导，写入失败不能阻止主应用启动。
+            log.Error($"示例内容初始化失败：{ex}");
+        }
     }
 
     /// <summary>

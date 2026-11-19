@@ -10,7 +10,7 @@ using WithWindows.Services;
 
 namespace WithWindows.Views;
 
-/// <summary>设置页：开机自启、显示 / 隐藏窗口快捷键、关于（版本与路径入口）。</summary>
+/// <summary>设置页：开机自启、显示 / 隐藏窗口快捷键、默认页面、托盘图标样式与关于。</summary>
 public sealed partial class SettingsPage : Page
 {
     /// <summary>导航项 Tag 常量，供 MainWindow 路由表引用。</summary>
@@ -42,6 +42,12 @@ public sealed partial class SettingsPage : Page
                 {
                     WindowDefaultPage.AiChat => 2,
                     WindowDefaultPage.Todo => 1,
+                    _ => 0,
+                };
+            TrayIconStyleComboBox.SelectedIndex =
+                TrayIconStyle.Normalize(Host.Config.Tray.IconStyle) switch
+                {
+                    TrayIconStyle.Default => 1,
                     _ => 0,
                 };
             VersionText.Text = $"With Windows {CurrentVersion()}";
@@ -99,6 +105,24 @@ public sealed partial class SettingsPage : Page
             _ => "记事",
         };
         Host.Log.Info($"默认打开窗口已设为：{label}");
+    }
+
+    private void OnTrayIconStyleChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing || Host is null)
+            return;
+
+        string style = (TrayIconStyleComboBox.SelectedItem as ComboBoxItem)?.Tag as string
+            ?? TrayIconStyle.LightningThin;
+        style = TrayIconStyle.Normalize(style);
+        if (string.Equals(Host.Config.Tray.IconStyle, style, StringComparison.Ordinal))
+            return;
+
+        Host.Config.Tray.IconStyle = style;
+        Host.SaveConfig();
+        if (App.MainWindow is WithWindows.MainWindow window)
+            window.RefreshTrayIcon();
+        Host.Log.Info($"托盘图标样式已设为：{TrayIconStyle.DisplayName(style)}");
     }
 
     private void OnOpenRepositoryClick(object sender, RoutedEventArgs e)

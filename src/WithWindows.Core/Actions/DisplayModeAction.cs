@@ -4,7 +4,7 @@ using Windows.Win32.Devices.Display;
 namespace WithWindows.Core.Actions;
 
 /// <summary>
-/// 切换投影模式，基于 SetDisplayConfig 直接应用拓扑。mode 取值：internal / extend / external / clone，
+/// 切换显示模式，基于 SetDisplayConfig 直接应用拓扑。mode 取值：internal / extend / external / clone，
 /// 以及 toggle：在候选模式（配置 displayMode.modes，默认 internal/extend）中循环。
 /// 目标模式与当前一致时返回 Changed=false。
 /// </summary>

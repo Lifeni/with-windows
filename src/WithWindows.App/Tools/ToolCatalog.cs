@@ -12,14 +12,12 @@ namespace WithWindows.Tools;
 /// <param name="Glyph">Segoe Fluent Icons 字形。</param>
 /// <param name="PageType">对应的导航页面；无页面（纯动作）时为 null。</param>
 /// <param name="ShowInNav">是否出现在左栏导航。</param>
-/// <param name="HasHotkey">该工具是否有可绑定的全局热键；当前仅作声明，各行由所在页面自己张贴。</param>
 public sealed record ToolEntry(
     string Id,
     string Title,
     string Glyph,
     Type? PageType,
-    bool ShowInNav,
-    bool HasHotkey);
+    bool ShowInNav);
 
 /// <summary>首版工具目录。新增有页面的工具 = 加一条目录项 + 一个页面，主窗口代码不动。</summary>
 public static class ToolCatalog
@@ -30,20 +28,20 @@ public static class ToolCatalog
     public const string ScheduledId = "scheduled";
     public const string DisplayPageId = "display";
     public const string DisplayModeId = "display_mode";
+    public const string ThemeToggleId = "theme_toggle";
 
-    /// <summary>全部工具；顺序即导航与快捷键列表顺序。</summary>
+    /// <summary>全部工具；顺序即导航顺序。</summary>
     public static IReadOnlyList<ToolEntry> Tools { get; } = new[]
     {
-        new ToolEntry(NotepadId, "记事", "\uE70B", typeof(NotepadPage), ShowInNav: true, HasHotkey: true),
+        new ToolEntry(NotepadId, "记事", "\uE70B", typeof(NotepadPage), ShowInNav: true),
         // E9D5 = CheckList（WinUI Gallery 图标表，tags: tasks, items, organize, progress）
-        new ToolEntry(TodoId, "待办", "\uE9D5", typeof(TodoPage), ShowInNav: true, HasHotkey: false),
+        new ToolEntry(TodoId, "待办", "\uE9D5", typeof(TodoPage), ShowInNav: true),
         // E8F2 = ChatBubbles（WinUI Gallery 图标表，tags: chat, messages）
-        new ToolEntry(AiChatId, "对话", "\uE8F2", typeof(ChatPage), ShowInNav: true, HasHotkey: false),
+        new ToolEntry(AiChatId, "对话", "\uE8F2", typeof(ChatPage), ShowInNav: true),
         // E943 = Code（WinUI Gallery 图标表，tags: bracket, slash）
-        new ToolEntry(ScheduledId, "脚本", "\uE943", typeof(ScheduledTasksPage), ShowInNav: true, HasHotkey: false),
-        // E975 = Devices2（WinUI Gallery 图标表，tags: displays, hardware）
-        new ToolEntry(DisplayPageId, "投影", "\uE975", typeof(DisplayPage), ShowInNav: true, HasHotkey: false),
-        new ToolEntry(DisplayModeId, "切换模式", "\uE975", PageType: null, ShowInNav: false, HasHotkey: true),
+        new ToolEntry(ScheduledId, "脚本", "\uE943", typeof(ScheduledTasksPage), ShowInNav: true),
+        // E7C4 = TaskView（WinUI Gallery 图标表）
+        new ToolEntry(DisplayPageId, "切换", "\uE7C4", typeof(DisplayPage), ShowInNav: true),
     };
 
     /// <summary>导航项的可访问性标识：由工具 ID 生成（如 notepad → NavItemNotepad）。</summary>

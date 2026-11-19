@@ -14,7 +14,7 @@ public class ConfigStoreTests : IDisposable
     private ConfigStore NewStore() => new(System.IO.Path.Combine(_dir, "config.json"));
 
     [Fact]
-    public void Load_版本1_迁移为版本5并保留原配置()
+    public void Load_版本1_迁移为版本7并保留可迁移配置()
     {
         var store = NewStore();
         File.WriteAllText(store.Path,
@@ -32,18 +32,19 @@ public class ConfigStoreTests : IDisposable
 
         AppConfig config = store.Load();
 
-        Assert.Equal(5, config.Version);
+        Assert.Equal(7, config.Version);
         Assert.Equal("Ctrl+Alt+N", config.Tools.Single(t => t.Id == "notepad").Hotkey);
+        Assert.DoesNotContain(config.Tools, t => t.Id == "display_mode");
         Assert.Equal(new[] { "internal", "external" }, config.DisplayMode.Modes);
         Assert.Equal(1024d, config.WindowState.Width);
         Assert.Equal(18d, config.WindowState.NotepadFontSize);
         Assert.Equal("", config.Chat.BaseUrl);
         Assert.Equal(ChatSettings.DefaultSystemPrompt, config.Chat.SystemPrompt);
-        Assert.Contains("\"version\": 5", File.ReadAllText(store.Path));
+        Assert.Contains("\"version\": 7", File.ReadAllText(store.Path));
     }
 
     [Fact]
-    public void Load_版本4_迁移为版本5并默认打开记事()
+    public void Load_版本4_迁移为版本7并默认打开记事()
     {
         var store = NewStore();
         File.WriteAllText(store.Path,
@@ -59,17 +60,54 @@ public class ConfigStoreTests : IDisposable
 
         AppConfig config = store.Load();
 
-        Assert.Equal(5, config.Version);
+        Assert.Equal(7, config.Version);
         Assert.Equal(1024d, config.WindowState.Width);
         using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
-        Assert.Equal(5, saved.RootElement.GetProperty("version").GetInt32());
+        Assert.Equal(7, saved.RootElement.GetProperty("version").GetInt32());
         Assert.Equal(
             "notepad",
             saved.RootElement.GetProperty("windowState").GetProperty("defaultPage").GetString());
     }
 
     [Fact]
-    public void Load_投影禁用状态_迁移为启用并回写()
+    public void Load_版本5_迁移为版本7并移除切换快捷键工具()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 5,
+              "tools": [
+                { "id": "notepad", "enabled": true, "hotkey": "Ctrl+Alt+N" },
+                { "id": "display_mode", "enabled": true, "hotkey": "Ctrl+Alt+P" }
+              ],
+              "displayMode": { "modes": [ "internal", "external" ] },
+              "windowState": {
+                "width": 1024,
+                "height": 700,
+                "defaultPage": "todo"
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(7, config.Version);
+        Assert.Equal("Ctrl+Alt+N", config.Tools.Single(t => t.Id == "notepad").Hotkey);
+        Assert.DoesNotContain(config.Tools, t => t.Id == "display_mode");
+        Assert.DoesNotContain(config.Tools, t => t.Id == "theme_toggle");
+        Assert.False(config.ThemeSwitch.ScheduleEnabled);
+
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.Equal(7, saved.RootElement.GetProperty("version").GetInt32());
+        JsonElement themeSwitch = saved.RootElement.GetProperty("themeSwitch");
+        Assert.False(themeSwitch.GetProperty("scheduleEnabled").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, themeSwitch.GetProperty("latitude").ValueKind);
+        Assert.Equal(JsonValueKind.Null, themeSwitch.GetProperty("longitude").ValueKind);
+    }
+
+    [Fact]
+    public void Load_旧显示切换工具条目_迁移时移除并回写()
     {
         var store = NewStore();
         File.WriteAllText(store.Path,
@@ -90,13 +128,11 @@ public class ConfigStoreTests : IDisposable
 
         AppConfig config = store.Load();
 
-        Assert.True(config.Tools.Single(t => t.Id == "display_mode").Enabled);
+        Assert.DoesNotContain(config.Tools, t => t.Id == "display_mode");
         using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
-        JsonElement displayTool = saved.RootElement
-            .GetProperty("tools")
-            .EnumerateArray()
-            .Single(tool => tool.GetProperty("id").GetString() == "display_mode");
-        Assert.True(displayTool.GetProperty("enabled").GetBoolean());
+        Assert.DoesNotContain(
+            saved.RootElement.GetProperty("tools").EnumerateArray(),
+            tool => tool.GetProperty("id").GetString() == "display_mode");
     }
 
     [Fact]
@@ -117,7 +153,7 @@ public class ConfigStoreTests : IDisposable
 
         AppConfig config = store.Load();
 
-        Assert.Equal(5, config.Version);
+        Assert.Equal(7, config.Version);
         Assert.Equal(1024d, config.WindowState.Width);
         using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
         Assert.Equal(
@@ -253,7 +289,7 @@ public class ConfigStoreTests : IDisposable
 
         AppConfig config = store.Load();
 
-        Assert.Equal(5, config.Version);
+        Assert.Equal(7, config.Version);
         Assert.Equal(ChatSettings.DefaultSystemPrompt, config.Chat.SystemPrompt);
     }
 
@@ -275,12 +311,12 @@ public class ConfigStoreTests : IDisposable
 
         AppConfig config = store.Load();
 
-        Assert.Equal(5, config.Version);
+        Assert.Equal(7, config.Version);
         Assert.Equal("", config.Chat.SystemPrompt);
     }
 
     [Fact]
-    public void Load_新格式版本3_迁移为版本5并保留主动清空()
+    public void Load_新格式版本3_迁移为版本7并保留主动清空()
     {
         var store = NewStore();
         File.WriteAllText(store.Path,
@@ -297,10 +333,83 @@ public class ConfigStoreTests : IDisposable
 
         AppConfig config = store.Load();
 
-        Assert.Equal(5, config.Version);
+        Assert.Equal(7, config.Version);
         Assert.Equal("https://example.test/v1", config.Chat.BaseUrl);
         Assert.Equal("demo", config.Chat.Model);
         Assert.Equal("", config.Chat.SystemPrompt);
+    }
+
+    [Fact]
+    public void Load_旧版固定时间_迁移后保留自动切换并保留壁纸()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 6,
+              "themeSwitch": {
+                "scheduleEnabled": true,
+                "lightAt": "06:30",
+                "darkAt": "22:15",
+                "lightWallpaper": "C:\\walls\\light.png",
+                "darkWallpaper": "  "
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal("C:\\walls\\light.png", config.ThemeSwitch.LightWallpaper);
+        Assert.Null(config.ThemeSwitch.DarkWallpaper);
+        Assert.True(config.ThemeSwitch.ScheduleEnabled);
+        Assert.False(config.ThemeSwitch.TryGetCoordinates(out _, out _));
+    }
+
+    [Fact]
+    public void Save_主题配置_往返一致()
+    {
+        var store = NewStore();
+        var config = new AppConfig();
+        config.ThemeSwitch.ScheduleEnabled = true;
+        config.ThemeSwitch.Latitude = 39.9042;
+        config.ThemeSwitch.Longitude = 116.4074;
+        config.ThemeSwitch.LocationUpdatedAt = new DateTimeOffset(2026, 11, 18, 0, 0, 0, TimeSpan.Zero);
+        config.ThemeSwitch.LightWallpaper = @"C:\wallpapers\light.png";
+        config.ThemeSwitch.DarkWallpaper = @"C:\wallpapers\dark.png";
+
+        store.Save(config);
+        AppConfig reloaded = store.Load();
+
+        Assert.True(reloaded.ThemeSwitch.ScheduleEnabled);
+        Assert.Equal(39.9042, reloaded.ThemeSwitch.Latitude!.Value, 4);
+        Assert.Equal(116.4074, reloaded.ThemeSwitch.Longitude!.Value, 4);
+        Assert.Equal(config.ThemeSwitch.LocationUpdatedAt, reloaded.ThemeSwitch.LocationUpdatedAt);
+        Assert.Equal(@"C:\wallpapers\light.png", reloaded.ThemeSwitch.LightWallpaper);
+        Assert.Equal(@"C:\wallpapers\dark.png", reloaded.ThemeSwitch.DarkWallpaper);
+        Assert.Single(reloaded.Tools);
+    }
+
+    [Fact]
+    public void Load_无坐标但残留定位时间_清理旧时间并回写()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 7,
+              "themeSwitch": {
+                "locationUpdatedAt": "2026-11-18T00:00:00+00:00"
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Null(config.ThemeSwitch.LocationUpdatedAt);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.Equal(
+            JsonValueKind.Null,
+            saved.RootElement.GetProperty("themeSwitch").GetProperty("locationUpdatedAt").ValueKind);
     }
 
     [Fact]
@@ -312,7 +421,7 @@ public class ConfigStoreTests : IDisposable
         Assert.Equal(AppConfig.CurrentVersion, config.Version);
         Assert.All(config.Tools, t => Assert.True(string.IsNullOrEmpty(t.Hotkey)));
         Assert.Contains(config.Tools, t => t.Id == "notepad");
-        Assert.Contains(config.Tools, t => t.Id == "display_mode");
+        Assert.Single(config.Tools);
         Assert.Equal(ChatSettings.DefaultSystemPrompt, config.Chat.SystemPrompt);
     }
 
@@ -342,7 +451,7 @@ public class ConfigStoreTests : IDisposable
         File.WriteAllText(store.Path, """{ "version": 1, "tools": [] }""");
         var config = store.Load();
         Assert.Contains(config.Tools, t => t.Id == "notepad");
-        Assert.Contains(config.Tools, t => t.Id == "display_mode");
+        Assert.Single(config.Tools);
     }
 
     [Fact]
@@ -460,5 +569,77 @@ public class ConfigStoreTests : IDisposable
         AppConfig reloaded = store.Load();
 
         Assert.Equal(WindowDefaultPage.Todo, reloaded.WindowState.DefaultPage);
+    }
+
+    [Theory]
+    [InlineData(TrayIconStyle.Default)]
+    [InlineData(TrayIconStyle.LightningThin)]
+    public void Save_托盘闪电图标_往返一致(string style)
+    {
+        var store = NewStore();
+        var config = new AppConfig();
+        config.Tray.IconStyle = style;
+
+        store.Save(config);
+        AppConfig reloaded = store.Load();
+
+        Assert.Equal(style, reloaded.Tray.IconStyle);
+    }
+
+    [Theory]
+    [InlineData("lightning")]
+    [InlineData("lightning-thick")]
+    [InlineData("lightning-compact")]
+    [InlineData("lightning-fine")]
+    public void Load_旧闪电样式_归一为细线闪电(string legacyStyle)
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            $$"""
+            {
+              "version": 7,
+              "tray": {
+                "iconStyle": "{{legacyStyle}}"
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(TrayIconStyle.LightningThin, config.Tray.IconStyle);
+    }
+
+    [Fact]
+    public void Default_托盘图标_使用细线闪电()
+    {
+        var config = new AppConfig();
+
+        Assert.Equal(TrayIconStyle.LightningThin, config.Tray.IconStyle);
+    }
+
+    [Theory]
+    [InlineData("\"sparkle\"")]
+    [InlineData("1")]
+    [InlineData("null")]
+    public void Load_非法托盘图标样式_回退默认并回写(string invalidStyle)
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            $$"""
+            {
+              "version": 7,
+              "tray": {
+                "iconStyle": {{invalidStyle}}
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(TrayIconStyle.LightningThin, config.Tray.IconStyle);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.Equal(
+            TrayIconStyle.LightningThin,
+            saved.RootElement.GetProperty("tray").GetProperty("iconStyle").GetString());
     }
 }

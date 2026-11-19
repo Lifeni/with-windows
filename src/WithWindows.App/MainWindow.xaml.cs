@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -37,6 +41,12 @@ public sealed partial class MainWindow : Window
     /// <summary>true 表示正在真正退出（区分「关闭窗口 = 隐藏到托盘」）。</summary>
     private bool _exiting;
     private bool _exitRequested;
+    private bool _windowThemeRefreshQueued;
+    private bool _windowThemeRefreshIncludesCaptionTheme;
+
+    // 主题切换会同步写入注册表并应用壁纸；串行执行，避免快速连点时两个后台任务
+    // 同时读取旧主题后重复应用同一目标。
+    private readonly SemaphoreSlim _themeToggleGate = new(1, 1);
 
     private IntPtr Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
 
@@ -48,6 +58,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        ApplyTitleBarTheme(includeCaptionTheme: true);
 
         if (AppIcon.Exists)
             AppWindow.SetIcon(AppIcon.Preferred);
@@ -62,9 +73,12 @@ public sealed partial class MainWindow : Window
         // 关闭（X 或热键）= 隐藏到托盘，不销毁窗口。
         // Window.Closed 在 WinUI 3 里不可取消，必须用 AppWindow.Closing（AppWindowClosingEventArgs.Cancel）。
         AppWindow.Closing += OnAppWindowClosing;
-        _tray = new TrayHost(this);
+        _tray = new TrayHost(this, ResolveTitleBarTheme() == ElementTheme.Dark);
         if (!_tray.IsAvailable)
             App.Host?.Log.Error($"托盘图标不可用：{_tray.FailureReason}");
+        if (Content is FrameworkElement themeRoot)
+            themeRoot.ActualThemeChanged += OnRootActualThemeChanged;
+        RefreshTrayIcon();
 
         _windowState = new WindowStateStore(this, App.Host?.Config ?? new WithWindows.Core.Config.AppConfig(), () => App.Host?.SaveConfig());
         AppWindow.Changed += OnAppWindowChanged;
@@ -92,7 +106,116 @@ public sealed partial class MainWindow : Window
     {
         Activated -= OnFirstActivated;
         _windowState.Restore();
+        QueueWindowThemeRefresh();
     }
+
+    private void OnRootActualThemeChanged(FrameworkElement sender, object args)
+    {
+        QueueWindowThemeRefresh(includeCaptionTheme: true);
+    }
+
+    /// <summary>
+    /// 标题栏与托盘图标都依赖系统非客户区 / Shell 状态。直接写在 Activated 或
+    /// ActualThemeChanged 回调里，会让 uxtheme 的 SendMessage 与 WinUI Input
+    /// 重入；低优先级排到下一轮消息循环，并合并同一轮内的多次请求。
+    /// </summary>
+    private void QueueWindowThemeRefresh()
+        => QueueWindowThemeRefresh(includeCaptionTheme: false);
+
+    private void QueueWindowThemeRefresh(bool includeCaptionTheme)
+    {
+        _windowThemeRefreshIncludesCaptionTheme |= includeCaptionTheme;
+        if (_windowThemeRefreshQueued)
+            return;
+
+        _windowThemeRefreshQueued = true;
+        if (!DispatcherQueue.TryEnqueue(
+                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                () =>
+                {
+                    bool refreshCaptionTheme = _windowThemeRefreshIncludesCaptionTheme;
+                    _windowThemeRefreshQueued = false;
+                    _windowThemeRefreshIncludesCaptionTheme = false;
+                    if (App.Host is { IsShuttingDown: true })
+                        return;
+
+                    ApplyTitleBarTheme(refreshCaptionTheme);
+                    RefreshTrayIcon();
+                }))
+        {
+            _windowThemeRefreshQueued = false;
+            _windowThemeRefreshIncludesCaptionTheme = false;
+        }
+    }
+
+    /// <summary>按当前托盘样式与窗口实际主题刷新图标；闪电图标据此在亮暗主题间换色。</summary>
+    public void RefreshTrayIcon()
+    {
+        if (App.Host is not { IsShuttingDown: false } host)
+            return;
+
+        _tray.ApplyIconStyle(
+            host.Config.Tray.IconStyle,
+            ResolveTitleBarTheme() == ElementTheme.Dark);
+    }
+
+    /// <summary>
+    /// 系统亮暗主题变化后，WinUI 内容会自动换色，但窗口按钮仍由系统 caption
+    /// 区域绘制。PreferredTheme 只负责 caption 背景；窗口非前台时系统不会重算
+    /// 按钮字形，必须显式同步前景色，并在重新激活时再刷新一次。扩展内容到
+    /// 标题栏时按钮背景保持透明，露出 Mica。
+    /// </summary>
+    private void ApplyTitleBarTheme(bool includeCaptionTheme)
+    {
+        IntPtr hwnd = Hwnd;
+        if (!Core.Interop.WindowInterop.IsWindow(hwnd)
+            || !AppWindowTitleBar.IsCustomizationSupported())
+        {
+            return;
+        }
+
+        ElementTheme theme = ResolveTitleBarTheme();
+        AppWindowTitleBar titleBar = AppWindow.TitleBar;
+        if (includeCaptionTheme)
+        {
+            titleBar.PreferredTheme = theme switch
+            {
+                ElementTheme.Dark => TitleBarTheme.Dark,
+                ElementTheme.Light => TitleBarTheme.Light,
+                _ => TitleBarTheme.UseDefaultAppMode,
+            };
+        }
+
+        titleBar.ButtonBackgroundColor = Colors.Transparent;
+        titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+
+        Windows.UI.Color foreground = CaptionButtonForeground(theme);
+        titleBar.ButtonForegroundColor = foreground;
+        titleBar.ButtonHoverForegroundColor = foreground;
+        titleBar.ButtonPressedForegroundColor = foreground;
+        titleBar.ButtonInactiveForegroundColor = CaptionButtonInactiveForeground();
+    }
+
+    private ElementTheme ResolveTitleBarTheme()
+    {
+        if (Content is FrameworkElement root
+            && root.ActualTheme != ElementTheme.Default)
+        {
+            return root.ActualTheme;
+        }
+
+        return Application.Current.RequestedTheme == ApplicationTheme.Dark
+            ? ElementTheme.Dark
+            : ElementTheme.Light;
+    }
+
+    private static Windows.UI.Color CaptionButtonForeground(ElementTheme theme)
+        => theme == ElementTheme.Dark
+            ? Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)
+            : Windows.UI.Color.FromArgb(0xFF, 0x00, 0x00, 0x00);
+
+    private static Windows.UI.Color CaptionButtonInactiveForeground()
+        => Windows.UI.Color.FromArgb(0xFF, 0x99, 0x99, 0x99);
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
     {
@@ -105,6 +228,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // 主题可能在窗口非前台时切换；DWM 只刷新 caption 背景，
+        // 不会重算按钮字形，激活后再同步一次。必须避开激活消息栈。
+        QueueWindowThemeRefresh();
+
         // 不直接操作可能已经失效的页面；先等待，仍然未挂载时重启进程恢复。
         ScheduleShowRecovery(
             _pendingRouteTag ?? CurrentRouteTag(),
@@ -115,9 +242,17 @@ public sealed partial class MainWindow : Window
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        if (args.DidSizeChange || args.DidPositionChange)
-            _windowState.OnWindowChanged();
-
+        if (args.DidSizeChange)
+        {
+            _windowState.OnWindowChanged(applyMinimumSize: true);
+        }
+        else if (args.DidPositionChange)
+        {
+            // 拖动标题栏会连续触发位置变化。OverlappedPresenter 在系统移动循环中
+            // 被反复写入 PreferredMinimum* 会进入 WinUI 的 E_INVALIDARG fail-fast；
+            // 位置变化只需保存位置，最小尺寸在尺寸或 DPI 变化时再重算。
+            _windowState.OnWindowChanged(applyMinimumSize: false);
+        }
     }
 
     private static void LogLifecycle(string message)
@@ -295,8 +430,18 @@ public sealed partial class MainWindow : Window
         {
             Core.Interop.WindowInterop.ClearCaptionButtonHover(hwnd);
 
-            if (AppWindow.Presenter is OverlappedPresenter)
-                AppWindow.IsShownInSwitchers = true;
+            if (AppWindow.Presenter is OverlappedPresenter
+                && Core.Interop.WindowInterop.IsWindow(hwnd))
+            {
+                try
+                {
+                    AppWindow.IsShownInSwitchers = true;
+                }
+                catch (Exception ex)
+                {
+                    LogLifecycle($"托盘唤出：恢复到切换器失败：{ex.Message}");
+                }
+            }
 
             // SW_SHOWNOACTIVATE 能从最小化状态恢复内容且不会触发第二次激活。
             // Presenter.Restore() 在本次崩溃环境中会破坏 XAML 内容树。
@@ -510,6 +655,12 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘里的直接动作（不切页），执行结果写日志。</summary>
     public void RunTrayAction(string toolId)
     {
+        if (string.Equals(toolId, ToolCatalog.ThemeToggleId, StringComparison.Ordinal))
+        {
+            RunThemeToggleInBackground();
+            return;
+        }
+
         try
         {
             var router = new HotkeyRouter(this, App.Host!.Config);
@@ -519,6 +670,50 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.Host?.Log.Error($"托盘动作「{toolId}」失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 托盘与热键共用：系统主题广播和壁纸写入都放到后台，避免同步等待 Shell
+    /// 与桌面窗口而让主窗口数秒无响应。自动切换本来就在计时器线程执行。
+    /// </summary>
+    public void RunThemeToggleInBackground()
+    {
+        if (App.Host is not { IsShuttingDown: false } host)
+            return;
+
+        _ = ToggleThemeInBackgroundAsync(host);
+    }
+
+    private async Task ToggleThemeInBackgroundAsync(AppHost host)
+    {
+        await _themeToggleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (host.IsShuttingDown)
+                return;
+
+            var stopwatch = Stopwatch.StartNew();
+            Core.Actions.ActionResult result = await Task.Run(
+                () => new Core.Actions.ThemeToggleAction(host.Config.ThemeSwitch)
+                    .Execute("toggle")).ConfigureAwait(false);
+            stopwatch.Stop();
+
+            if (!host.IsShuttingDown)
+            {
+                host.Log.Info(
+                    $"托盘主题动作：{result.Message}；系统应用耗时 {stopwatch.ElapsedMilliseconds} ms");
+                DispatcherQueue.TryEnqueue(RefreshTrayIcon);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!host.IsShuttingDown)
+                host.Log.Error($"托盘主题动作失败：{ex.Message}");
+        }
+        finally
+        {
+            _themeToggleGate.Release();
         }
     }
 
@@ -573,6 +768,30 @@ public sealed partial class MainWindow : Window
         return ToolCatalog.NotepadId;
     }
 
+    /// <summary>
+    /// 托盘菜单关闭后进入退出流程。菜单点击回调不能直接释放托盘与 XAML 对象，
+    /// 因此这里再排一轮 UI 队列，并捕获所有托管异常后强制结束进程。
+    /// </summary>
+    public void RequestExitFromTray()
+    {
+        if (!DispatcherQueue.TryEnqueue(async () =>
+            {
+                try
+                {
+                    await ExitApplicationAsync();
+                }
+                catch (Exception ex)
+                {
+                    App.Host?.Log.Error($"托盘退出流程异常：{ex}");
+                    Environment.Exit(1);
+                }
+            }))
+        {
+            App.Host?.Log.Error("无法排队执行退出流程，直接结束进程。");
+            Environment.Exit(1);
+        }
+    }
+
     /// <summary>真正退出应用；先等待所有后台回调与脚本停止。</summary>
     public async Task ExitApplicationAsync()
     {
@@ -585,47 +804,147 @@ public sealed partial class MainWindow : Window
             if (App.Scheduler?.HasActiveTasks == true)
             {
                 if (_isHiddenToTray || Core.Interop.WindowInterop.IsMinimized(Hwnd))
-                    ShowWindow();
+                {
+                    try
+                    {
+                        ShowWindow();
+                    }
+                    catch (Exception ex)
+                    {
+                        App.Host?.Log.Error($"退出前唤出窗口失败：{ex.Message}");
+                    }
+                }
+
                 await Task.Yield();
 
                 if (Content.XamlRoot is not { } xamlRoot)
                 {
                     App.Host?.Log.Error("有脚本正在运行，但主窗口尚未挂载，无法显示退出确认。");
-                    _exitRequested = false;
-                    return;
+                    // 用户已从托盘明确请求退出；无法展示确认时也必须完成退出，
+                    // 否则会留下一个点了“退出”却没有反应的常驻进程。
                 }
-
-                var dialog = new ContentDialog
+                else
                 {
-                    XamlRoot = xamlRoot,
-                    Title = "脚本正在运行",
-                    Content = "退出 With Windows 将停止所有正在运行的脚本。",
-                    PrimaryButtonText = "停止并退出",
-                    CloseButtonText = "取消",
-                    DefaultButton = ContentDialogButton.Close,
-                };
-                if (await App.ShowDialogAsync(dialog) != ContentDialogResult.Primary)
-                {
-                    _exitRequested = false;
-                    return;
+                    var dialog = new ContentDialog
+                    {
+                        XamlRoot = xamlRoot,
+                        Title = "脚本正在运行",
+                        Content = "退出 With Windows 将停止所有正在运行的脚本。",
+                        PrimaryButtonText = "停止并退出",
+                        CloseButtonText = "取消",
+                        DefaultButton = ContentDialogButton.Close,
+                    };
+                    if (await App.ShowDialogAsync(dialog) != ContentDialogResult.Primary)
+                    {
+                        _exitRequested = false;
+                        return;
+                    }
                 }
             }
 
+            // 用户已确认退出后不再回滚状态。任何清理步骤失败都只记录日志，
+            // 最后仍强制结束进程，避免“点了退出但进程还在”。
             _exiting = true;
             _showRecoveryTimer?.Stop();
             _showRecoveryTimer = null;
-            await App.ShutdownAsync();
-            _windowState.Dispose();
-            _tray.Dispose();
-            // 显式释放热键、日志与单实例互斥体（AppHost 由 App 字段持有，这里主动收尾）
-            App.Host?.Dispose();
-            Application.Current.Exit();
+            App.Host?.Log.Info("退出应用：开始停止后台任务");
+
+            bool cleanupFailed = false;
+            void RecordFailure(string stage, Exception ex)
+            {
+                cleanupFailed = true;
+                App.Host?.Log.Error($"退出应用：{stage}失败：{ex}");
+            }
+
+            try
+            {
+                await App.ShutdownAsync();
+                App.Host?.Log.Info("退出应用：后台任务已停止");
+            }
+            catch (Exception ex)
+            {
+                RecordFailure("停止后台任务", ex);
+            }
+
+            try
+            {
+                _windowState.Dispose();
+                App.Host?.Log.Info("退出应用：窗口状态已保存");
+            }
+            catch (Exception ex)
+            {
+                RecordFailure("保存窗口状态", ex);
+            }
+
+            try
+            {
+                _tray.Dispose();
+                App.Host?.Log.Info("退出应用：托盘已释放");
+            }
+            catch (Exception ex)
+            {
+                RecordFailure("释放托盘", ex);
+            }
+
+            App.Host?.Log.Info("退出应用：即将结束进程");
+            try
+            {
+                // 显式释放热键、日志与单实例互斥体（AppHost 由 App 字段持有）。
+                App.Host?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                cleanupFailed = true;
+                System.Diagnostics.Debug.WriteLine($"退出应用：释放 AppHost 失败：{ex}");
+            }
+
+            // 不在托盘菜单输入回调或可能已损坏的 XAML 树中调用 Application.Exit()。
+            // 进程级退出与页面恢复重启共用同一条已验证路径。
+            Environment.Exit(cleanupFailed ? 1 : 0);
         }
         catch (Exception ex)
         {
-            App.Host?.Log.Error($"退出应用失败：{ex}");
-            _exiting = false;
-            _exitRequested = false;
+            // 走到这里说明退出前的准备阶段出现异常。用户已明确要求退出，
+            // 不再重置状态或让窗口继续驻留，直接完成进程收尾。
+            App.Host?.Log.Error($"退出应用失败，强制结束：{ex}");
+            _exiting = true;
+            try
+            {
+                await App.ShutdownAsync();
+            }
+            catch (Exception shutdownException)
+            {
+                App.Host?.Log.Error($"退出应用：强制关闭后台失败：{shutdownException}");
+            }
+
+            try
+            {
+                _windowState.Dispose();
+            }
+            catch (Exception stateException)
+            {
+                App.Host?.Log.Error($"退出应用：强制保存窗口状态失败：{stateException}");
+            }
+
+            try
+            {
+                _tray.Dispose();
+            }
+            catch (Exception trayException)
+            {
+                App.Host?.Log.Error($"退出应用：强制释放托盘失败：{trayException}");
+            }
+
+            try
+            {
+                App.Host?.Dispose();
+            }
+            catch (Exception hostException)
+            {
+                System.Diagnostics.Debug.WriteLine($"退出应用：强制释放 AppHost 失败：{hostException}");
+            }
+
+            Environment.Exit(1);
         }
     }
 
@@ -664,14 +983,30 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        LogLifecycle("托盘收起：最小化");
-        Core.Interop.WindowInterop.Minimize(Hwnd);
-        if (AppWindow.Presenter is OverlappedPresenter)
+        IntPtr hwnd = Hwnd;
+        if (!Core.Interop.WindowInterop.IsWindow(hwnd))
         {
-            LogLifecycle("托盘收起：从切换器移除");
-            AppWindow.IsShownInSwitchers = false;
+            LogLifecycle("托盘收起：窗口句柄已失效");
+            return;
         }
 
+        // 必须在窗口仍然有效、尚未最小化时移除切换器状态。本机实测反序执行时，
+        // AppWindow.IsShownInSwitchers 偶发以 E_INVALIDARG（0x80070578）原生崩溃。
+        if (AppWindow.Presenter is OverlappedPresenter)
+        {
+            try
+            {
+                LogLifecycle("托盘收起：从切换器移除");
+                AppWindow.IsShownInSwitchers = false;
+            }
+            catch (Exception ex)
+            {
+                LogLifecycle($"托盘收起：从切换器移除失败：{ex.Message}");
+            }
+        }
+
+        LogLifecycle("托盘收起：最小化");
+        Core.Interop.WindowInterop.Minimize(hwnd);
         LogLifecycle("托盘收起：完成");
     }
 }

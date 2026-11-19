@@ -45,27 +45,44 @@ public sealed class ScheduledTaskStore
     }
 
     public ScheduledTask Add(ScheduledTask task)
-    {
-        ArgumentNullException.ThrowIfNull(task);
-        ScheduledTask normalized = ScheduledTaskClone.Task(task);
-        normalized.Id = string.IsNullOrWhiteSpace(normalized.Id)
-            ? Guid.NewGuid().ToString("N")
-            : normalized.Id;
-        if (!ScheduledTaskValidation.IsValidTaskId(normalized.Id))
-            throw new ArgumentException("任务 ID 必须是 32 位 GUID。", nameof(task));
-        ScheduledTaskValidation.ValidateForSave(normalized);
-        if (normalized.CreatedAt == default)
-            normalized.CreatedAt = DateTimeOffset.UtcNow;
-        normalized.UpdatedAt = normalized.CreatedAt;
-        _ = ScheduledTaskValidation.Normalize(normalized);
+        => AddRange(new[] { task })[0];
 
-        Mutate(tasks =>
+    public IReadOnlyList<ScheduledTask> AddRange(IEnumerable<ScheduledTask> tasks)
+    {
+        ArgumentNullException.ThrowIfNull(tasks);
+
+        var items = new List<ScheduledTask>();
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (ScheduledTask task in tasks)
         {
-            if (tasks.Any(item => item.Id == normalized.Id))
+            ArgumentNullException.ThrowIfNull(task);
+            ScheduledTask normalized = ScheduledTaskClone.Task(task);
+            normalized.Id = string.IsNullOrWhiteSpace(normalized.Id)
+                ? Guid.NewGuid().ToString("N")
+                : normalized.Id;
+            if (!ScheduledTaskValidation.IsValidTaskId(normalized.Id))
+                throw new ArgumentException("任务 ID 必须是 32 位 GUID。", nameof(tasks));
+            ScheduledTaskValidation.ValidateForSave(normalized);
+            if (normalized.CreatedAt == default)
+                normalized.CreatedAt = DateTimeOffset.UtcNow;
+            normalized.UpdatedAt = normalized.CreatedAt;
+            _ = ScheduledTaskValidation.Normalize(normalized);
+
+            if (!ids.Add(normalized.Id))
                 throw new InvalidOperationException("任务 ID 已存在。");
-            tasks.Add(ScheduledTaskClone.Task(normalized));
+            items.Add(normalized);
+        }
+
+        if (items.Count == 0)
+            return [];
+
+        Mutate(current =>
+        {
+            if (items.Any(item => current.Any(existing => existing.Id == item.Id)))
+                throw new InvalidOperationException("任务 ID 已存在。");
+            current.AddRange(items.Select(ScheduledTaskClone.Task));
         });
-        return ScheduledTaskClone.Task(normalized);
+        return items.Select(ScheduledTaskClone.Task).ToList();
     }
 
     public ScheduledTask Update(

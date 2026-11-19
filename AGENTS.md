@@ -25,7 +25,7 @@ Windows 常驻托盘的工具箱应用：配置驱动的全局热键 → 动作�
 
 页面保持 code-behind，第三方白名单里也没有 MVVM 库。出现下面任一情形，再考虑引入 ViewModel（`CommunityToolkit.Mvvm`），并先在本文件记下决定：
 
-- 页面主体成了「一份状态 ↔ 一组控件」的映射（设置页 / 投影页这类配置型页面），手工回写配置已经开始漏 bug；
+- 页面主体成了「一份状态 ↔ 一组控件」的映射（设置页 / 切换页这类配置型页面），手工回写配置已经开始漏 bug；
 - 多个页面共享同一份可变状态；
 - 派生显示文本或列表多到手工刷新写不过来。
 
@@ -46,6 +46,8 @@ dotnet test tests/WithWindows.Core.Tests/WithWindows.Core.Tests.csproj -p:Platfo
 dotnet run --project src/WithWindows.App/WithWindows.App.csproj -p:Platform=x64
 # 修改 assets/icon.svg 后重建 README 图片和应用 ICO
 pwsh scripts/generate-icons.ps1
+# 修改闪电托盘图标后重建深色 / 白色多尺寸 ICO
+pwsh scripts/generate-tray-icons.ps1
 # 界面自检（应用需先处于运行状态）
 winapp ui inspect
 winapp ui screenshot
@@ -58,7 +60,7 @@ winapp ui screenshot
 
 ```text
 src/WithWindows.App/          未打包 WinUI 3 可执行项目（Views/ Controls/ Services/ Tools/ 与 Assets/）
-src/WithWindows.Core/         纯逻辑类库（Actions/ App/ Chat/ Config/ Diagnostics/ Hotkeys/ Interop/ Scheduling/ Todos/）
+src/WithWindows.Core/         纯逻辑类库（Actions/ App/ Chat/ Config/ Diagnostics/ Hotkeys/ Interop/ Samples/ Scheduling/ Theme/ Todos/）
 tests/WithWindows.Core.Tests/ 纯 xunit，只引用 Core
 installer/                    Inno Setup 脚本
 docs/agents/                  项目约定分册（见下）
@@ -72,6 +74,7 @@ docs/development.md           开发、构建、配置与发布
 |---|---|
 | 任何 WinUI 3 / XAML 代码 | `docs/agents/winui3-hard-rules.md` |
 | 构建、运行、验证界面 | `docs/agents/development-workflow.md` |
+| 检查代码、文档与发布配置是否一致 | `docs/agents/consistency-checklist.md` |
 | 界面结构与视觉约定 | `docs/agents/ui-conventions.md` |
 | **写界面代码前**：参考库与图标名表（WinUI Gallery / PowerToys） | `docs/agents/ui-conventions.md` 第六节 |
 | P/Invoke、托盘、注册表、显示拓扑 | `docs/agents/interop-and-platform.md` |

@@ -3,14 +3,14 @@ using System.Text.Json.Serialization;
 
 namespace WithWindows.Core.Config;
 
-/// <summary>应用配置（v5）：工具绑定 + 显示模式候选 + 窗口状态 + AI 对话。旧版本加载时自动迁移。</summary>
+/// <summary>应用配置（v7）：工具绑定 + 显示模式候选 + 主题切换 + 托盘图标 + 窗口状态 + AI 对话。旧版本加载时自动迁移。</summary>
 public sealed class AppConfig
 {
     /// <summary>当前配置模型版本。</summary>
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 7;
 
     /// <summary>当前支持的工具 ID。加载时用于自愈式清理未知条目。</summary>
-    public static readonly string[] KnownToolIds = { "notepad", "display_mode" };
+    public static readonly string[] KnownToolIds = { "notepad" };
 
     /// <summary>配置模型版本。</summary>
     public int Version { get; set; } = CurrentVersion;
@@ -19,6 +19,8 @@ public sealed class AppConfig
     public List<ToolBinding> Tools { get; set; } = CreateDefaultTools();
 
     public DisplayModeConfig DisplayMode { get; set; } = new();
+    public ThemeSwitchConfig ThemeSwitch { get; set; } = new();
+    public TrayConfig Tray { get; set; } = new();
     public WindowStateConfig WindowState { get; set; } = new();
     public ChatSettings Chat { get; set; } = new();
 
@@ -26,7 +28,6 @@ public sealed class AppConfig
     public static List<ToolBinding> CreateDefaultTools() => new()
     {
         new ToolBinding { Id = "notepad" },
-        new ToolBinding { Id = "display_mode" },
     };
 }
 
@@ -67,6 +68,144 @@ public sealed class DisplayModeConfig
 {
     /// <summary>toggle 循环的候选模式，默认 internal / extend。</summary>
     public List<string> Modes { get; set; } = new() { "internal", "extend" };
+}
+
+/// <summary>
+/// Windows 亮暗主题切换配置：按当前位置的日出日落自动切换与两套壁纸路径。
+/// 壁纸为空表示切换到该主题时保留当前系统壁纸。
+/// </summary>
+public sealed class ThemeSwitchConfig
+{
+    public bool ScheduleEnabled { get; set; }
+
+    /// <summary>最近一次成功获取的纬度；与经度必须同时有效。</summary>
+    public double? Latitude { get; set; }
+
+    /// <summary>最近一次成功获取的经度；与纬度必须同时有效。</summary>
+    public double? Longitude { get; set; }
+
+    /// <summary>最近一次定位成功的时间；仅用于界面显示与诊断。</summary>
+    public DateTimeOffset? LocationUpdatedAt { get; set; }
+
+    /// <summary>亮色主题壁纸路径；null 或空表示不替换当前壁纸。</summary>
+    public string? LightWallpaper { get; set; }
+
+    /// <summary>暗色主题壁纸路径；null 或空表示不替换当前壁纸。</summary>
+    public string? DarkWallpaper { get; set; }
+
+    /// <summary>读取一组有效坐标；任一缺失或越界都返回 false。</summary>
+    public bool TryGetCoordinates(out double latitude, out double longitude)
+    {
+        latitude = Latitude ?? 0;
+        longitude = Longitude ?? 0;
+        return Latitude is >= -90 and <= 90
+            && Longitude is >= -180 and <= 180;
+    }
+
+    /// <summary>自愈非法坐标与空壁纸；没有坐标时由默认时间计划接管。</summary>
+    internal bool Normalize()
+    {
+        bool changed = false;
+        if (Latitude is not null && Longitude is not null
+            && Latitude is >= -90 and <= 90
+            && Longitude is >= -180 and <= 180)
+        {
+            // 坐标完整有效。
+        }
+        else if (Latitude is not null || Longitude is not null)
+        {
+            Latitude = null;
+            Longitude = null;
+            LocationUpdatedAt = null;
+            changed = true;
+        }
+        else if (LocationUpdatedAt is not null)
+        {
+            // 坐标已不存在时，保留旧时间会让界面和排查误以为定位仍然有效。
+            LocationUpdatedAt = null;
+            changed = true;
+        }
+
+        if (LightWallpaper is not null && string.IsNullOrWhiteSpace(LightWallpaper))
+        {
+            LightWallpaper = null;
+            changed = true;
+        }
+
+        if (DarkWallpaper is not null && string.IsNullOrWhiteSpace(DarkWallpaper))
+        {
+            DarkWallpaper = null;
+            changed = true;
+        }
+
+        return changed;
+    }
+}
+
+/// <summary>托盘图标外观配置。默认使用细线闪电，也可切换为黄色应用图标。</summary>
+public sealed class TrayConfig
+{
+    [JsonConverter(typeof(TrayIconStyleJsonConverter))]
+    public string IconStyle { get; set; } = TrayIconStyle.LightningThin;
+}
+
+/// <summary>托盘图标样式标识。默认细线闪电在亮色主题使用深色，在暗色主题使用白色。</summary>
+public static class TrayIconStyle
+{
+    public const string Default = "default";
+    public const string LightningThin = "lightning-thin";
+
+    // 兼容上一轮尚未发布的候选值，统一迁移到最终采用的细线闪电。
+    private const string LegacyLightning = "lightning";
+    private const string LegacyLightningThick = "lightning-thick";
+    private const string LegacyLightningCompact = "lightning-compact";
+    private const string LegacyLightningFine = "lightning-fine";
+
+    /// <summary>黄色图标保留为可选项；未知、缺失和旧闪电值统一回退到默认的细线闪电。</summary>
+    public static string Normalize(string? value)
+        => value switch
+        {
+            Default => Default,
+            _ => LightningThin,
+        };
+
+    public static bool IsValid(string? value)
+        => value is Default
+            or LightningThin
+            or LegacyLightning
+            or LegacyLightningThick
+            or LegacyLightningCompact
+            or LegacyLightningFine;
+
+    /// <summary>设置页显示名；四个汉字便于和其他托盘菜单文案保持一致。</summary>
+    public static string DisplayName(string? value)
+        => Normalize(value) switch
+        {
+            Default => "黄色图标",
+            _ => "细线闪电",
+        };
+}
+
+/// <summary>非字符串的 iconStyle 局部回退到默认细线闪电，避免整份配置被判定为未知格式。</summary>
+internal sealed class TrayIconStyleJsonConverter : JsonConverter<string>
+{
+    public override string Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+            return TrayIconStyle.Normalize(reader.GetString());
+
+        reader.Skip();
+        return TrayIconStyle.LightningThin;
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        string value,
+        JsonSerializerOptions options)
+        => writer.WriteStringValue(TrayIconStyle.Normalize(value));
 }
 
 /// <summary>窗口状态记忆（尺寸/位置/字号）。位置 null = 尚未保存，(0, 0) 是合法坐标。</summary>

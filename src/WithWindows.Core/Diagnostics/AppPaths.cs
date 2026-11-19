@@ -25,6 +25,10 @@ public static class AppPaths
     /// <summary>待办数据文件路径。</summary>
     public static string TodoPath { get; } = Path.Combine(DataRoot, "todos.json");
 
+    /// <summary>示例内容初始化的标记路径。</summary>
+    public static string SampleContentStatePath { get; } =
+        Path.Combine(DataRoot, "sample-content.json");
+
     /// <summary>脚本任务数据目录。</summary>
     public static string ScheduledTasksDirectory { get; } =
         Path.Combine(DataRoot, "scheduled-tasks");
@@ -65,4 +69,8 @@ public static class AppPaths
     /// <summary>会话图片附件目录。</summary>
     public static string ChatAttachmentsDirectory { get; } =
         Path.Combine(ChatDirectory, "attachments");
+
+    /// <summary>主题壁纸副本目录。</summary>
+    public static string WallpapersDirectory { get; } =
+        Path.Combine(DataRoot, "wallpapers");
 }

@@ -74,6 +74,24 @@
                 </controls:CardRow>
             </StackPanel>
 
+            <controls:CardRow
+                AutomationProperties.AutomationId="TrayIconStyleCard"
+                Description="闪电样式会随系统亮暗主题自动换色"
+                Glyph="&#xE790;"
+                Title="托盘图标">
+                <controls:CardRow.Trailing>
+                    <ComboBox
+                        x:Name="TrayIconStyleComboBox"
+                        Width="160"
+                        AutomationProperties.AutomationId="TrayIconStyleComboBox"
+                        AutomationProperties.Name="托盘图标样式"
+                        SelectionChanged="OnTrayIconStyleChanged">
+                        <ComboBoxItem Content="细线闪电" Tag="lightning-thin" />
+                        <ComboBoxItem Content="黄色图标" Tag="default" />
+                    </ComboBox>
+                </controls:CardRow.Trailing>
+            </controls:CardRow>
+
             <!-- 关于：参考 WinUI Gallery 的写法——折叠成一项，展开后每个条目一行 -->
             <Expander
                 HorizontalAlignment="Stretch"
@@ -112,17 +130,17 @@
 
                         <!-- 必须显式居中：Grid 的子元素默认 Stretch，只有一行文字时会贴在行顶部 -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="关于">
-                                <!-- 与卡片行标题同样的像素级微调（中文字形在行盒里天生偏低） -->
-                                <TextBlock.RenderTransform>
-                                    <TranslateTransform Y="-2" />
-                                </TextBlock.RenderTransform>
-                            </TextBlock>
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="关于" />
                         </StackPanel>
                     </Grid>
                 </Expander.Header>
 
-                <StackPanel Margin="16,4,16,12" Spacing="12">
+                <!--
+                    正文左侧与头部标题文字对齐：原生 Expander 左右各先留 16 DIP，
+                    再加左侧 36 DIP 补足 20 DIP 图标与 16 DIP 图标间距，合计 52 DIP。
+                    右侧不再叠加，保留原生 16 DIP，与展开箭头右缘对齐。
+                -->
+                <StackPanel Margin="36,4,0,12" Spacing="12">
                     <Grid ColumnSpacing="16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120" />

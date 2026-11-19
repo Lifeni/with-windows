@@ -20,6 +20,7 @@ $ver = [regex]::Match((Get-Content src/WithWindows.App/WithWindows.App.csproj -R
 - 装到 `{autopf}\With Windows`（用户级，`PrivilegesRequired=lowest`，不强制提权）
 - 创建开始菜单项；桌面快捷方式为可选；「开机自动启动」为可选任务，写 `HKCU\...\Run` 的同一个值名，与设置页开关一致
 - 卸载时删除程序目录与自启项，**不触碰** `%APPDATA%\WithWindows\` 下的用户数据
+- 安装器不直接写用户数据；示例待办与脚本由应用首次执行示例初始化时按需创建（含全新安装与升级后的首次启动），已有对应数据或备份时不会覆盖，初始化标记存在时不会重复写入
 
 ## 已知事项
 

@@ -32,19 +32,16 @@ public sealed class CardRow : UserControl
         // 没设说明文字时不留空行：空 TextBlock 会占一行高度，把标题挤到偏上、行也比别人高
         _description.Visibility = Visibility.Collapsed;
 
-        // 中文字形在行盒里天生偏低（实测墨迹中心比行中心低约 1.5 DIP），往上挪 2 DIP 才是视觉居中。
-        // 用 RenderTransform 而不是内外边距：它不参与布局，图标与右侧控件的居中不受影响。
-        _title.RenderTransform = new TranslateTransform { Y = -2 };
-
         _root = new Grid
         {
-            ColumnSpacing = 16,
             Padding = new Thickness(16, 12, 16, 12),
             MinHeight = (double)Application.Current.Resources["SettingCardMinHeight"],
         };
         _root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _icon.Margin = new Thickness(0, 0, 16, 0);
+        _trailing.Margin = new Thickness(16, 0, 0, 0);
         Grid.SetColumn(_icon, 0);
         Grid.SetColumn(text, 1);
         Grid.SetColumn(_trailing, 2);
@@ -96,7 +93,13 @@ public sealed class CardRow : UserControl
     public UIElement? Trailing
     {
         get => _trailing.Content as UIElement;
-        set => _trailing.Content = value;
+        set
+        {
+            _trailing.Content = value;
+            _trailing.Margin = value is null
+                ? new Thickness(0)
+                : new Thickness(16, 0, 0, 0);
+        }
     }
 
     /// <summary>卡片外框圆角，用于把多行合并成同一张卡片。</summary>
@@ -112,4 +115,5 @@ public sealed class CardRow : UserControl
         get => _cardBorder.BorderThickness;
         set => _cardBorder.BorderThickness = value;
     }
+
 }

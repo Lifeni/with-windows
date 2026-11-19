@@ -27,6 +27,37 @@ public class TodoStoreTests : IDisposable
     }
 
     [Fact]
+    public void AddRange_批量写入一次并持久化()
+    {
+        TodoStore store = NewStore();
+        int changedCount = 0;
+        store.Changed += (_, _) => changedCount++;
+
+        IReadOnlyList<TodoItem> added = store.AddRange(
+            new[] { "甲", "乙", "丙" },
+            DateTimeOffset.UnixEpoch);
+
+        Assert.Equal(3, added.Count);
+        Assert.Equal(1, changedCount);
+        Assert.Equal(
+            new[] { "甲", "乙", "丙" },
+            NewStore().GetAll().Select(item => item.Title));
+    }
+
+    [Fact]
+    public void AddRange_任一标题无效时整批不落盘()
+    {
+        TodoStore store = NewStore();
+
+        Assert.Throws<ArgumentException>(() => store.AddRange(
+            new[] { "有效", " " },
+            DateTimeOffset.UnixEpoch));
+
+        Assert.Empty(store.GetAll());
+        Assert.False(File.Exists(store.Path));
+    }
+
+    [Fact]
     public void SetCompleted_完成时清除提醒()
     {
         TodoStore store = NewStore();

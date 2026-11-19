@@ -27,6 +27,14 @@ public static class WindowInterop
         => hwnd != IntPtr.Zero && PInvoke.IsIconic(new HWND(hwnd));
 
     /// <summary>
+    /// 窗口句柄是否仍然有效。最小化 / 改变切换器状态前必须检查：托盘收起和系统
+    /// 关闭回调交错时，WinUI 可能已经把窗口销毁，继续给 AppWindow 设置属性会以
+    /// <c>E_INVALIDARG</c>（0x80070578）原生崩溃。
+    /// </summary>
+    public static bool IsWindow(IntPtr hwnd)
+        => hwnd != IntPtr.Zero && PInvoke.IsWindow(new HWND(hwnd));
+
+    /// <summary>
     /// 把窗口提到最前。WinUI 的 <c>Window.Activate()</c> 对「已可见但在别的窗口后面」不可靠
     /// （实测：窗口没被提到前台），所以再显式调一次 Win32 兜底。
     /// </summary>
