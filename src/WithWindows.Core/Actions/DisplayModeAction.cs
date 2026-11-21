@@ -1,3 +1,4 @@
+using WithWindows.Core.Config;
 using WithWindows.Core.Interop;
 using Windows.Win32.Devices.Display;
 
@@ -22,15 +23,20 @@ public sealed class DisplayModeAction : IAction
     public ActionResult Execute(string mode)
     {
         string requested = mode.Trim().ToLowerInvariant();
-        if (requested is not ("internal" or "extend" or "external" or "clone" or "toggle"))
+        if (requested is not (
+                DisplayModes.Internal
+                or DisplayModes.Extend
+                or DisplayModes.External
+                or DisplayModes.Clone
+                or "toggle"))
             throw new ArgumentException($"未知显示模式“{requested}”（支持 internal|extend|external|clone|toggle）");
 
         var (target, isChange) = Decide(DisplayTopology.GetCurrentMode(), requested, _toggleModes);
         if (!isChange)
-            return new ActionResult(false, $"当前已是{ModeDisplayName(target)}");
+            return new ActionResult(false, $"当前已是{DisplayModes.DisplayName(target)}");
 
         DisplayConfigInterop.ApplyTopology((SET_DISPLAY_CONFIG_FLAGS)TopologyFor(target));
-        return new ActionResult(true, $"已切换显示模式：{ModeDisplayName(target)}");
+        return new ActionResult(true, $"已切换显示模式：{DisplayModes.DisplayName(target)}");
     }
 
     /// <summary>托盘菜单显示下一次 toggle 将切换到的模式。</summary>
@@ -48,38 +54,22 @@ public sealed class DisplayModeAction : IAction
     /// <summary>toggle 目标选择：当前模式在候选列表中取下一个（循环），否则取第一个。</summary>
     internal static string PickToggleTarget(string? current, string[] toggleModes)
     {
-        string[] modes = toggleModes.Length > 0 ? toggleModes : new[] { "internal", "extend" };
+        string[] modes = DisplayModeSelection.Normalize(toggleModes).ToArray();
         if (current is null) return modes[0];
         int index = Array.IndexOf(modes, current);
         return index >= 0 ? modes[(index + 1) % modes.Length] : modes[0];
     }
 
     internal static string ToggleMenuText(string? current, string[] toggleModes)
-        => MenuModeDisplayName(PickToggleTarget(current, toggleModes));
+        => DisplayModes.MenuName(PickToggleTarget(current, toggleModes));
 
     /// <summary>模式名 → SDC_TOPOLOGY_* 标志数值。供测试断言。</summary>
     internal static uint TopologyFor(string mode) => mode switch
     {
-        "internal" => 0x00000001,
-        "clone" => 0x00000002,
-        "extend" => 0x00000004,
-        "external" => 0x00000008,
+        DisplayModes.Internal => 0x00000001,
+        DisplayModes.Clone => 0x00000002,
+        DisplayModes.Extend => 0x00000004,
+        DisplayModes.External => 0x00000008,
         _ => throw new ArgumentException($"未知显示模式“{mode}”（支持 internal|extend|external|clone）"),
-    };
-
-    private static string ModeDisplayName(string mode) => mode switch
-    {
-        "internal" => "仅当前屏幕",
-        "extend" => "扩展模式",
-        "external" => "仅外接屏幕",
-        _ => "复制模式",
-    };
-
-    private static string MenuModeDisplayName(string mode) => mode switch
-    {
-        "internal" => "当前屏幕",
-        "extend" => "扩展模式",
-        "external" => "外接屏幕",
-        _ => "复制模式",
     };
 }

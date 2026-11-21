@@ -546,6 +546,54 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_显示模式只有一项_补足两项并回写()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 7,
+              "displayMode": {
+                "modes": [ "clone" ]
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(new[] { "internal", "clone" }, config.DisplayMode.Modes);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.Equal(
+            new[] { "internal", "clone" },
+            saved.RootElement.GetProperty("displayMode").GetProperty("modes")
+                .EnumerateArray().Select(mode => mode.GetString()).ToArray());
+    }
+
+    [Fact]
+    public void Load_显示模式含未知值和重复值_清理后回写()
+    {
+        var store = NewStore();
+        File.WriteAllText(store.Path,
+            """
+            {
+              "version": 7,
+              "displayMode": {
+                "modes": [ "clone", "ghost", "internal", "clone" ]
+              }
+            }
+            """);
+
+        AppConfig config = store.Load();
+
+        Assert.Equal(new[] { "clone", "internal" }, config.DisplayMode.Modes);
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(store.Path));
+        Assert.Equal(
+            new[] { "clone", "internal" },
+            saved.RootElement.GetProperty("displayMode").GetProperty("modes")
+                .EnumerateArray().Select(mode => mode.GetString()).ToArray());
+    }
+
+    [Fact]
     public void Save_默认打开窗口_往返一致()
     {
         var store = NewStore();

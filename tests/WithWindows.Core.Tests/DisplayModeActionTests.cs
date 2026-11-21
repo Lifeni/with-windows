@@ -73,6 +73,14 @@ public class DisplayModeActionTests
     }
 
     [Fact]
+    public void PickToggleTarget_候选只有一项_补足后再循环()
+        => Assert.Equal("extend", DisplayModeAction.PickToggleTarget("internal", new[] { "internal" }));
+
+    [Fact]
+    public void PickToggleTarget_候选含未知值_忽略后循环()
+        => Assert.Equal("extend", DisplayModeAction.PickToggleTarget("internal", new[] { "ghost", "internal" }));
+
+    [Fact]
     public void Decide_toggle_解析目标与变化()
     {
         var (target, isChange) = DisplayModeAction.Decide("internal", "toggle", new[] { "internal", "extend" });

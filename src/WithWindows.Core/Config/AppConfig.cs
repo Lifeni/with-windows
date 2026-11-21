@@ -66,8 +66,12 @@ public sealed class ToolBinding
 /// <summary>屏幕切换参数。</summary>
 public sealed class DisplayModeConfig
 {
-    /// <summary>toggle 循环的候选模式，默认 internal / extend。</summary>
-    public List<string> Modes { get; set; } = new() { "internal", "extend" };
+    /// <summary>toggle 循环的候选模式，至少两项，默认 internal / extend。</summary>
+    public List<string> Modes { get; set; } = new()
+    {
+        DisplayModes.Internal,
+        DisplayModes.Extend,
+    };
 }
 
 /// <summary>

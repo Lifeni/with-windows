@@ -55,6 +55,12 @@ public sealed partial class HotkeyInputBox : UserControl
                 AutomationProperties.SetAutomationId(ClearButton, id + "Clear");
                 AutomationProperties.SetAutomationId(HintText, id + "Hint");
             });
+
+        RegisterPropertyChangedCallback(
+            AutomationProperties.NameProperty,
+            (_, _) => AutomationProperties.SetName(
+                BoxButton,
+                AutomationProperties.GetName(this)));
     }
 
     /// <summary>热键文本（规范形式，如 "Ctrl+Shift+F14"）；null 或空表示不绑定。</summary>

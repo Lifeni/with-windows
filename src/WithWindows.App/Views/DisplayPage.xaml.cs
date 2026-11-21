@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -24,20 +23,12 @@ public sealed partial class DisplayPage : Page
     /// <summary>导航项 Tag 常量，供 MainWindow 路由表引用。</summary>
     public static string RouteTag => "display";
 
-    /// <summary>候选模式的固定顺序与显示名；顺序即循环顺序。</summary>
-    private static readonly (string Mode, string Title)[] KnownModes =
-    {
-        ("internal", "仅当前屏幕"),
-        ("extend", "扩展模式"),
-        ("external", "仅外接屏幕"),
-        ("clone", "复制模式"),
-    };
-
     private bool _initializing;
 
     public DisplayPage()
     {
         InitializeComponent();
+        DisplayModesHint.Text = MinimumSelectionText;
         Loaded += OnLoaded;
         ActualThemeChanged += OnActualThemeChanged;
     }
@@ -58,6 +49,7 @@ public sealed partial class DisplayPage : Page
         {
             if (ModesHost.Children.Count == 0)
                 BuildModeCheckBoxes();
+            UpdateModeAvailability();
             UpdateDisplaySubtitle();
             LoadThemeSettings();
         }
@@ -79,28 +71,35 @@ public sealed partial class DisplayPage : Page
 
     /// <summary>模式标识 → 中文名；不在候选表里的取值原样显示。</summary>
     private static string TitleOfMode(string mode)
-        => KnownModes.FirstOrDefault(m => string.Equals(m.Mode, mode, StringComparison.Ordinal)).Title ?? mode;
+        => DisplayModes.DisplayName(mode);
+
+    private static string MinimumSelectionText =>
+        $"至少选择 {DisplayModeSelection.MinimumCount} 项；未勾选的模式不会进入切换循环。";
+
+    private static string LockedSelectionText =>
+        $"已选 {DisplayModeSelection.MinimumCount} 项；再勾选一项后即可调整当前选择。";
 
     /// <summary>把候选模式渲染成原生多选框。</summary>
     private void BuildModeCheckBoxes()
     {
         AppConfig config = Host!.Config;
 
-        foreach ((string mode, string title) in KnownModes)
+        foreach (DisplayModeInfo mode in DisplayModes.All)
         {
             var checkBox = new CheckBox
             {
-                IsChecked = config.DisplayMode.Modes.Contains(mode, StringComparer.Ordinal),
+                IsChecked = config.DisplayMode.Modes.Contains(mode.Id, StringComparer.Ordinal),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 MinHeight = 36,
                 Margin = new Thickness(0, 2, 0, 2),
-                Content = title,
+                Content = mode.DisplayName,
             };
-            AutomationProperties.SetAutomationId(checkBox, $"ModeCheckBox_{mode}");
-            AutomationProperties.SetName(checkBox, title);
+            AutomationProperties.SetAutomationId(checkBox, $"ModeCheckBox_{mode.Id}");
+            AutomationProperties.SetName(checkBox, mode.DisplayName);
+            AutomationProperties.SetHelpText(checkBox, MinimumSelectionText);
 
-            string capturedMode = mode;
+            string capturedMode = mode.Id;
             checkBox.Checked += (_, _) => OnModeToggled(capturedMode, isChecked: true, checkBox);
             checkBox.Unchecked += (_, _) => OnModeToggled(capturedMode, isChecked: false, checkBox);
 
@@ -114,37 +113,45 @@ public sealed partial class DisplayPage : Page
             return;
 
         AppConfig config = Host.Config;
-        var desired = new List<string>(config.DisplayMode.Modes);
-
-        if (isChecked)
-        {
-            if (!desired.Contains(mode, StringComparer.Ordinal))
-                desired.Add(mode);
-        }
-        else
-        {
-            desired.RemoveAll(m => string.Equals(m, mode, StringComparison.Ordinal));
-        }
-
-        // 至少保留一项：会清空时回弹，且不改动配置
-        if (desired.Count == 0)
+        if (!DisplayModeSelection.TryChangeSelection(
+                config.DisplayMode.Modes,
+                mode,
+                isChecked,
+                out List<string> desired))
         {
             _initializing = true;
-            source.IsChecked = true;
+            source.IsChecked = !isChecked;
             _initializing = false;
             return;
         }
 
-        // 已知项按固定顺序排列（保证循环顺序稳定）；不在已知列表里的取值原样保留
-        config.DisplayMode.Modes = KnownModes
-            .Select(m => m.Mode)
-            .Where(m => desired.Contains(m, StringComparer.Ordinal))
-            .Concat(desired.Where(m => !KnownModes.Any(k => string.Equals(k.Mode, m, StringComparison.Ordinal))))
-            .ToList();
+        config.DisplayMode.Modes = desired;
 
+        UpdateModeAvailability();
         UpdateDisplaySubtitle();
         Host.SaveConfig();
         Host.ReloadBindings();
+    }
+
+    /// <summary>
+    /// 恰好两项时锁定已选项，避免用户误以为可以直接取消；勾选第三项后恢复全部可操作。
+    /// </summary>
+    private void UpdateModeAvailability()
+    {
+        bool locked = Host is { } host
+            && DisplayModeSelection.IsAtMinimum(host.Config.DisplayMode.Modes);
+        foreach (CheckBox checkBox in ModesHost.Children.OfType<CheckBox>())
+        {
+            bool selected = checkBox.IsChecked == true;
+            checkBox.IsEnabled = !locked || !selected;
+            AutomationProperties.SetHelpText(
+                checkBox,
+                locked ? LockedSelectionText : MinimumSelectionText);
+        }
+
+        string hint = locked ? LockedSelectionText : MinimumSelectionText;
+        if (!string.Equals(DisplayModesHint.Text, hint, StringComparison.Ordinal))
+            DisplayModesHint.Text = hint;
     }
 
     private void LoadThemeSettings()

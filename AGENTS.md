@@ -76,6 +76,7 @@ docs/development.md           开发、构建、配置与发布
 | 构建、运行、验证界面 | `docs/agents/development-workflow.md` |
 | 检查代码、文档与发布配置是否一致 | `docs/agents/consistency-checklist.md` |
 | 界面结构与视觉约定 | `docs/agents/ui-conventions.md` |
+| **设计新页面 / 复查视觉与无障碍** | `docs/agents/ui-design-reference.md` |
 | **写界面代码前**：参考库与图标名表（WinUI Gallery / PowerToys） | `docs/agents/ui-conventions.md` 第六节 |
 | P/Invoke、托盘、注册表、显示拓扑 | `docs/agents/interop-and-platform.md` |
 | 遇到奇怪的失败 | `docs/agents/known-pitfalls.md` |

@@ -16,6 +16,9 @@ public sealed class TodoRowViewModel
         CompleteAutomationId = $"TodoComplete_{item.Id}";
         ReminderAutomationId = $"TodoReminder_{item.Id}";
         DeleteAutomationId = $"TodoDelete_{item.Id}";
+        CompleteAutomationName = $"切换完成状态：{Title}";
+        ReminderAutomationName = $"{ReminderButtonText}：{Title}";
+        DeleteAutomationName = $"删除待办：{Title}";
     }
 
     public string Id { get; }
@@ -26,6 +29,9 @@ public sealed class TodoRowViewModel
     public string CompleteAutomationId { get; }
     public string ReminderAutomationId { get; }
     public string DeleteAutomationId { get; }
+    public string CompleteAutomationName { get; }
+    public string ReminderAutomationName { get; }
+    public string DeleteAutomationName { get; }
 
     public Visibility PendingVisibility =>
         IsCompleted ? Visibility.Collapsed : Visibility.Visible;

@@ -18,6 +18,7 @@
             <TextBlock
                 Margin="0,0,0,8"
                 AutomationProperties.AutomationId="SettingsPlaceholder"
+                AutomationProperties.HeadingLevel="Level1"
                 Style="{StaticResource TitleTextBlockStyle}"
                 Text="设置" />
 
@@ -31,11 +32,14 @@
                         <TextBlock
                             x:Name="AutoStartStateText"
                             VerticalAlignment="Center"
+                            AutomationProperties.AccessibilityView="Raw"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Text="关" />
                         <ToggleSwitch
                             x:Name="AutoStartToggle"
                             AutomationProperties.AutomationId="AutoStartToggle"
+                            AutomationProperties.HelpText="开机时自动启动并隐藏到托盘"
+                            AutomationProperties.Name="开机自启"
                             MinWidth="0"
                             OffContent=""
                             OnContent=""
@@ -97,6 +101,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 AutomationProperties.AutomationId="AboutExpander"
+                AutomationProperties.Name="关于"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
@@ -130,7 +135,10 @@
 
                         <!-- 必须显式居中：Grid 的子元素默认 Stretch，只有一行文字时会贴在行顶部 -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="关于" />
+                            <TextBlock
+                                AutomationProperties.HeadingLevel="Level2"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Text="关于" />
                         </StackPanel>
                     </Grid>
                 </Expander.Header>

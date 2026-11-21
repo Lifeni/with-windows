@@ -9,6 +9,8 @@ using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
@@ -204,7 +206,7 @@ public sealed partial class MarkdownMessageView : UserControl
             Orientation = Orientation.Horizontal,
             Spacing = 6,
         };
-        panel.Children.Add(new CheckBox
+        var taskMarker = new CheckBox
         {
             IsChecked = isChecked,
             IsHitTestVisible = false,
@@ -213,7 +215,9 @@ public sealed partial class MarkdownMessageView : UserControl
             Padding = new Thickness(0),
             Margin = new Thickness(0, -4, 0, 0),
             VerticalAlignment = VerticalAlignment.Top,
-        });
+        };
+        AutomationProperties.SetAccessibilityView(taskMarker, AccessibilityView.Raw);
+        panel.Children.Add(taskMarker);
         panel.Children.Add(CreateParagraph(paragraph, 14));
         return panel;
     }

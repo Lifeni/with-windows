@@ -9,7 +9,19 @@ winapp ui inspect -a WithWindows -i
 winapp ui screenshot -a WithWindows
 ```
 
-项目同时支持浅色、深色和高对比度主题。README 截图为 150% 系统缩放下的深色主题。
+项目同时支持浅色、深色和高对比度主题。README 的六张截图浅色与深色各三张，缩放比例随系统设置。
+
+## 无障碍
+
+- 页面标题使用 `HeadingLevel=Level1`；折叠组与一级区块使用 `Level2`；组内小节使用 `Level3`。
+- 设置页 `AutoStartToggle` 的读屏名为“开机自启”，辅助说明为“开机时自动启动并隐藏到托盘”；相邻的“开 / 关”状态文字是视觉重复，设为 `AccessibilityView=Raw`。
+- 显示切换与主题切换的 `Expander` 分别有“显示切换”“主题切换”名称；设置页关于组有“关于”名称。
+- `NotepadEditor`、`FindBox`、`ReplaceBox`、`ChatInput`、`ChatMessageList`、`TodoList` 均有明确可读名称。
+- 待办和脚本的重复行操作名称包含对象标题，例如“删除待办：买牛奶”“运行脚本：每日摘要”，不依赖列表项上下文才能区分。
+- `DisplayModesHint`、`ChatReplyStatusText`、待办/脚本摘要、表单校验与主要错误 `InfoBar` 使用 `LiveSetting=Polite`；每秒变化的时钟和字数统计不要设为 Live。
+- Markdown 任务列表的勾选图形是纯装饰，使用 `AccessibilityView=Raw`，不暴露为无名复选框。
+- 快捷键录制框把宿主的 AutomationId 和 Name 同步到内部可聚焦按钮；清除按钮有独立派生 ID。
+- 记事查找面板支持 `Esc` 关闭，关闭时把焦点恢复到编辑器；查找/替换输入框分别有“查找内容”“替换为”名称。
 
 ## 窗口与导航
 
@@ -82,7 +94,7 @@ AI 对话页使用 `NavigationCacheMode=Required`。切换到其他工具页时�
 
 ## 切换与设置
 
-- 切换：`SwitchTitle`、`DisplaySwitchGroup`、`DisplayGroupSubtitle`、`ThemeSwitchGroup`、`ThemeGroupSubtitle`、`DisplayModesTitle`、`ModeCheckBox_*`、`ThemeScheduleToggle`、`ThemeScheduleInfo`、`ThemeWallpaperTitle`、`ThemeWallpaperReset`、`ThemeLightWallpaperName`、`ThemeLightWallpaperButton`、`ThemeDarkWallpaperName`、`ThemeDarkWallpaperButton`、`ThemeWallpaperInfo`
+- 切换：`SwitchTitle`、`DisplaySwitchGroup`、`DisplayGroupSubtitle`、`ThemeSwitchGroup`、`ThemeGroupSubtitle`、`DisplayModesTitle`、`DisplayModesHint`、`ModeCheckBox_*`、`ThemeScheduleToggle`、`ThemeScheduleInfo`、`ThemeWallpaperTitle`、`ThemeWallpaperReset`、`ThemeLightWallpaperName`、`ThemeLightWallpaperButton`、`ThemeDarkWallpaperName`、`ThemeDarkWallpaperButton`、`ThemeWallpaperInfo`
 - 设置：`AutoStartToggle`、`DefaultWindowPageComboBox`（记事 / 待办 / AI 对话）、`HotkeyBox_notepad`、`TrayIconStyleCard`、`TrayIconStyleComboBox`（细线闪电 / 黄色图标）
 - 关于：`AboutExpander`、`AboutVersion`、`AboutBuildDate`、`AboutRepository`
 
@@ -90,17 +102,17 @@ AI 对话页使用 `NavigationCacheMode=Required`。切换到其他工具页时�
 
 “主题切换”的自动切换 `ToggleSwitch` 放在 `Expander.Header` 的第三列，与标题文字和展开箭头并列。实测在分组展开或收起时点击开关，都只切换开关自身，不会触发展开或收起。组内设置项标题统一使用 `BodyStrongTextBlockStyle`，壁纸文件名等状态文字使用次级小字。内容区与组标题同宽，不再额外设置左右外边距，也不在内容区再套一层卡片。
 
-候选模式位于同一透明内容区，使用原生复选框；复选框行高 36 DIP，候选行之间不另加卡片或分隔线。主题壁纸同样位于透明内容区，使用左右等宽的大预览按钮：亮色和暗色各占一列，图片铺满上半区，模式名称与文件名位于图块底部；未设置时显示“选择壁纸”占位。主题壁纸标题右侧提供“恢复默认”，有任一套自定义壁纸时显示，可一次清除两套壁纸；该链接使用 12 DIP 字号、`MinHeight=0` 和零内边距，不得把标题行撑高。
+候选模式位于同一透明内容区，使用原生复选框；复选框行高 36 DIP，候选行之间不另加卡片或分隔线。恰好选中两项时，两个已选项均禁用，未选项仍可继续勾选；勾选第三项后所有选项恢复可操作。标题下方的 `DisplayModesHint` 同步提示“再勾选一项后即可调整当前选择”，并通过 `AutomationProperties.LiveSetting="Polite"` 宣告状态变化。主题壁纸同样位于透明内容区，使用左右等宽的大预览按钮：亮色和暗色各占一列，图片铺满上半区，模式名称与文件名位于图块底部；未设置时显示“选择壁纸”占位。主题壁纸标题右侧提供“恢复默认”，有任一套自定义壁纸时显示，可一次清除两套壁纸；该链接使用 12 DIP 字号、`MinHeight=0` 和零内边距，不得把标题行撑高。
 
 设置页“托盘图标”卡片左侧使用 `E790` 字形，右侧 `TrayIconStyleComboBox` 提供“细线闪电”“黄色图标”，默认选中细线闪电。闪电字形铺满 ICO 画布，不额外保留安全边距。选择后立即写入 `tray.iconStyle` 并替换托盘图标；闪电样式在亮色主题显示深色闪电，在暗色主题显示白色闪电，系统主题变化后继续跟随。
 
 ## 截图
 
-- [记事](../images/notepad.png)
-- [待办](../images/todo.png)
-- [AI 对话](../images/ai-chat.png)
-- [脚本](../images/scheduled-tasks.png)
-- [切换](../images/switch.png)
-- [设置](../images/settings.png)
+- [记事](../images/notepad.png)（浅色）
+- [待办](../images/todo.png)（深色）
+- [AI 对话](../images/ai-chat.png)（深色）
+- [脚本](../images/scheduled-tasks.png)（深色）
+- [切换](../images/switch.png)（浅色）
+- [设置](../images/settings.png)（浅色）
 
 新增或重命名 UI Automation 标识时，必须同步更新本文件。

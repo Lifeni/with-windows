@@ -30,6 +30,7 @@ public sealed class ChatAttachmentViewModel
         string size = FormatSize(bytes.Length);
         SizeText = wasCompressed ? $"{size} · 已压缩" : size;
         DetailText = $"{Width}×{Height} · {SizeText}";
+        RemoveAutomationName = $"移除图片：{displayName}";
     }
 
     public byte[] Bytes { get; }
@@ -40,6 +41,7 @@ public sealed class ChatAttachmentViewModel
     public bool WasCompressed { get; }
     public string SizeText { get; }
     public string DetailText { get; }
+    public string RemoveAutomationName { get; }
     public ImageSource? Preview { get; private init; }
     public ChatAttachment? Model { get; set; }
 

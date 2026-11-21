@@ -101,6 +101,7 @@
             x:Name="Editor"
             Grid.Row="1"
             AutomationProperties.AutomationId="NotepadEditor"
+            AutomationProperties.Name="记事内容"
             AcceptsReturn="True"
             Background="Transparent"
             BorderThickness="0"
@@ -170,6 +171,7 @@
                         x:Name="FindBox"
                         Grid.Column="1"
                         AutomationProperties.AutomationId="FindBox"
+                        AutomationProperties.Name="查找内容"
                         KeyDown="OnFindBoxKeyDown"
                         TextChanged="OnFindBoxTextChanged"
                         PlaceholderText="查找" />
@@ -258,6 +260,7 @@
                         x:Name="ReplaceBox"
                         Grid.Column="1"
                         AutomationProperties.AutomationId="ReplaceBox"
+                        AutomationProperties.Name="替换为"
                         KeyDown="OnReplaceBoxKeyDown"
                         PlaceholderText="替换" />
 

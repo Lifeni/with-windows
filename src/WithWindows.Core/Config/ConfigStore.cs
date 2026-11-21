@@ -223,6 +223,14 @@ public sealed class ConfigStore
         if (config.ThemeSwitch.Normalize())
             changed = true;
 
+        List<string> modes = DisplayModeSelection.Normalize(config.DisplayMode.Modes);
+        if (config.DisplayMode.Modes is null
+            || !config.DisplayMode.Modes.SequenceEqual(modes, StringComparer.Ordinal))
+        {
+            config.DisplayMode.Modes = modes;
+            changed = true;
+        }
+
         string iconStyle = TrayIconStyle.Normalize(config.Tray.IconStyle);
         if (!string.Equals(config.Tray.IconStyle, iconStyle, StringComparison.Ordinal))
         {

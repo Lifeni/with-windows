@@ -53,7 +53,7 @@
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
                         AutomationProperties.AutomationId="ChatRemoveAttachmentButton"
-                        AutomationProperties.Name="移除图片"
+                        AutomationProperties.Name="{x:Bind RemoveAutomationName}"
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         BorderThickness="0"
                         Click="OnRemovePendingAttachmentClick"
@@ -133,6 +133,7 @@
                 <TextBlock
                     x:Name="ChatSessionTitle"
                     AutomationProperties.AutomationId="ChatSessionTitle"
+                    AutomationProperties.HeadingLevel="Level1"
                     FontSize="11"
                     FontWeight="SemiBold"
                     Text="AI 对话"
@@ -153,6 +154,7 @@
                     Margin="0,0,4,0"
                     VerticalAlignment="Center"
                     AutomationProperties.AutomationId="ChatBusyRing"
+                    AutomationProperties.Name="AI 正在处理"
                     IsActive="False"
                     Visibility="Collapsed" />
                 <Button
@@ -192,6 +194,7 @@
             <ListView
                 x:Name="MessageList"
                 AutomationProperties.AutomationId="ChatMessageList"
+                AutomationProperties.Name="对话消息"
                 HorizontalContentAlignment="Stretch"
                 ItemsSource="{x:Bind Messages}"
                 ItemTemplate="{StaticResource ChatMessageTemplate}"
@@ -237,6 +240,7 @@
                 Margin="20,12"
                 VerticalAlignment="Top"
                 AutomationProperties.AutomationId="ChatErrorBar"
+                AutomationProperties.LiveSetting="Polite"
                 IsClosable="True"
                 IsOpen="False"
                 Severity="Error" />
@@ -258,6 +262,7 @@
                 Visibility="Collapsed">
                 <ItemsControl
                     AutomationProperties.AutomationId="ChatPendingAttachments"
+                    AutomationProperties.Name="待发送图片"
                     ItemsSource="{x:Bind PendingAttachments}"
                     ItemTemplate="{StaticResource PendingAttachmentTemplate}">
                     <ItemsControl.ItemContainerTransitions>
@@ -283,6 +288,8 @@
                 Padding="16,17,16,3"
                 AcceptsReturn="True"
                 AutomationProperties.AutomationId="ChatInput"
+                AutomationProperties.HelpText="Enter 发送，Shift+Enter 换行"
+                AutomationProperties.Name="与 AI 对话"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderThickness="0"
                 CornerRadius="0"

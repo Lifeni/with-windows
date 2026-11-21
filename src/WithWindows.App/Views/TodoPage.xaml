@@ -25,7 +25,7 @@
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
                         AutomationProperties.AutomationId="{x:Bind CompleteAutomationId}"
-                        AutomationProperties.Name="完成待办"
+                        AutomationProperties.Name="{x:Bind CompleteAutomationName}"
                         Click="OnCompletedClick"
                         IsChecked="{x:Bind IsCompleted}"
                         Tag="{x:Bind Id}">
@@ -67,7 +67,7 @@
                             Height="36"
                             Padding="0"
                             AutomationProperties.AutomationId="{x:Bind ReminderAutomationId}"
-                            AutomationProperties.Name="{x:Bind ReminderButtonText}"
+                            AutomationProperties.Name="{x:Bind ReminderAutomationName}"
                             Background="Transparent"
                             BorderThickness="0"
                             Click="OnReminderClick"
@@ -81,7 +81,7 @@
                             Height="36"
                             Padding="0"
                             AutomationProperties.AutomationId="{x:Bind DeleteAutomationId}"
-                            AutomationProperties.Name="删除待办"
+                            AutomationProperties.Name="{x:Bind DeleteAutomationName}"
                             Background="Transparent"
                             BorderThickness="0"
                             Click="OnDeleteClick"
@@ -146,6 +146,7 @@
             Grid.Row="0"
             Margin="16,8,16,0"
             AutomationProperties.AutomationId="TodoReminderBar"
+            AutomationProperties.LiveSetting="Polite"
             IsClosable="True"
             IsOpen="False"
             Severity="Informational"
@@ -168,6 +169,7 @@
                     x:Name="SummaryText"
                     Margin="0,0,0,8"
                     AutomationProperties.AutomationId="TodoSummary"
+                    AutomationProperties.LiveSetting="Polite"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Style="{StaticResource CaptionTextBlockStyle}"
                     Text="暂无待办" />
@@ -176,6 +178,7 @@
                     <ListView
                         x:Name="TodoList"
                         AutomationProperties.AutomationId="TodoList"
+                        AutomationProperties.Name="待办列表"
                         HorizontalContentAlignment="Stretch"
                         ItemTemplate="{StaticResource TodoRowTemplate}"
                         ItemsSource="{x:Bind Items}"
@@ -225,6 +228,7 @@
                         Margin="0,8,0,8"
                         VerticalAlignment="Bottom"
                         AutomationProperties.AutomationId="TodoErrorBar"
+                        AutomationProperties.LiveSetting="Polite"
                         IsClosable="True"
                         IsOpen="False"
                         Severity="Error" />

@@ -279,6 +279,14 @@ public sealed partial class NotepadPage : Page
     /// </summary>
     private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (e.Key == VirtualKey.Escape
+            && FindPanel.Visibility == Visibility.Visible)
+        {
+            e.Handled = true;
+            CloseFindPanel();
+            return;
+        }
+
         if (e.Key is not (VirtualKey.F or VirtualKey.H or VirtualKey.S))
             return;
 
@@ -342,6 +350,9 @@ public sealed partial class NotepadPage : Page
     }
 
     private void OnFindCloseClick(object sender, RoutedEventArgs e)
+        => CloseFindPanel();
+
+    private void CloseFindPanel()
     {
         Breadcrumb("关闭面板");
         FindPanel.Visibility = Visibility.Collapsed;

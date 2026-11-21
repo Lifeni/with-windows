@@ -1,5 +1,7 @@
 # 界面约定
 
+新页面开工前先读 `ui-design-reference.md`；本文保留视觉规则的快速索引和参考实现入口。
+
 ## 一、壳层结构
 
 - `MainWindow` 用 `NavigationView` + `Frame` 组成导航壳：左栏是工具列表，底部固定「设置」。

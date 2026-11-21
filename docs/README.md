@@ -5,6 +5,7 @@
 - [维护约定与项目约定](../AGENTS.md)
 - [代码与文档一致性检查清单](agents/consistency-checklist.md)
 - [界面基线](agents/ui-baseline.md)
+- [界面设计与无障碍参考](agents/ui-design-reference.md)
 - [已知问题与平台陷阱](agents/known-pitfalls.md)
 - [更新日志](../CHANGELOG.md)
 

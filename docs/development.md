@@ -72,7 +72,7 @@ docs/                           用户、开发与设计文档
 
 亮暗主题切换会同时写入当前用户的 `AppsUseLightTheme` 与 `SystemUsesLightTheme`，并广播 `WM_SETTINGCHANGE`；标题栏通过 `AppWindowTitleBar.PreferredTheme` 刷新 caption 背景，并显式同步按钮的正常、悬停、按下与非活动前景色，窗口重新激活时再刷新一次，避免从托盘或失焦状态切换主题后最小化 / 最大化 / 关闭按钮沿用旧颜色。应用壁纸时只通过 `SystemParametersInfo` 替换图片，不覆写 `WallpaperStyle` / `TileWallpaper`，保留用户当前选择的契合度和平铺位置。自动切换按最近一次成功获取的经纬度计算日出日落；位置权限不可用、定位超时或没有有效坐标时，开关保持开启并退回每天 `07:00` 切换到亮色、`19:00` 切换到暗色。关闭主窗口驻留托盘时继续，应用完全退出后停止；应用启动时按当前时刻对账，定时器因睡眠或系统繁忙迟到后也会在触发时重新对账，但不重放退出期间错过的每一次切换。拨动自动切换开关只重新布防，当前主题已匹配时不会重复应用主题和壁纸；布防、启动对账与定时应用均在后台线程执行，不得阻塞 UI 线程。
 
-配置模型当前为 v7。`tools` 只保存当前可配置热键的工具，切换页的显示模式与主题动作不计入其中。`themeSwitch` 保存 `scheduleEnabled`、最近一次有效坐标 `latitude` / `longitude`、`locationUpdatedAt` 以及亮色和暗色壁纸路径；v1 至 v6 加载时自动迁移，旧手动时间字段不再读取。坐标不完整或越界、空白壁纸路径会在加载时自愈清理。`tray.iconStyle` 保存托盘图标样式：默认 `lightning-thin` 使用预生成细线闪电 ICO；`default` 使用 `Assets/with-windows.ico` 黄色图标。旧标准、粗线或实验闪电值加载时统一迁移为细线。设置页修改后立即生效，无需重启。
+配置模型当前为 v7。`tools` 只保存当前可配置热键的工具，切换页的显示模式与主题动作不计入其中。`displayMode.modes` 保存切换页勾选的显示模式候选，至少两项；加载时过滤未知值、去重，不足两项时按固定顺序自动补足。`themeSwitch` 保存 `scheduleEnabled`、最近一次有效坐标 `latitude` / `longitude`、`locationUpdatedAt` 以及亮色和暗色壁纸路径；v1 至 v6 加载时自动迁移，旧手动时间字段不再读取。坐标不完整或越界、空白壁纸路径会在加载时自愈清理。`tray.iconStyle` 保存托盘图标样式：默认 `lightning-thin` 使用预生成细线闪电 ICO；`default` 使用 `Assets/with-windows.ico` 黄色图标。旧标准、粗线或实验闪电值加载时统一迁移为细线。设置页修改后立即生效，无需重启。
 
 修改闪电托盘图标后运行 `pwsh scripts/generate-tray-icons.ps1`。脚本使用 `Segoe Fluent Icons` 的 `E945`，裁掉字形透明边界后按长边铺满画布，不额外保留安全边距，生成 16 至 256 px 多尺寸 ICO。闪电资源缺失时会自动回退黄色应用图标，不增加第三方依赖。
 

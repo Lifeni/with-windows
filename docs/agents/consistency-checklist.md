@@ -28,6 +28,7 @@
 | 激活刷新 | `MainWindow` 的 `QueueWindowThemeRefresh` / `ApplyTitleBarTheme` / `RefreshTrayIcon` | `docs/agents/known-pitfalls.md`、`docs/agents/winui3-hard-rules.md`、`CHANGELOG.md` | 在 `Activated` / `ActualThemeChanged` 回调栈内同步写标题栏并替换托盘图标导致 `uxtheme` 重入，或普通激活时重复写 `PreferredTheme` |
 | 界面行为 | 当前 XAML 与 code-behind | `docs/agents/ui-baseline.md`、`CHANGELOG.md` | 把应用内遮罩写成原生轻触关闭，或沿用已删除的关闭方式 |
 | UI Automation 标识 | `AutomationProperties.AutomationId` 与代码赋值 | `docs/agents/ui-baseline.md` | 控件改名后基线仍保留旧 ID |
+| 无障碍名称与状态 | XAML/代码中的 `AutomationProperties` 与运行时 UIA 树 | `docs/agents/ui-design-reference.md`、`docs/agents/ui-baseline.md` | 图标按钮无 Name、输入框/列表无明确名称、重复行操作缺少对象名、动态状态没有 LiveSetting |
 | 截图与图片 | `docs/images/` 下的实际文件 | `README.md`、`docs/agents/ui-baseline.md` | 截图清单漏页面，或正文写“四张”但目录已有六张 |
 | 构建命令 | 项目文件与仓库脚本 | `AGENTS.md`、`docs/development.md`、`docs/agents/development-workflow.md` | 漏 `-p:Platform=x64`，或把 Debug / Release 输出路径混用 |
 
@@ -94,7 +95,7 @@ rg -n "AutomationProperties.AutomationId|AutomationId =" src/WithWindows.App
 - 标题栏主题与托盘图标刷新必须使用低优先级 `DispatcherQueue` 并合并同一轮请求，不得直接写在 `Activated` / `ActualThemeChanged` 回调内；回归路径为切换托盘图标、关闭到托盘、真实左键唤回并等待至少 2 秒，日志显示 `CodeActivated` 后进程持续响应且没有新增 `0xC000027B` / `0x80070578`；
 - 设置页“默认打开窗口”选项仍与 `WindowDefaultPage` 和导航项对应；
 - 导航名与设置项名允许不同，但必须明确来源，例如导航为“对话”、设置项为“AI 对话”；
-- `README.md` 截图与 `docs/agents/ui-baseline.md` 截图清单都包含当前全部页面图片。
+- `README.md` 六张页面截图保持三张浅色、三张深色；截图清单与主题分配和 `docs/agents/ui-baseline.md` 一致。
 
 ### 四、数据路径与安装器
 
@@ -128,7 +129,7 @@ rg -n "AppsUseLightTheme|SystemUsesLightTheme|WM_SETTINGCHANGE|WallpaperStore|wa
 - 自动切换开关位于 `Expander.Header` 的第三列；鼠标点击开关只能切换开关自身，分组展开或收起时都不得因此折叠。两个分组必须使用内置 `Expander` 默认模板；
 - 展开后的内容位于透明内容区，`SettingsCardStyle` 只负责内边距 `52,12,16,12`，背景必须透明、边框必须为 0；左侧 52 DIP 对齐组标题图标后的文字，右侧 16 DIP 对齐展开箭头右缘，也与设置页「关于」折叠内容一致；两个分组之间间距 12 DIP；不得绘制第三层功能卡片，不得嵌套第二层 `Expander`，也不得增加第二层小标题、`SettingsGroupCardStyle` 或整块大卡片；
 - 显示组内只有候选模式；主题组内只有主题壁纸；不得重新加入显示 / 主题快捷键行、手动时间选择器或每张壁纸单独的清除按钮；主题壁纸标题旁的“恢复默认”在有自定义壁纸时显示，可一次清除两套壁纸；该链接必须使用 12 DIP 字号、`MinHeight=0` 和零内边距，不得把标题行撑高；
-- 候选模式必须加入 `ModesHost`，复选框行高 36 DIP；候选模式位于同一透明内容区，候选行之间不另加卡片或分隔线；
+- 候选模式必须加入 `ModesHost`，复选框行高 36 DIP；候选模式位于同一透明内容区，候选行之间不另加卡片或分隔线；至少选择 2 项，恰好两项时已选项必须禁用，勾选第三项后全部恢复可操作；加载配置时过滤未知值、去重，不足两项时按固定顺序补足；
 - 组标题与功能项标题统一使用 `BodyStrongTextBlockStyle`；时间标签和文件状态文字使用 `CaptionTextBlockStyle` 或次级色，不得混用不同层级的字重；
 - 内容区内边距必须保持左侧 52 DIP、右侧 16 DIP：左侧等于 Expander 默认 16 DIP、20 DIP 图标与 16 DIP 图标间距之和，右侧等于 Expander 默认内容边距；内容区与组标题同宽，不得再增加左右外边距；
 - `SwitchGroupExpanderStyle` 只允许设置 `Background`、`BorderBrush`、`BorderThickness`、`CornerRadius`、`Padding` 和对齐属性；禁止设置 `ControlTemplate`，禁止使用 `Expander.Tag` 承载交互控件，禁止修改模板内部元素的高度；
@@ -178,14 +179,14 @@ foreach ($file in $files) {
 - [ ] csproj 版本、CHANGELOG 标题、Release tag 三者一致
 - [ ] `ci.yml` 与 `release.yml` 的路径、平台、单文件发布参数一致
 - [ ] 安装器可编译，产物名与文档一致
-- [ ] README、开发文档与界面基线已同步本次行为变化
+- [ ] README、开发文档、界面基线与界面设计/无障碍参考已同步本次行为变化
 - [ ] 历史设计文档没有新增与现状冲突的“当前”描述
 
 ## 典型漂移案例
 
 以下问题都曾实际出现，可作为扫描关键词：
 
-- 安装器注释写死 `0.8.1`，csproj 已到 `0.11.0`；
+- 安装器注释写死 `0.8.1`，csproj 已到更新的版本；
 - 界面基线写“原生轻触关闭”，代码实际为 `IsLightDismissEnabled = false` 的应用内遮罩；
 - 示例初始化写成“全新安装才触发”，实现实际按类别数据是否存在决定；
 - 根 `AGENTS.md` 的 Core 目录地图漏掉新增的 `Samples/`；

@@ -28,6 +28,11 @@ public sealed class ScheduledTaskRowViewModel
         HistoryAutomationId = $"ScheduledTaskHistory_{task.Id}";
         EditAutomationId = $"ScheduledTaskEdit_{task.Id}";
         DeleteAutomationId = $"ScheduledTaskDelete_{task.Id}";
+        RunAutomationName = $"运行脚本：{Title}";
+        StopAutomationName = $"停止脚本：{Title}";
+        HistoryAutomationName = $"查看运行日志：{Title}";
+        EditAutomationName = $"编辑脚本：{Title}";
+        DeleteAutomationName = $"删除脚本：{Title}";
     }
 
     public string Id { get; }
@@ -45,6 +50,11 @@ public sealed class ScheduledTaskRowViewModel
     public string HistoryAutomationId { get; }
     public string EditAutomationId { get; }
     public string DeleteAutomationId { get; }
+    public string RunAutomationName { get; }
+    public string StopAutomationName { get; }
+    public string HistoryAutomationName { get; }
+    public string EditAutomationName { get; }
+    public string DeleteAutomationName { get; }
 
     public override string ToString() => Title;
 
